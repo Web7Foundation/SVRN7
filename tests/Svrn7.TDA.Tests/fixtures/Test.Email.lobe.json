@@ -1,0 +1,88 @@
+{
+  "lobe": {
+    "id": "test.email",
+    "name": "Test.Email",
+    "title": "Test Email LOBE",
+    "description": "Fixture LOBE for unit tests.",
+    "version": "1.0.0",
+    "author": "Test",
+    "organization": "Test Org",
+    "website": "https://test.example",
+    "license": "MIT",
+    "epochRequired": 0,
+    "module": "Test.Email.psm1"
+  },
+  "protocols": [
+    {
+      "uri": "https://test.example/protocols/email/1.0/message",
+      "title": "Test Email Message",
+      "description": "Test email message type.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Receive-TestEmail",
+      "epochRequired": 0
+    },
+    {
+      "uri": "https://test.example/protocols/email/1.0/receipt",
+      "title": "Test Email Receipt",
+      "description": "Test email receipt (exact match).",
+      "direction": "inbound",
+      "match": "exact",
+      "entrypoint": "Receive-TestEmailReceipt",
+      "epochRequired": 0
+    }
+  ],
+  "cmdlets": [
+    {
+      "name": "Receive-TestEmail",
+      "title": "Receive Test Email",
+      "description": "Receives a test email.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": ["MessageDid"],
+        "properties": {
+          "MessageDid": { "type": "string" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "MessageDid": { "type": "string" },
+          "Subject": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "Receive-TestEmailReceipt",
+      "title": "Receive Test Email Receipt",
+      "description": "Receives a test email receipt.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      }
+    }
+  ],
+  "dependencies": {
+    "lobes": [],
+    "packages": []
+  },
+  "ai": {
+    "_note": "Test fixture.",
+    "summary": "Test LOBE for unit tests.",
+    "useCases": ["Unit testing"],
+    "compositionHints": [],
+    "limitations": []
+  }
+}

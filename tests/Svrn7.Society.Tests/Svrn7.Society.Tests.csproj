@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Svrn7.Society\Svrn7.Society.csproj" />
+    <ProjectReference Include="..\..\src\Svrn7.Federation\Svrn7.Federation.csproj" />
+    <ProjectReference Include="..\..\src\Svrn7.Crypto\Svrn7.Crypto.csproj" />
+    <ProjectReference Include="..\..\src\Svrn7.Store\Svrn7.Store.csproj" />
+    <ProjectReference Include="..\..\src\Svrn7.Ledger\Svrn7.Ledger.csproj" />
+    <ProjectReference Include="..\..\src\Svrn7.Identity\Svrn7.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Svrn7.DIDComm\Svrn7.DIDComm.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk"     Version="17.9.0" />
+    <PackageReference Include="xunit"                      Version="2.7.0"  />
+    <PackageReference Include="xunit.runner.visualstudio"  Version="2.5.7"  />
+    <PackageReference Include="FluentAssertions"           Version="6.12.0" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,377 @@
+{
+  "lobe": {
+    "id": "svrn7.invoicing",
+    "name": "Svrn7.Invoicing",
+    "title": "SVRN7 Invoicing LOBE",
+    "description": "Invoice processing via DIDComm invoice/1.0/* protocol. Computes transfer amounts from line items, executes same-Society or cross-Society transfers, and issues a TransferReceiptCredential as a DIDComm receipt.",
+    "version": "0.8.0",
+    "author": "Michael Herman",
+    "organization": "Web 7.0 Foundation",
+    "website": "https://svrn7.net",
+    "license": "MIT",
+    "epochRequired": 0,
+    "module": "Svrn7.Invoicing.psm1"
+  },
+  "protocols": [
+    {
+      "uri": "did:drn:svrn7.net/protocols/invoice/1.0/request",
+      "title": "Invoice Request",
+      "description": "Payer submits a payment request with line items. Body: { payerDid, payeeDid, lineItems[], invoiceId, dueDate }",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "ConvertFrom-TdaInvoiceRequest",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/invoice/1.0/receipt",
+      "title": "Invoice Receipt",
+      "description": "Society confirms transfer settlement. Body: { success, invoiceId, transferId, amountGrana, receiptVcId }",
+      "direction": "outbound",
+      "match": "prefix",
+      "entrypoint": "New-TdaInvoiceReceipt",
+      "epochRequired": 0
+    }
+  ],
+  "cmdlets": [
+    {
+      "name": "ConvertFrom-TdaInvoiceRequest",
+      "title": "Parse Invoice Request",
+      "description": "Resolves the inbox message and parses the invoice request body. Returns an invoice record for piping to Resolve-InvoiceAmount.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "MessageDid"
+        ],
+        "properties": {
+          "MessageDid": {
+            "type": "string",
+            "description": "TDA resource DID URL of the inbox message. Form: did:drn:{networkId}/inbox/msg/{objectId}",
+            "pattern": "^did:drn:[^/]+/inbox/msg/[0-9a-f]{24}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "MessageDid",
+          "PayerDid",
+          "PayeeDid",
+          "LineItems",
+          "InvoiceId",
+          "TotalGrana"
+        ],
+        "properties": {
+          "MessageDid": {
+            "type": "string"
+          },
+          "PayerDid": {
+            "type": "string"
+          },
+          "PayeeDid": {
+            "type": "string"
+          },
+          "LineItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "description",
+                "amountGrana"
+              ],
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "amountGrana": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "TotalGrana": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Sum of all line item amounts in grana."
+          },
+          "InvoiceId": {
+            "type": "string"
+          },
+          "DueDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Currency": {
+            "type": "string",
+            "default": "SRC"
+          }
+        }
+      },
+      "pipelineExample": "Get-TdaMessage -Did $MessageDid | ConvertFrom-TdaInvoiceRequest | Resolve-InvoiceAmount"
+    },
+    {
+      "name": "Resolve-InvoiceAmount",
+      "title": "Compute Invoice Total",
+      "description": "Sums line item amounts in grana. Adds TotalGrana field to the invoice hashtable. Throws if any amount is non-positive.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "transform"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "PayerDid",
+          "PayeeDid",
+          "LineItems"
+        ],
+        "properties": {
+          "PayerDid": {
+            "type": "string"
+          },
+          "PayeeDid": {
+            "type": "string"
+          },
+          "LineItems": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "MessageDid",
+          "PayerDid",
+          "PayeeDid",
+          "LineItems",
+          "InvoiceId",
+          "TotalGrana"
+        ],
+        "properties": {
+          "MessageDid": {
+            "type": "string"
+          },
+          "PayerDid": {
+            "type": "string"
+          },
+          "PayeeDid": {
+            "type": "string"
+          },
+          "LineItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "description",
+                "amountGrana"
+              ],
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "amountGrana": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "TotalGrana": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Sum of all line item amounts in grana."
+          },
+          "InvoiceId": {
+            "type": "string"
+          },
+          "DueDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Currency": {
+            "type": "string",
+            "default": "SRC"
+          }
+        }
+      },
+      "pipelineExample": "$invoice | Resolve-InvoiceAmount | Invoke-Svrn7IncomingTransfer"
+    },
+    {
+      "name": "New-TdaInvoiceReceipt",
+      "title": "Build Invoice Receipt",
+      "description": "Builds a DIDComm invoice/1.0/receipt OutboundMessage from a transfer result. Pipe from Invoke-Svrn7IncomingTransfer or Invoke-Svrn7ExternalTransfer.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": false,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "sink"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "Success",
+          "TransferId",
+          "PayerDid",
+          "PayeeDid",
+          "AmountGrana",
+          "InvoiceId"
+        ],
+        "properties": {
+          "Success": {
+            "type": "boolean"
+          },
+          "TransferId": {
+            "type": "string"
+          },
+          "PayerDid": {
+            "type": "string"
+          },
+          "PayeeDid": {
+            "type": "string"
+          },
+          "AmountGrana": {
+            "type": "integer"
+          },
+          "InvoiceId": {
+            "type": "string"
+          },
+          "ReceiptVcId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "PeerEndpoint",
+          "PackedMessage",
+          "MessageType"
+        ],
+        "properties": {
+          "PeerEndpoint": {
+            "type": "string",
+            "format": "uri",
+            "description": "HTTP/2 endpoint URL of the target TDA."
+          },
+          "PackedMessage": {
+            "type": "string",
+            "description": "JSON-serialised DIDComm message body (not yet packed \u2014 Switchboard packs before delivery)."
+          },
+          "MessageType": {
+            "type": "string",
+            "format": "uri",
+            "description": "DIDComm @type URI of the outbound message."
+          }
+        },
+        "additionalProperties": false
+      },
+      "pipelineExample": "$transferResult | New-TdaInvoiceReceipt | Send-TdaMessage"
+    },
+    {
+      "name": "Send-TdaInvoiceError",
+      "title": "Send Invoice Error",
+      "description": "Sends an invoice/1.0/receipt with success=false. Call in catch blocks when the transfer fails.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": false,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "sink"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "PayerDid",
+          "InvoiceId",
+          "ErrorMessage"
+        ],
+        "properties": {
+          "PayerDid": {
+            "type": "string"
+          },
+          "InvoiceId": {
+            "type": "string"
+          },
+          "ErrorMessage": {
+            "type": "string"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "PeerEndpoint",
+          "PackedMessage",
+          "MessageType"
+        ],
+        "properties": {
+          "PeerEndpoint": {
+            "type": "string",
+            "format": "uri",
+            "description": "HTTP/2 endpoint URL of the target TDA."
+          },
+          "PackedMessage": {
+            "type": "string",
+            "description": "JSON-serialised DIDComm message body (not yet packed \u2014 Switchboard packs before delivery)."
+          },
+          "MessageType": {
+            "type": "string",
+            "format": "uri",
+            "description": "DIDComm @type URI of the outbound message."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  ],
+  "dependencies": {
+    "lobes": [
+      "Svrn7.Society"
+    ],
+    "packages": []
+  },
+  "ai": {
+    "_note": "Epoch 0: these fields are informational for human and AI developers. inputSchema/outputSchema on each cmdlet are optional in Epoch 0. In a future epoch, an AI pipeline composer will consume this descriptor directly \u2014 possibly via an MCP-compatible tools/list interface \u2014 to discover, understand, and dynamically compose LOBE pipelines. The LOBE descriptor will become the MCP tool definition with no translation needed.",
+    "summary": "Handles the full invoice-to-payment pipeline: parse invoice, compute total, execute transfer (same or cross-Society), return receipt. Depends on Svrn7.Society for transfer execution.",
+    "useCases": [
+      "Processing a citizen payment for goods or services",
+      "Cross-Society invoice settlement via TransferOrder protocol",
+      "Returning a TransferReceiptCredential VC to the payer"
+    ],
+    "compositionHints": [
+      "Full pipeline: Get-TdaMessage | ConvertFrom-TdaInvoiceRequest | Resolve-InvoiceAmount | (transfer cmdlet) | New-TdaInvoiceReceipt | Send-TdaMessage",
+      "Use Test-Svrn7SocietyMember to decide between Invoke-Svrn7IncomingTransfer (same-Society) and Invoke-Svrn7ExternalTransfer (cross-Society)",
+      "Resolve-InvoiceAmount is a pure transform \u2014 it adds TotalGrana to the invoice hashtable and passes it through",
+      "Always wrap in try/catch and call Send-TdaInvoiceError if any step throws"
+    ],
+    "limitations": [
+      "Epoch 0: no partial payment support. Invoice must be paid in full.",
+      "Cross-Society transfer requires TargetSocietyDid resolved from payee DID Document."
+    ]
+  }
+}

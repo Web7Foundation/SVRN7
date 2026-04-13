@@ -1,0 +1,65 @@
+## .NET build outputs
+bin/
+obj/
+out/
+
+## Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+.vscode/settings.json
+.vscode/launch.json
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Test results
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.coveragexml
+
+## Rider / JetBrains
+.idea/
+*.sln.iml
+
+## OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Secrets — never commit private key material
+*.pfx
+*.p12
+*.key
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+**/secrets/**
+
+## LiteDB database files — runtime only, not source
+*.db
+*.db-journal
+
+## Generated docx files (regenerate from gen_*.js scripts)
+docs/*.docx
+
+## PowerShell module temporary outputs
+*.psm1.bak
+
+## Node (docx generator dependencies)
+node_modules/
+npm-debug.log
+
+## Logs
+*.log
+logs/

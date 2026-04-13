@@ -1,0 +1,256 @@
+{
+  "lobe": {
+    "id": "svrn7.society",
+    "name": "Svrn7.Society",
+    "title": "SVRN7 Society LOBE",
+    "description": "Society-level monetary and identity operations. Wraps ISvrn7SocietyDriver. Handles citizen registration, same-Society and cross-Society transfers, overdraft management, and society membership queries. Loaded eagerly at TDA startup.",
+    "version": "0.8.0",
+    "author": "Michael Herman",
+    "organization": "Web 7.0 Foundation",
+    "website": "https://svrn7.net",
+    "license": "MIT",
+    "epochRequired": 0,
+    "module": "Svrn7.Society.psm1"
+  },
+  "protocols": [
+    {
+      "uri": "did:drn:svrn7.net/protocols/transfer/1.0/request",
+      "title": "Transfer Request",
+      "description": "Citizen-initiated intra-Society SVRN7 transfer. Handled by Switchboard special case (Option A: idempotency checked before routing).",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Invoke-Svrn7IncomingTransfer",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/transfer/1.0/order",
+      "title": "Cross-Society Transfer Order",
+      "description": "TransferOrderCredential from a peer Society. Switchboard checks IProcessedOrderStore for idempotency before routing.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Invoke-Svrn7IncomingTransfer",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/transfer/1.0/order-receipt",
+      "title": "Transfer Order Receipt",
+      "description": "Settlement confirmation from a receiving Society.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Confirm-Svrn7Settlement",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/onboard/1.0/request",
+      "title": "Onboard Request (Society handler)",
+      "description": "Handled via Svrn7.Onboarding LOBE which calls Register-Svrn7CitizenInSociety.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Register-Svrn7CitizenInSociety",
+      "epochRequired": 0
+    }
+  ],
+  "cmdlets": [
+    {
+      "name": "Register-Svrn7CitizenInSociety",
+      "title": "Register Citizen",
+      "description": "Registers a citizen in the Society: creates CitizenRecord, wallet, endowment UTXO, EndowmentCredential VC, and Merkle log entry. Used by Onboarding LOBE pipeline.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": false,
+        "modifiesState": true,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "transform"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "CitizenDid",
+          "KeyPair"
+        ],
+        "properties": {
+          "CitizenDid": {
+            "type": "string"
+          },
+          "KeyPair": {
+            "type": "object",
+            "description": "PSCustomObject with PublicKeyHex and (empty) PrivateKeyBytes."
+          },
+          "PreferredMethodName": {
+            "type": "string",
+            "default": ""
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "CitizenDid",
+          "SocietyDid",
+          "EndowmentGrana",
+          "Success"
+        ],
+        "properties": {
+          "CitizenDid": {
+            "type": "string"
+          },
+          "SocietyDid": {
+            "type": "string"
+          },
+          "EndowmentSvrn7": {
+            "type": "number"
+          },
+          "EndowmentGrana": {
+            "type": "integer"
+          },
+          "MethodName": {
+            "type": "string"
+          },
+          "Success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "pipelineExample": "ConvertFrom-TdaOnboardRequest | Register-Svrn7CitizenInSociety | New-TdaOnboardReceipt"
+    },
+    {
+      "name": "Invoke-Svrn7IncomingTransfer",
+      "title": "Execute Incoming Transfer",
+      "description": "Processes an authenticated inbound SVRN7 transfer (same-Society or cross-Society credit). Validates, executes, appends Merkle log entry.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": true,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "transform"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "PayerDid",
+          "PayeeDid",
+          "AmountGrana",
+          "Nonce"
+        ],
+        "properties": {
+          "PayerDid": {
+            "type": "string"
+          },
+          "PayeeDid": {
+            "type": "string"
+          },
+          "AmountGrana": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "Nonce": {
+            "type": "string",
+            "description": "Idempotency UUID."
+          },
+          "Memo": {
+            "type": "string",
+            "maxLength": 256,
+            "default": ""
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "Success",
+          "TransferId"
+        ],
+        "properties": {
+          "Success": {
+            "type": "boolean"
+          },
+          "TransferId": {
+            "type": "string"
+          },
+          "ReceiptVcId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ErrorMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "pipelineExample": "$invoice | Invoke-Svrn7IncomingTransfer | New-TdaInvoiceReceipt"
+    },
+    {
+      "name": "Test-Svrn7SocietyMember",
+      "title": "Test Society Membership",
+      "description": "Returns true if the given DID belongs to a registered citizen of this Society. Accepts primary or secondary DIDs.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "Did"
+        ],
+        "properties": {
+          "Did": {
+            "type": "string"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "Did",
+          "SocietyDid",
+          "IsMember"
+        ],
+        "properties": {
+          "Did": {
+            "type": "string"
+          },
+          "SocietyDid": {
+            "type": "string"
+          },
+          "IsMember": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  ],
+  "dependencies": {
+    "lobes": [
+      "Svrn7.Federation"
+    ],
+    "packages": []
+  },
+  "ai": {
+    "_note": "Epoch 0: these fields are informational for human and AI developers. inputSchema/outputSchema on each cmdlet are optional in Epoch 0. In a future epoch, an AI pipeline composer will consume this descriptor directly \u2014 possibly via an MCP-compatible tools/list interface \u2014 to discover, understand, and dynamically compose LOBE pipelines. The LOBE descriptor will become the MCP tool definition with no translation needed.",
+    "summary": "Core Society LOBE. Exposes all SVRN7 monetary operations (transfer, registration, balance) and Society identity queries. Always loaded eagerly \u2014 available in all runspaces without Import-Module.",
+    "useCases": [
+      "Execute a same-Society transfer as part of the invoice pipeline",
+      "Register a new citizen and issue the endowment VC",
+      "Check Society membership before routing a cross-Society message"
+    ],
+    "compositionHints": [
+      "Test-Svrn7SocietyMember before choosing between Invoke-Svrn7IncomingTransfer and Invoke-Svrn7ExternalTransfer",
+      "Invoke-Svrn7IncomingTransfer is idempotent via Nonce \u2014 safe to retry on transient failure",
+      "Register-Svrn7CitizenInSociety throws SocietyEndowmentDepletedException \u2014 always handle this case"
+    ],
+    "limitations": [
+      "Transfer protocols (transfer/1.0/*) go through Switchboard idempotency special case (Option A) before reaching this LOBE.",
+      "Epoch 0: no trading or market-rate transfers. Fixed grana amounts only."
+    ]
+  }
+}

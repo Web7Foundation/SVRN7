@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <Version>0.8.0</Version>
+    <Authors>Michael Herman</Authors>
+    <Company>Web 7.0 Foundation</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://svrn7.net</PackageProjectUrl>
+    <Copyright>Copyright (c) 2026 Michael Herman (Alberta, Canada)</Copyright>
+    <Description>SVRN7 Federation-level driver (ISvrn7Driver), DI registration (AddSvrn7Federation), health check, GDPR erasure, OTel metrics. Shared Reserve Currency (SRC) for Web 7.0 digital societies.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Svrn7.Core\Svrn7.Core.csproj" />
+    <ProjectReference Include="..\Svrn7.Crypto\Svrn7.Crypto.csproj" />
+    <ProjectReference Include="..\Svrn7.Store\Svrn7.Store.csproj" />
+    <ProjectReference Include="..\Svrn7.Ledger\Svrn7.Ledger.csproj" />
+    <ProjectReference Include="..\Svrn7.Identity\Svrn7.Identity.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions"          Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics"                   Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Options"                       Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"          Version="8.0.2" />
+  </ItemGroup>
+</Project>

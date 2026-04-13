@@ -1,0 +1,17 @@
+{
+  "eager": [
+    "Svrn7.Common.psm1",
+    "Svrn7.Federation.psm1",
+    "Svrn7.Society.psm1",
+    "Svrn7.UX.psm1"
+  ],
+  "jit": [
+    "Svrn7.Email.psm1",
+    "Svrn7.Calendar.psm1",
+    "Svrn7.Presence.psm1",
+    "Svrn7.Notifications.psm1",
+    "Svrn7.Onboarding.psm1",
+    "Svrn7.Invoicing.psm1",
+    "Svrn7.Identity.psm1"
+  ]
+}

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <Version>0.8.0</Version>
+    <Authors>Michael Herman</Authors>
+    <Company>Web 7.0 Foundation</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://svrn7.net</PackageProjectUrl>
+    <Copyright>Copyright (c) 2026 Michael Herman (Alberta, Canada)</Copyright>
+    <Description>SVRN7 cryptographic primitives: secp256k1, Ed25519, AES-256-GCM, Blake3, Base58btc.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Svrn7.Core\Svrn7.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NBitcoin"                              Version="7.0.37" />
+    <PackageReference Include="NSec.Cryptography"                    Version="23.9.0" />
+    <PackageReference Include="Blake3"                               Version="1.3.0"  />
+    <PackageReference Include="Konscious.Security.Cryptography.Argon2" Version="1.3.1" />
+  </ItemGroup>
+</Project>

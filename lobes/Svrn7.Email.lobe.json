@@ -1,0 +1,205 @@
+{
+  "lobe": {
+    "id": "svrn7.email",
+    "name": "Svrn7.Email",
+    "title": "SVRN7 Email LOBE",
+    "description": "DIDComm-native email using RFC 5322 tunneling. Receives and sends email messages between TDAs without SMTP. From/To fields use did:drn identifiers. Inbound RFC 5322 payloads are extracted from the DIDComm body and stored in the Long-Term Message Memory.",
+    "version": "0.8.0",
+    "author": "Michael Herman",
+    "organization": "Web 7.0 Foundation",
+    "website": "https://svrn7.net",
+    "license": "MIT",
+    "epochRequired": 0,
+    "module": "Svrn7.Email.psm1"
+  },
+  "protocols": [
+    {
+      "uri": "did:drn:svrn7.net/protocols/email/1.0/message",
+      "title": "Inbound Email Message",
+      "description": "Inbound RFC 5322 email tunneled over DIDComm. Body: { from: did, to: did, rfc5322Body: string }",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Receive-TdaEmail",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/email/1.0/receipt",
+      "title": "Email Delivery Receipt",
+      "description": "Delivery confirmation for a previously sent email.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Receive-TdaEmail",
+      "epochRequired": 0
+    }
+  ],
+  "cmdlets": [
+    {
+      "name": "Receive-TdaEmail",
+      "title": "Receive Email",
+      "description": "Processes an inbound email/1.0/message. Extracts RFC 5322 body, verifies sender DID from DIDComm envelope, returns an email record.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": true,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "MessageDid"
+        ],
+        "properties": {
+          "MessageDid": {
+            "type": "string",
+            "description": "TDA resource DID URL of the inbox message. Form: did:drn:{networkId}/inbox/msg/{objectId}",
+            "pattern": "^did:drn:[^/]+/inbox/msg/[0-9a-f]{24}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "MessageDid",
+          "SenderDid",
+          "ReceivedAt",
+          "Rfc5322Body"
+        ],
+        "properties": {
+          "MessageDid": {
+            "type": "string",
+            "description": "TDA resource DID URL of the inbox message."
+          },
+          "MessageId": {
+            "type": "string",
+            "description": "LiteDB ObjectId hex of the inbox record."
+          },
+          "SenderDid": {
+            "type": "string",
+            "description": "Authoritative sender DID (from DIDComm envelope, not RFC 5322 From header)."
+          },
+          "ReceivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Rfc5322Body": {
+            "type": "string",
+            "description": "Complete RFC 5322 message text."
+          },
+          "Subject": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "FromHeader": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ToHeader": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "pipelineExample": "Get-TdaMessage -Did $MessageDid | Receive-TdaEmail",
+      "example": "Receive-TdaEmail -MessageDid \"did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678\""
+    },
+    {
+      "name": "Send-TdaEmail",
+      "title": "Send Email",
+      "description": "Sends an RFC 5322 email to a recipient DID via DIDComm. Returns an OutboundMessage for the Switchboard.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": false,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "sink"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "RecipientDid",
+          "Subject",
+          "Body"
+        ],
+        "properties": {
+          "RecipientDid": {
+            "type": "string",
+            "description": "Recipient citizen did:drn DID."
+          },
+          "Subject": {
+            "type": "string",
+            "maxLength": 998
+          },
+          "Body": {
+            "type": "string",
+            "description": "Plain text body (Epoch 0: no MIME multipart)."
+          },
+          "From": {
+            "type": "string",
+            "description": "Optional sender display string. Defaults to Society DID."
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "PeerEndpoint",
+          "PackedMessage",
+          "MessageType"
+        ],
+        "properties": {
+          "PeerEndpoint": {
+            "type": "string",
+            "format": "uri",
+            "description": "HTTP/2 endpoint URL of the target TDA."
+          },
+          "PackedMessage": {
+            "type": "string",
+            "description": "JSON-serialised DIDComm message body (not yet packed \u2014 Switchboard packs before delivery)."
+          },
+          "MessageType": {
+            "type": "string",
+            "format": "uri",
+            "description": "DIDComm @type URI of the outbound message."
+          }
+        },
+        "additionalProperties": false
+      },
+      "pipelineExample": "Send-TdaEmail -RecipientDid $did -Subject $subj -Body $body | Send-TdaMessage",
+      "example": "Send-TdaEmail -RecipientDid \"did:drn:bob.beta.svrn7.net\" -Subject \"Hello\" -Body \"Hi Bob\""
+    }
+  ],
+  "dependencies": {
+    "lobes": [],
+    "packages": []
+  },
+  "ai": {
+    "_note": "Epoch 0: these fields are informational for human and AI developers. inputSchema/outputSchema on each cmdlet are optional in Epoch 0. In a future epoch, an AI pipeline composer will consume this descriptor directly \u2014 possibly via an MCP-compatible tools/list interface \u2014 to discover, understand, and dynamically compose LOBE pipelines. The LOBE descriptor will become the MCP tool definition with no translation needed.",
+    "summary": "Handles all email communication between TDA citizens using DIDComm as the transport. No SMTP. Uses did:drn identifiers instead of email addresses.",
+    "useCases": [
+      "Citizen-to-citizen messaging within a VTC7 mesh",
+      "Society-to-citizen notifications formatted as email",
+      "Cross-Society correspondence between TDA operators"
+    ],
+    "compositionHints": [
+      "Chain Receive-TdaEmail after Get-TdaMessage for any pipeline handling email/1.0/* types",
+      "Use Send-TdaEmail | Send-TdaMessage to reply to an inbound email",
+      "SenderDid in the returned record is authoritative \u2014 not the RFC 5322 From header",
+      "Receive-TdaEmail is idempotent: processing the same MessageDid twice is safe"
+    ],
+    "limitations": [
+      "Epoch 0 only: plain text body. No MIME multipart, no attachments.",
+      "Recipient must have a resolvable did:drn DID with a DIDComm service endpoint."
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 Web 7.0 Foundation
+Copyright (c) 2026 Michael Herman (Alberta, Canada)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,27 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+Note on IETF Internet-Drafts
+-----------------------------
+The IETF Internet-Draft documents in the specs/ directory are submitted under
+the IETF Trust Legal Provisions (TLP) with ipr="trust200902" as declared in
+each draft. These documents are not covered by this MIT License. See
+https://trustee.ietf.org/documents/trust-legal-provisions/ for their terms.
+
+---
+
+Documentation Licence (CC BY-SA 4.0)
+--------------------------------------
+All documentation files — including README.md, docs/, and any other non-source
+files — are licensed under the Creative Commons Attribution-ShareAlike 4.0
+International License.
+
+You are free to share and adapt this documentation for any purpose, provided
+you give appropriate credit, provide a link to the licence, indicate if changes
+were made, and distribute your contributions under the same licence.
+
+Full licence text: https://creativecommons.org/licenses/by-sa/4.0/
+SPDX identifier: CC-BY-SA-4.0

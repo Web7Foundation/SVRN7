@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <Version>0.8.0</Version>
+    <Authors>Michael Herman</Authors>
+    <Company>Web 7.0 Foundation</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://svrn7.net</PackageProjectUrl>
+    <Copyright>Copyright (c) 2026 Michael Herman (Alberta, Canada)</Copyright>
+    <Description>
+      Web 7.0 Trusted Digital Assistant (TDA) Host — DSA 0.24 Epoch 0.
+      Implements the five Critical-priority DSA 0.24 components:
+        1. KestrelListenerService  — POST /didcomm, HTTP/2 + mTLS inbound gate
+        2. DIDCommMessageSwitchboard — sole inbox reader, pass-by-reference ObjectId routing
+        3. RunspacePoolManager     — PowerShell RunspacePool lifecycle
+        4. LobeManager             — eager/JIT LOBE loading from lobes.config.json
+        5. Svrn7RunspaceContext    — $SVRN7 shared session variable for all runspaces
+      Derived from: DSA 0.24 Epoch 0 — Parchment Programming Modeling Language (PPML).
+    </Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Svrn7.Core\Svrn7.Core.csproj" />
+    <ProjectReference Include="..\Svrn7.DIDComm\Svrn7.DIDComm.csproj" />
+    <ProjectReference Include="..\Svrn7.Society\Svrn7.Society.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Server.Kestrel"              Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting"                     Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions"        Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection"         Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Options"                     Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"        Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory"              Version="8.0.1" />
+    <PackageReference Include="System.Management.Automation"                     Version="7.4.6" />
+  </ItemGroup>
+</Project>

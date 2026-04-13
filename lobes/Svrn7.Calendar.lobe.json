@@ -1,0 +1,305 @@
+{
+  "lobe": {
+    "id": "svrn7.calendar",
+    "name": "Svrn7.Calendar",
+    "title": "SVRN7 Calendar LOBE",
+    "description": "DIDComm-native calendar using iCalendar (RFC 5545) tunneling. Receives event publications and meeting invites; sends RSVP replies. ATTENDEE properties use did:drn URIs. No CalDAV server.",
+    "version": "0.8.0",
+    "author": "Michael Herman",
+    "organization": "Web 7.0 Foundation",
+    "website": "https://svrn7.net",
+    "license": "MIT",
+    "epochRequired": 0,
+    "module": "Svrn7.Calendar.psm1"
+  },
+  "protocols": [
+    {
+      "uri": "did:drn:svrn7.net/protocols/calendar/1.0/event",
+      "title": "Calendar Event Publication",
+      "description": "Publishes a VCALENDAR event to a peer TDA. Body: { from: did, icalendarBody: string }",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Import-TdaCalendarEvent",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/calendar/1.0/invite",
+      "title": "Meeting Invite (METHOD:REQUEST)",
+      "description": "iCalendar METHOD:REQUEST meeting invite sent to attendees.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Receive-TdaMeetingRequest",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/calendar/1.0/response",
+      "title": "Meeting RSVP (METHOD:REPLY)",
+      "description": "iCalendar METHOD:REPLY accept or decline from an attendee.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Import-TdaCalendarEvent",
+      "epochRequired": 0
+    }
+  ],
+  "cmdlets": [
+    {
+      "name": "Import-TdaCalendarEvent",
+      "title": "Import Calendar Event",
+      "description": "Processes an inbound calendar/1.0/event. Extracts iCalendar fields, maps ATTENDEE did:drn URIs, returns a calendar event record.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": true,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "MessageDid"
+        ],
+        "properties": {
+          "MessageDid": {
+            "type": "string",
+            "description": "TDA resource DID URL of the inbox message. Form: did:drn:{networkId}/inbox/msg/{objectId}",
+            "pattern": "^did:drn:[^/]+/inbox/msg/[0-9a-f]{24}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "MessageDid",
+          "OrganizerDid",
+          "Uid",
+          "ICalendarBody"
+        ],
+        "properties": {
+          "MessageDid": {
+            "type": "string"
+          },
+          "OrganizerDid": {
+            "type": "string",
+            "description": "DID of the event organiser (from DIDComm envelope)."
+          },
+          "Summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "DtStart": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "DtEnd": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Uid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Attendees": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ICalendarBody": {
+            "type": "string"
+          },
+          "ReceivedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "pipelineExample": "Get-TdaMessage -Did $MessageDid | Import-TdaCalendarEvent"
+    },
+    {
+      "name": "Receive-TdaMeetingRequest",
+      "title": "Receive Meeting Invite",
+      "description": "Processes an inbound calendar/1.0/invite (METHOD:REQUEST). Returns a pending invite record. Pipe to New-TdaCalendarResponse to accept or decline.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": true,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "MessageDid"
+        ],
+        "properties": {
+          "MessageDid": {
+            "type": "string",
+            "description": "TDA resource DID URL of the inbox message. Form: did:drn:{networkId}/inbox/msg/{objectId}",
+            "pattern": "^did:drn:[^/]+/inbox/msg/[0-9a-f]{24}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "MessageDid",
+          "OrganizerDid",
+          "Uid",
+          "ICalendarBody"
+        ],
+        "properties": {
+          "MessageDid": {
+            "type": "string"
+          },
+          "OrganizerDid": {
+            "type": "string",
+            "description": "DID of the event organiser (from DIDComm envelope)."
+          },
+          "Summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "DtStart": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "DtEnd": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Uid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Attendees": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ICalendarBody": {
+            "type": "string"
+          },
+          "ReceivedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "pipelineExample": "Get-TdaMessage -Did $MessageDid | Receive-TdaMeetingRequest | New-TdaCalendarResponse -Accept | Send-TdaMessage"
+    },
+    {
+      "name": "New-TdaCalendarResponse",
+      "title": "Send Meeting RSVP",
+      "description": "Generates a calendar/1.0/response (METHOD:REPLY) for a meeting invite. Switch -Accept or -Decline. Returns OutboundMessage.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": false,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "sink"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "Invite"
+        ],
+        "properties": {
+          "Invite": {
+            "type": "object",
+            "description": "Invite hashtable from Receive-TdaMeetingRequest."
+          },
+          "Accept": {
+            "type": "boolean",
+            "default": false
+          },
+          "Decline": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "PeerEndpoint",
+          "PackedMessage",
+          "MessageType"
+        ],
+        "properties": {
+          "PeerEndpoint": {
+            "type": "string",
+            "format": "uri",
+            "description": "HTTP/2 endpoint URL of the target TDA."
+          },
+          "PackedMessage": {
+            "type": "string",
+            "description": "JSON-serialised DIDComm message body (not yet packed \u2014 Switchboard packs before delivery)."
+          },
+          "MessageType": {
+            "type": "string",
+            "format": "uri",
+            "description": "DIDComm @type URI of the outbound message."
+          }
+        },
+        "additionalProperties": false
+      },
+      "pipelineExample": "$invite | New-TdaCalendarResponse -Accept | Send-TdaMessage"
+    }
+  ],
+  "dependencies": {
+    "lobes": [],
+    "packages": []
+  },
+  "ai": {
+    "_note": "Epoch 0: these fields are informational for human and AI developers. inputSchema/outputSchema on each cmdlet are optional in Epoch 0. In a future epoch, an AI pipeline composer will consume this descriptor directly \u2014 possibly via an MCP-compatible tools/list interface \u2014 to discover, understand, and dynamically compose LOBE pipelines. The LOBE descriptor will become the MCP tool definition with no translation needed.",
+    "summary": "Handles iCalendar event exchange and meeting scheduling between TDA citizens using DIDComm. No CalDAV. Attendees are identified by did:drn DIDs.",
+    "useCases": [
+      "Sending meeting invites to citizens in the same or different Society",
+      "Publishing calendar events to peer TDAs",
+      "Processing RSVP replies and updating local event records"
+    ],
+    "compositionHints": [
+      "For invite handling, chain: Get-TdaMessage | Receive-TdaMeetingRequest | New-TdaCalendarResponse | Send-TdaMessage",
+      "For event publication, use Import-TdaCalendarEvent which handles both events and RSVP replies",
+      "Check MessageType before routing: calendar/1.0/invite \u2192 Receive-TdaMeetingRequest; all others \u2192 Import-TdaCalendarEvent"
+    ],
+    "limitations": [
+      "Epoch 0: no recurring event support. Single VEVENT per VCALENDAR.",
+      "No free/busy query protocol in Epoch 0."
+    ]
+  }
+}

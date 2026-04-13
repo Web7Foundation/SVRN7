@@ -1,0 +1,35 @@
+{
+  "lobe": {
+    "id": "test.withdep",
+    "name": "Test.WithDep",
+    "title": "Test LOBE With Dependency",
+    "description": "Fixture LOBE depending on Test.Email.",
+    "version": "1.0.0",
+    "author": "Test",
+    "organization": "Test Org",
+    "website": "https://test.example",
+    "license": "MIT",
+    "epochRequired": 0,
+    "module": "Test.WithDep.psm1"
+  },
+  "protocols": [
+    {
+      "uri": "https://test.example/protocols/dep/1.0/request",
+      "title": "Dep Request",
+      "description": "Test dependency protocol.",
+      "direction": "inbound",
+      "match": "exact",
+      "entrypoint": "Invoke-DepHandler",
+      "epochRequired": 0
+    }
+  ],
+  "cmdlets": [],
+  "dependencies": { "lobes": ["Test.Email"], "packages": [] },
+  "ai": {
+    "_note": "Test fixture.",
+    "summary": "LOBE with dependency.",
+    "useCases": [],
+    "compositionHints": [],
+    "limitations": []
+  }
+}

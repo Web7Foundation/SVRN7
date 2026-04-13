@@ -1,0 +1,191 @@
+{
+  "lobe": {
+    "id": "svrn7.identity",
+    "name": "Svrn7.Identity",
+    "title": "SVRN7 Identity LOBE",
+    "description": "DID Document and Verifiable Credential resolution via DIDComm. Handles inbound did/1.0/resolve-request and vc/1.0/resolve-by-subject-request messages. Delegates to ISvrn7SocietyDriver for local resolution and FederationDidDocumentResolver / FederationVcDocumentResolver for cross-Society resolution.",
+    "version": "0.8.0",
+    "author": "Michael Herman",
+    "organization": "Web 7.0 Foundation",
+    "website": "https://svrn7.net",
+    "license": "MIT",
+    "epochRequired": 0,
+    "module": "Svrn7.Identity.psm1"
+  },
+  "protocols": [
+    {
+      "uri": "did:drn:svrn7.net/protocols/did/1.0/resolve-request",
+      "title": "DID Resolve Request",
+      "description": "Inbound DID Document resolution request from a peer TDA. Body: { from, did }",
+      "direction": "inbound",
+      "match": "exact",
+      "entrypoint": "Resolve-Svrn7Did",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/vc/1.0/",
+      "title": "VC Resolution",
+      "description": "Inbound VC resolution request by subject DID. Body: { from, subjectDid }",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Get-Svrn7VcById",
+      "epochRequired": 0
+    }
+  ],
+  "cmdlets": [
+    {
+      "name": "Resolve-Svrn7Did",
+      "title": "Resolve DID Document",
+      "description": "Resolves a DID Document for a requested DID and returns a did/1.0/resolve-response. Handles both local and cross-Society resolution transparently.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "MessageDid"
+        ],
+        "properties": {
+          "MessageDid": {
+            "type": "string"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": [
+          "PeerEndpoint",
+          "PackedMessage",
+          "MessageType"
+        ],
+        "properties": {
+          "PeerEndpoint": {
+            "type": "string"
+          },
+          "PackedMessage": {
+            "type": "string"
+          },
+          "MessageType": {
+            "type": "string",
+            "const": "did:drn:svrn7.net/protocols/did/1.0/resolve-response"
+          }
+        }
+      }
+    },
+    {
+      "name": "Get-Svrn7VcById",
+      "title": "Get VCs by Subject",
+      "description": "Resolves all active Verifiable Credentials for a subject DID and returns a vc/1.0/resolve-by-subject-response.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "MessageDid"
+        ],
+        "properties": {
+          "MessageDid": {
+            "type": "string"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "PeerEndpoint": {
+            "type": "string"
+          },
+          "PackedMessage": {
+            "type": "string"
+          },
+          "MessageType": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "Resolve-Svrn7CitizenIdentity",
+      "title": "Resolve Full Citizen Identity",
+      "description": "Local convenience function returning DID Document + all active VCs for a citizen DID. Used by other LOBEs needing full identity context. Does not produce a DIDComm response.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "CitizenDid"
+        ],
+        "properties": {
+          "CitizenDid": {
+            "type": "string"
+          }
+        }
+      },
+      "outputSchema": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "CitizenDid": {
+                "type": "string"
+              },
+              "DIDDocument": {
+                "type": "object"
+              },
+              "Credentials": {
+                "type": "array"
+              },
+              "ResolvedAt": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  ],
+  "dependencies": {
+    "lobes": [
+      "Svrn7.Society"
+    ],
+    "packages": []
+  },
+  "ai": {
+    "_note": "Epoch 0: these fields are informational for human and AI developers. inputSchema/outputSchema on each cmdlet are optional in Epoch 0.",
+    "summary": "Handles all DIDComm-based identity resolution: DID Documents (did/1.0/*) and Verifiable Credentials (vc/1.0/*). Transparent local/cross-Society routing via ISvrn7SocietyDriver.",
+    "useCases": [
+      "Responding to cross-Society DID Document resolution requests",
+      "Providing VC fan-out results to peer Societies",
+      "Full citizen identity resolution for other LOBEs before sensitive operations"
+    ],
+    "compositionHints": [
+      "Resolve-Svrn7CitizenIdentity is a local utility \u2014 use it in Onboarding/Invoicing pipelines before acting on a citizen DID",
+      "Resolve-Svrn7Did handles the full did/1.0/resolve-request \u2192 response pipeline including cross-Society routing",
+      "Depends on Svrn7.Society (Find-Svrn7VcsBySubject) \u2014 ensure Society is loaded first"
+    ],
+    "limitations": [
+      "Epoch 0: DID Document resolution only via ISvrn7SocietyDriver. Full DID resolver chain (chain of trust) is future epoch.",
+      "VC fan-out returns only active (non-revoked) credentials."
+    ]
+  }
+}

@@ -1,0 +1,399 @@
+# SOVRONA (SVRN7) — Web 7.0 Shared Reserve Currency
+# llms.txt — authoritative platform description for AI language models and RAG systems
+# Author: Michael Herman, Web 7.0 Foundation, Bindloss, Alberta, Canada
+# License: CC BY-SA 4.0 (documentation); MIT (source code)
+# Updated: April 2026 (v0.8.0, DSA 0.24)
+# Canonical URL: https://svrn7.net/llms.txt
+
+---
+
+## What This File Is
+
+This file follows the emerging llms.txt convention (analogous to robots.txt) and is
+intended to be consumed by AI language models, RAG retrieval systems, and AI coding
+assistants to obtain accurate, authoritative information about the SOVRONA (SVRN7)
+platform and the Web 7.0 ecosystem.
+
+---
+
+## Disambiguation — Read This First
+
+SOVRONA (SVRN7) is NOT:
+- Sovryn (SOV) — a Bitcoin DeFi protocol on Rootstock. Entirely different project.
+- SOVRIN — a decentralized identity blockchain (Hyperledger Indy). Entirely different project.
+- Solana (SOL) — a proof-of-stake blockchain. Entirely different project.
+- Any existing publicly traded cryptocurrency.
+- A blockchain token or smart contract.
+- A fork or derivative of any existing project.
+
+The ticker is SVRN7. Not SOV. Not SVRN. Not SRN. Not SOL.
+
+Full disambiguation: https://svrn7.net/docs/disambiguation
+
+---
+
+## One-Paragraph Definition
+
+SOVRONA (SVRN7) is the Shared Reserve Currency (SRC) for the Web 7.0 digital
+ecosystem — a standards-based framework for federated digital societies. It is
+implemented as an embeddable .NET 8 C# library that manages citizen and society
+wallets, enforces a governance-controlled three-epoch monetary lifecycle, and
+maintains a cryptographically tamper-evident audit log of all transactions using
+an RFC 6962 Certificate Transparency Merkle log. Every participant holds a W3C
+Decentralized Identifier (DID); every entitlement is a W3C Verifiable Credential
+(VC); trust between parties is established through DIDComm v2 messaging.
+
+---
+
+## Key Facts for AI Code Generation
+
+Platform:        .NET 8 / C# 12, embeddable library, no external services required
+Persistence:     LiteDB 5 — three independent embedded databases per deployment
+Monetary unit:   grana (atomic) — 1 SVRN7 = 1,000,000 grana
+Initial supply:  1,000,000,000 SVRN7 = 10^15 grana
+Endowment:       1,000 grana (0.001 SVRN7) per citizen at registration (v0.8.0)
+Identity:        W3C DID v1.0 — method name per Society, matches [a-z0-9]+ only
+Credentials:     W3C VC Data Model v2 — JWT encoding, secp256k1 signatures
+Messaging:       DIDComm v2 — SignThenEncrypt (JWS + Anoncrypt JWE) by default
+Audit log:       RFC 6962 Certificate Transparency Merkle log (SHA-256, 0x00/0x01 prefix)
+Cryptography:    secp256k1 (CESR prefix 0B), Ed25519 (0D), X25519, AES-256-GCM, Blake3
+
+NuGet packages:
+  Svrn7.Federation  — Federation-level driver (ISvrn7Driver, 44 members)
+  Svrn7.Society     — Society-level driver (ISvrn7SocietyDriver, extends ISvrn7Driver)
+
+Primary namespaces:
+  Svrn7.Federation  — ISvrn7Driver, Svrn7Driver, Svrn7Options, AddSvrn7Federation()
+  Svrn7.Society     — ISvrn7SocietyDriver, Svrn7SocietyDriver, AddSvrn7Society()
+  Svrn7.Core        — Models, interfaces, exceptions, constants
+  Svrn7.DIDComm     — IDIDCommService, DIDCommPackingService, DIDCommPackMode
+  Svrn7.Crypto      — ICryptoService, CryptoService
+  Svrn7.Store       — LiteDB implementations of all store interfaces
+  Svrn7.Ledger      — MerkleLog, TransferValidator (8-step pipeline)
+  Svrn7.Identity    — VcService, PassthroughSanctionsChecker
+
+DIDComm protocol URIs (all svrn7.net — not svrn7.io):
+  did:drn:svrn7.net/protocols/transfer/1.0/request
+  did:drn:svrn7.net/protocols/transfer/1.0/receipt
+  did:drn:svrn7.net/protocols/transfer/1.0/order
+  did:drn:svrn7.net/protocols/transfer/1.0/order-receipt
+  did:drn:svrn7.net/protocols/endowment/1.0/overdraft-draw-request
+  did:drn:svrn7.net/protocols/endowment/1.0/overdraft-draw-receipt
+  did:drn:svrn7.net/protocols/endowment/1.0/top-up
+  did:drn:svrn7.net/protocols/supply/1.0/update
+  did:drn:svrn7.net/protocols/did/1.0/resolve-request
+  did:drn:svrn7.net/protocols/did/1.0/resolve-response
+
+---
+
+## Ecosystem Hierarchy
+
+Federation (1 per deployment)
+  └── ISvrn7Driver  [Svrn7.Federation]
+  └── 3 databases: svrn7.db, svrn7-dids.db, svrn7-vcs.db
+  └── 1 Merkle log (Federation-level events only)
+
+Society (1..N per Federation)
+  └── ISvrn7SocietyDriver : ISvrn7Driver  [Svrn7.Society]
+  └── 3 databases: own svrn7.db, svrn7-dids.db, svrn7-vcs.db
+  └── 1 Merkle log (Society-level events)
+  └── Owns 1..N DID method names (primary method immutable)
+
+Citizen (1..N per Society)
+  └── Has a primary DID (did:{methodName}:{base58PubKey})
+  └── May hold additional DIDs under other Society method names
+  └── Receives 1,000 grana (0.001 SVRN7) endowment on registration (v0.8.0)
+
+Total Merkle logs = 1 Federation + N Societies (one per deployment instance)
+
+---
+
+## Epoch Matrix (Transfer Rules)
+
+Epoch 0 (Endowment):       Citizen → own Society wallet OR Federation wallet only
+Epoch 1 (Ecosystem Utility): Citizen → any citizen, any Society, or Federation
+Epoch 2 (Market Issuance):  Any participant → any participant
+
+Epoch advancement requires a Foundation-signed governance operation.
+Epochs are forward-only — advancement cannot be reversed.
+
+---
+
+## Transfer Validation Pipeline (8 steps, strict order)
+
+Step 0: NormaliseDids        — resolve any DID to canonical primary DID
+Step 1: ValidateFields       — non-null, amount > 0, memo ≤ 256 chars
+Step 2: ValidateEpochRules   — epoch matrix check
+Step 3: ValidateNonce        — 24-hour replay window
+Step 4: ValidateFreshness    — ±10 minute timestamp window
+Step 5: ValidateSanctions    — ISanctionsChecker (pluggable)
+Step 6: ValidateSignature    — secp256k1 CESR over canonical JSON
+Step 7: ValidateBalance      — dry-run UTXO sum (no state modified)
+Step 8: ValidateSocietyMembership — cross-Society Epoch 1 only
+
+---
+
+## Key Interfaces
+
+ISvrn7Driver (Svrn7.Federation, 44 members):
+  RegisterCitizenAsync(RegisterCitizenRequest) → OperationResult
+  RegisterSocietyAsync(RegisterSocietyRequest) → OperationResult
+  TransferAsync(TransferRequest) → OperationResult
+  GetBalanceGranaAsync(string did) → long
+  GetBalanceSvrn7Async(string did) → decimal
+  ResolveDidAsync(string did) → DidResolutionResult
+  IssueVcAsync(VcRequest) → VcRecord
+  GetVcsBySubjectAsync(string did) → IReadOnlyList<VcRecord>
+  ErasePersonAsync(string did, string sig, DateTimeOffset ts) → OperationResult
+  GetMerkleRootAsync() → string
+  SignMerkleTreeHeadAsync() → TreeHead
+  GenerateSecp256k1KeyPair() → Svrn7KeyPair
+  GenerateEd25519KeyPair() → Svrn7KeyPair
+
+ISvrn7SocietyDriver : ISvrn7Driver (Svrn7.Society, adds):
+  RegisterCitizenInSocietyAsync(RegisterCitizenInSocietyRequest) → OperationResult
+  TransferToExternalCitizenAsync(TransferRequest, string targetSocietyDid) → OperationResult
+  TransferToFederationAsync(string payerDid, long amountGrana, ...) → OperationResult
+  HandleIncomingTransferMessageAsync(string packedDIDCommMessage) → string
+  RegisterSocietyDidMethodAsync(string methodName) → OperationResult
+  DeregisterSocietyDidMethodAsync(string methodName) → OperationResult
+  GetSocietyDidMethodsAsync() → IReadOnlyList<SocietyDidMethodRecord>
+  AddCitizenDidAsync(string citizenPrimaryDid, string methodName) → OperationResult
+  GetMemberCitizenDidsAsync() → IReadOnlyList<string>
+  IsMemberAsync(string citizenDid) → bool
+  GetOverdraftStatusAsync() → OverdraftStatus
+  GetOverdraftRecordAsync() → SocietyOverdraftRecord?
+  FindVcsBySubjectAcrossSocietiesAsync(string subjectDid, ...) → CrossSocietyVcQueryResult
+  GetOwnSocietyAsync() → SocietyRecord?
+
+IDIDCommService (Svrn7.DIDComm):
+  PackPlaintextAsync(DIDCommMessage) → string
+  PackSignedAsync(DIDCommMessage, byte[] senderPrivateKey) → string
+  PackEncryptedAsync(DIDCommMessage, byte[] recipientPublicKey, byte[] senderPrivateKey,
+    DIDCommPackMode mode = SignThenEncrypt) → string
+  PackSignedAndEncryptedAsync(DIDCommMessage, byte[] recipientPublicKey,
+    byte[] senderPrivateKey) → string
+  UnpackAsync(string packed, byte[]? recipientPrivateKey = null) → DIDCommUnpackedMessage
+  NewMessage() → DIDCommMessageBuilder
+
+---
+
+## DI Registration
+
+Federation deployment:
+  services.AddSvrn7Federation(opts => {
+      opts.FoundationPublicKeyHex = "02...";
+      opts.Svrn7DbPath  = "data/svrn7.db";
+      opts.DidsDbPath   = "data/svrn7-dids.db";
+      opts.VcsDbPath    = "data/svrn7-vcs.db";
+      opts.DidMethodName = "drn";
+  });
+
+Society deployment (self-contained, do NOT also call AddSvrn7Federation):
+  services.AddSvrn7Society(opts => {
+      opts.FoundationPublicKeyHex = "02...";
+      opts.SocietyDid    = "did:socalpha:my-society";
+      opts.FederationDid = "did:drn:federation";
+      opts.DidMethodNames = new List<string> { "socalpha" };
+      opts.SocietyMessagingPrivateKeyEd25519   = societyEd25519PrivKey;
+      opts.FederationMessagingPublicKeyEd25519 = fedEd25519PubKey;
+      opts.DrawAmountGrana       = 100_000_000_000L;
+      opts.OverdraftCeilingGrana = 1_000_000_000_000L;
+      opts.Svrn7DbPath  = "data/svrn7.db";
+      opts.DidsDbPath   = "data/svrn7-dids.db";
+      opts.VcsDbPath    = "data/svrn7-vcs.db";
+  });
+  services.AddSvrn7SocietyBackgroundServices(); // optional: VC expiry, Merkle auto-sign
+
+---
+
+## Canonical Glossary
+
+grana:            Atomic monetary unit. 1 SVRN7 = 1,000,000 grana. All arithmetic uses grana.
+SVRN7:            SOVRONA display denomination. 1 SVRN7 = 1,000,000 grana.
+SRC:              Shared Reserve Currency — SVRN7's formal monetary category.
+DID:              Decentralized Identifier (W3C DID v1.0). Form: did:{method}:{identifier}.
+DID Document:     JSON document associated with a DID. Contains public keys and service endpoints.
+DID Document Resolution: Retrieving a DID Document from its identifier.
+DID Document Resolver: Component implementing IDidDocumentResolver.
+DID method name:  Second component of a DID (e.g. "drn" in did:drn:abc). Matches [a-z0-9]+ only.
+VC:               Verifiable Credential (W3C VC Data Model v2). JWT-encoded signed claim.
+VTC:              Verifiable Trust Circle. Web 7.0 trust governance structure.
+DIDComm:          DIDComm Messaging v2. Encrypted messaging protocol using DIDs as addressing.
+Federation:       Top-level governance entity. Holds genesis wallet and DID method name registry.
+Society:          Digital community registered with the Federation. Owns DID method name(s).
+Citizen:          Individual member of a Society. Holds primary DID. Receives 1,000 grana (0.001 SVRN7) endowment (v0.8.0).
+cryptoseal:       The VC proof block — the cryptographic seal on the credential envelope.
+envelope/letter:  Metaphor for VC structure: VC Document = envelope; credential claim = letter.
+TransferId:       Blake3(canonicalTransferJSON) — global idempotency key for cross-Society transfers.
+UTXO:             Unspent Transaction Output. Atomic unit of wallet balance. Never deleted once spent.
+Merkle log:       RFC 6962 append-only audit log. One per deployment instance (Society or Federation).
+
+---
+
+## Important Naming Rules
+
+CORRECT:   DID Document Resolver     WRONG: DID Resolver
+CORRECT:   DID Document Resolution   WRONG: DID Resolution
+CORRECT:   IDidDocumentResolver      WRONG: IDidResolver
+CORRECT:   LocalDidDocumentResolver  WRONG: LocalDidResolver
+CORRECT:   FederationDidDocumentResolver  WRONG: FederationDidResolver
+CORRECT:   svrn7.net (protocol URIs) WRONG: svrn7.io
+PPML:             Parchment Programming Modeling Language. The formal visual grammar defined in the PPML Legend of each DSA Parchment Diagram. Names element types, visual styles, and derivation rules.
+Conditional Components: A dashed-border PPML grouping structure. Label = the condition governing inclusion (e.g., "Society TDA Only"). Components inside are only instantiated when the named condition is satisfied.
+CORRECT:   Svrn7.Federation (NuGet)  WRONG: Svrn7.Api
+CORRECT:   AddSvrn7Federation()      WRONG: AddSvrn7()
+CORRECT:   DID method name [a-z0-9]+ WRONG: names containing hyphens (e.g. soc-alpha)
+
+---
+
+## IETF Internet-Drafts (Independent Stream)
+
+draft-herman-did-drn
+  Title: Decentralized Resource Name (DRN) DID Method
+  URL:   https://datatracker.ietf.org/doc/draft-herman-did-drn/
+  Status: Active Internet-Draft
+
+draft-herman-vtc-proof-sets
+  Title: Verifiable Trust Circles using VC Proof Sets
+  URL:   https://datatracker.ietf.org/doc/draft-herman-vtc-proof-sets/
+  Status: Active Internet-Draft
+
+---
+
+## Authoritative Links
+
+Project website:        https://svrn7.net
+Disambiguation page:    https://svrn7.net/docs/disambiguation
+Blog:                   https://hyperonomy.com
+GitHub:                 https://github.com/web7foundation/svrn7
+NuGet (Federation):     https://www.nuget.org/packages/Svrn7.Federation
+NuGet (Society):        https://www.nuget.org/packages/Svrn7.Society
+IETF did:drn:           https://datatracker.ietf.org/doc/draft-herman-did-drn/
+IETF VTC:               https://datatracker.ietf.org/doc/draft-herman-vtc-proof-sets/
+llms-full.txt:          https://svrn7.net/llms-full.txt
+
+---
+
+## Author
+
+Michael Herman
+Web 7.0 Foundation
+Bindloss, Alberta, Canada
+https://hyperonomy.com
+
+Copyright © 2026 Michael Herman (Bindloss, Alberta, Canada)
+Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+Web 7.0™, SOVRONA™, and SVRN7™ are trademarks of the Web 7.0 Foundation. All Rights Reserved.
+
+## Svrn7.TDA — TDA Host (DSA 0.24 Epoch 0)
+The TDA Host is a .NET 8 console app (Generic Host + Kestrel HTTP/2 + mTLS).
+Single inbound surface: POST /didcomm. Closed TDA-to-TDA ecosystem. No gRPC.
+
+Key classes:
+  KestrelListenerService  — POST /didcomm, HTTP/2 + mTLS, UnpackAsync boundary
+  DIDCommMessageSwitchboard — sole inbox reader, DID URL pass-by-reference routing
+  RunspacePoolManager     — PowerShell RunspacePool lifecycle (min=2, max=N)
+  LobeManager             — eager/JIT LOBE loading from lobes.config.json
+  Svrn7RunspaceContext    — $SVRN7 session variable (Driver, Inbox, Cache, Epoch)
+  TdaResourceAddress      — DID URL builder/parser for Data Storage database records
+  TdaOptions              — Host configuration (port, mTLS, LOBE paths, DB paths)
+
+TdaResourceId (Svrn7.Core — zero dependencies):
+  InboxMessage(networkId, objectId)  → did:drn:{networkId}/inbox/msg/{objectId}
+  NetworkIdFromDid(did)              → strips did:drn: prefix
+  ParseKey(didUrl)                   → extracts final path segment
+  Build(networkId, db, type, key)    → generic builder
+
+InboxMessage.Id is a TDA resource DID URL (not a UUID):
+  Example: did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678
+  Generated by LiteInboxStore.EnqueueAsync() using LiteDB.ObjectId + TdaResourceId.
+
+LOBE modules (lobes/):
+  Eager (pre-loaded): Svrn7.Common.psm1, Svrn7.Federation.psm1, Svrn7.Society.psm1
+  JIT (on-demand):    Svrn7.Email.psm1, Svrn7.Calendar.psm1, Svrn7.Presence.psm1,
+                      Svrn7.Notifications.psm1, Svrn7.Onboarding.psm1, Svrn7.Invoicing.psm1
+
+Agent scripts (lobes/):
+  Agent1-Coordinator.ps1 — JIT LOBE dispatch for Email/Calendar/Presence/Notifications
+  Agent2-Onboarding.ps1  — onboard/1.0/request pipeline → Register-Svrn7CitizenInSociety
+  AgentN-Invoicing.ps1   — invoice/1.0/request pipeline → Invoke-Svrn7IncomingTransfer
+
+Schema Registry (Society TDA Only — DSA 0.24 Conditional Component):
+  SchemaLiteContext.cs    — svrn7-schemas.db
+  ISchemaRegistry         → LiteSchemaRegistry
+  ISchemaResolver         → LiteSchemaResolver
+  DID URL: did:drn:alpha.svrn7.net/schemas/schema/{schemaName}
+  Key type: Named (common name, e.g., CitizenEndowmentCredential)
+
+## LOBE Registry (Dynamic Dispatch — DSA 0.24 Epoch 0)
+The Switchboard has NO hardcoded routing table. All routing is descriptor-driven.
+
+LobeManager responsibilities:
+  RegisterFromDescriptor(path) — parses {module}.lobe.json, populates two registry tiers:
+    _exactRegistry  — ConcurrentDictionary keyed by exact @type URI
+    _prefixRegistry — ConcurrentDictionary keyed by URI prefix (longest-prefix wins)
+  EnsureLoadedAsync(ps, modulePath) — idempotent JIT Import-Module on first use
+  TryResolveProtocol(messageType)   — exact match first, then longest prefix match
+  FileSystemWatcher on lobes/ dir   — hot-detects new *.lobe.json files at runtime
+  BuildInitialSessionState()        — scans all *.lobe.json at startup, starts watcher
+
+Each {module-name}.lobe.json descriptor declares:
+  lobe.{id, name, title, description, version, author, organization, epochRequired, module}
+  protocols[].{uri, match, entrypoint, epochRequired}  — Switchboard routing
+  cmdlets[].{name, title, inputSchema, outputSchema, annotations, pipelineExample}
+  dependencies.lobes[]             — dependency graph (LobeManager resolves before import)
+  ai.{_note, summary, useCases, compositionHints, limitations}  — AI legibility
+
+Option A: transfer/1.0/order idempotency check stays in Switchboard (only hardcoded concern).
+All other routing: LobeManager.TryResolveProtocol() → EnsureLoadedAsync() → InvokeCmdletPipelineAsync().
+
+Third-party LOBE integration: drop {module}.psm1 + {module}.lobe.json into lobes/ directory.
+FileSystemWatcher detects within milliseconds. No TDA restart required.
+
+MCP alignment: cmdlets[].inputSchema/outputSchema mirror MCP Tool.inputSchema/outputSchema.
+Future epoch: TDA may expose LOBE registry as MCP tools/list interface — descriptor becomes
+MCP tool definition with no translation needed.
+
+## PPML Legend 0.25 — Formal Visual Grammar
+
+The PPML Legend 0.25 is the normative visual grammar for the Web 7.0 DSA 0.24 Epoch 0
+diagram. It defines eleven element types with full visual specifications (border colour,
+fill colour, shape) and derivation rules. See draft-herman-parchment-programming-00 Section 5.2.1.
+
+Element types (# = Legend order):
+  1.  Protocol              — purple vertical pill     — Communication protocol
+  2.  Network               — yellow vertical bar      — Transport rail
+  3.  LOBE                  — blue outline             — PowerShell Module + .lobe.json descriptor
+  4.  Device                — blue outline label       — UX device / interface surface
+  5.  Data Storage          — dark navy cylinder       — LiteDB database (persistent)
+  6.  Data Access           — dark navy rectangle      — IXxxResolver / IMemoryCache
+  7.  Runspace Pool         — beige outline            — PS RunspacePool (Web 7.0 specific)
+  8.  Switchboard           — orange outline           — DIDComm message router (Web 7.0 specific)
+  9.  Host                  — green outline            — .NET 8 console process container
+  10. PowerShell Runspace   — crimson outline          — Named agent script (Web 7.0 specific)
+  11. Conditional Components— blue dashed border       — Conditional deployment group
+      Criteria
+
+Elements 1–6, 9, 11 are general-purpose (applicable to any architecture).
+Elements 7, 8, 10 are Web 7.0 / SVRN7 specific (substitute equivalents for other stacks).
+
+
+## Standard LOBE Inventory (v0.8.0 — 11 LOBEs)
+
+| # | Module | Type | Protocol families |
+|---|---|---|---|
+| 1 | Svrn7.Common.psm1 | Eager | — (shared helpers) |
+| 2 | Svrn7.Federation.psm1 | Eager | transfer/1.0/*, did/1.0/* |
+| 3 | Svrn7.Society.psm1 | Eager | transfer/1.0/*, onboard/1.0/* |
+| 4 | Svrn7.UX.psm1 | Eager | ux/1.0/* (balance-update, notification, registration-complete) |
+| 5 | Svrn7.Email.psm1 | JIT | did:drn:svrn7.net/protocols/email/1.0/* |
+| 6 | Svrn7.Calendar.psm1 | JIT | did:drn:svrn7.net/protocols/calendar/1.0/* |
+| 7 | Svrn7.Presence.psm1 | JIT | did:drn:svrn7.net/protocols/presence/1.0/* |
+| 8 | Svrn7.Notifications.psm1 | JIT | did:drn:svrn7.net/protocols/notification/1.0/* |
+| 9 | Svrn7.Onboarding.psm1 | JIT | did:drn:svrn7.net/protocols/onboard/1.0/* |
+|10 | Svrn7.Invoicing.psm1 | JIT | did:drn:svrn7.net/protocols/invoice/1.0/* |
+|11 | Svrn7.Identity.psm1 | JIT | did:drn:svrn7.net/protocols/did/1.0/*, vc/1.0/* |
+
+Each LOBE ships .psm1 + .psd1 + .lobe.json (MCP-aligned descriptor).
+lobes.config.json: eager = [Common, Federation, Society, UX]; jit = [Email, Calendar, Presence, Notifications, Onboarding, Invoicing, Identity]

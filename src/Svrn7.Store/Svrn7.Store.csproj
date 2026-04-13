@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <Version>0.8.0</Version>
+    <Authors>Michael Herman</Authors>
+    <Company>Web 7.0 Foundation</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://svrn7.net</PackageProjectUrl>
+    <Copyright>Copyright (c) 2026 Michael Herman (Alberta, Canada)</Copyright>
+    <Description>SVRN7 LiteDB persistence layer — three independent database contexts.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Svrn7.Core\Svrn7.Core.csproj" />
+    <ProjectReference Include="..\Svrn7.Crypto\Svrn7.Crypto.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="LiteDB" Version="5.0.21" />
+  </ItemGroup>
+</Project>

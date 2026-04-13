@@ -1,0 +1,35 @@
+{
+  "lobe": {
+    "id": "test.future",
+    "name": "Test.FutureEpoch",
+    "title": "Test Future Epoch LOBE",
+    "description": "Fixture LOBE requiring Epoch 1.",
+    "version": "1.0.0",
+    "author": "Test",
+    "organization": "Test Org",
+    "website": "https://test.example",
+    "license": "MIT",
+    "epochRequired": 1,
+    "module": "Test.FutureEpoch.psm1"
+  },
+  "protocols": [
+    {
+      "uri": "https://test.example/protocols/future/1.0/",
+      "title": "Future Protocol",
+      "description": "Epoch 1+ protocol.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Invoke-FutureHandler",
+      "epochRequired": 1
+    }
+  ],
+  "cmdlets": [],
+  "dependencies": { "lobes": [], "packages": [] },
+  "ai": {
+    "_note": "Test fixture.",
+    "summary": "Future epoch LOBE.",
+    "useCases": [],
+    "compositionHints": [],
+    "limitations": []
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "lobe": {
+    "id": "svrn7.federation",
+    "name": "Svrn7.Federation",
+    "title": "SVRN7 Federation LOBE",
+    "description": "Federation-level DID management, key pair generation, citizen/society registry, and base transfer operations. Wraps ISvrn7Driver. Loaded eagerly at TDA startup.",
+    "version": "0.8.0",
+    "author": "Michael Herman",
+    "organization": "Web 7.0 Foundation",
+    "website": "https://svrn7.net",
+    "license": "MIT",
+    "epochRequired": 0,
+    "module": "Svrn7.Federation.psm1"
+  },
+  "protocols": [],
+  "cmdlets": [
+    {
+      "name": "New-Svrn7Did",
+      "title": "Generate New DID",
+      "description": "Generates a new did:drn DID for a citizen or society from a key pair and method name.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "KeyPair",
+          "MethodName"
+        ],
+        "properties": {
+          "KeyPair": {
+            "type": "object"
+          },
+          "MethodName": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+$"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "Did": {
+            "type": "string"
+          },
+          "KeyPair": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "name": "New-Svrn7KeyPair",
+      "title": "Generate Key Pair",
+      "description": "Generates a new secp256k1 key pair for a citizen or society.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": false,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "PublicKeyHex": {
+            "type": "string"
+          },
+          "PrivateKeyBytes": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "dependencies": {
+    "lobes": [],
+    "packages": []
+  },
+  "ai": {
+    "_note": "Epoch 0: these fields are informational for human and AI developers. inputSchema/outputSchema on each cmdlet are optional in Epoch 0. In a future epoch, an AI pipeline composer will consume this descriptor directly \u2014 possibly via an MCP-compatible tools/list interface \u2014 to discover, understand, and dynamically compose LOBE pipelines. The LOBE descriptor will become the MCP tool definition with no translation needed.",
+    "summary": "Foundation LOBE providing DID generation, key pair management, and base registry operations. Always loaded eagerly. All other LOBEs depend on these primitives.",
+    "useCases": [
+      "Generate a new citizen DID and key pair during onboarding"
+    ],
+    "compositionHints": [
+      "Call New-Svrn7KeyPair first, then pipe or pass to New-Svrn7Did"
+    ],
+    "limitations": [
+      "Epoch 0: secp256k1 only. Ed25519 key management added in future epoch."
+    ]
+  }
+}

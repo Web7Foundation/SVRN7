@@ -1,0 +1,32 @@
+{
+  "lobe": {
+    "id": "svrn7.common",
+    "name": "Svrn7.Common",
+    "title": "SVRN7 Common Helpers LOBE",
+    "description": "Shared helpers and utilities available in all runspaces. Provides DID URL parsing, logging wrappers, and common validation functions. Loaded eagerly at TDA startup.",
+    "version": "0.8.0",
+    "author": "Michael Herman",
+    "organization": "Web 7.0 Foundation",
+    "website": "https://svrn7.net",
+    "license": "MIT",
+    "epochRequired": 0,
+    "module": "Svrn7.Common.psm1"
+  },
+  "protocols": [],
+  "cmdlets": [],
+  "dependencies": {
+    "lobes": [],
+    "packages": []
+  },
+  "ai": {
+    "_note": "Epoch 0: these fields are informational for human and AI developers. inputSchema/outputSchema on each cmdlet are optional in Epoch 0. In a future epoch, an AI pipeline composer will consume this descriptor directly \u2014 possibly via an MCP-compatible tools/list interface \u2014 to discover, understand, and dynamically compose LOBE pipelines. The LOBE descriptor will become the MCP tool definition with no translation needed.",
+    "summary": "Shared utility LOBE with no protocol handlers. Provides helpers used by all other LOBEs.",
+    "useCases": [],
+    "compositionHints": [
+      "Do not import \u2014 already available in all runspaces as an eager LOBE."
+    ],
+    "limitations": [
+      "Contains no entry-point cmdlets. Not a valid Switchboard routing target."
+    ]
+  }
+}
