@@ -100,7 +100,7 @@ teams, poker parties, tribes, clans, political parties, and any other form of di
 **10 projects (8 src, 2 test). 25 C# files. ~7,427 lines. Zero stubs. Zero TODOs.**
 
 ```
-Svrn7.sln
+Web7-DSA.sln
 ├── src/
 │   ├── Svrn7.Core/        — Models, interfaces, exceptions, constants. Zero deps.
 │   ├── Svrn7.Crypto/      — secp256k1, Ed25519, AES-256-GCM, Blake3, Base58btc
@@ -693,3 +693,18 @@ Formally defined in draft-herman-parchment-programming-00 Section 5.2.1.
 ### Conditional Components Criteria examples:
 - "Society TDA Only"  → Schema Registry, DID Doc Registry, VC Doc Registry (and their resolvers)
 - "Epoch 1+"          → components activated at epoch transition
+
+## PPML Core Principles (PP-1 through PP-9)
+
+PP-1: Diagram Primacy — diagram is the source of truth; code conforms to diagram.
+PP-2: Legend Formalism — every element type formally defined in the Legend.
+PP-3: Element Instance Unambiguity — every element belongs to exactly one type.
+PP-4: Tractability — every element has an artefact or Gap Register entry.
+PP-5: Change Record — diagram changes precede code changes.
+PP-6: Epoch Stability — Legend frozen within an epoch.
+PP-7: AI Legibility — diagram sufficient for correct AI code generation.
+PP-8: Living Specification — diagram evolves with the system across its lifetime.
+PP-9: Consistent Code Generation — two independent generators given the same conformant
+      diagram MUST produce functionally equivalent artefacts (same interfaces, ownership,
+      dependencies, protocol registrations). Enables session independence: the diagram
+      alone is sufficient to regenerate any artefact without chat history or prior context.
