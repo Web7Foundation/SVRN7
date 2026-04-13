@@ -35,7 +35,7 @@ Open a GitHub Issue with:
 ### Pull Requests
 
 - Target the `main` branch.
-- All tests must pass: `dotnet test Svrn7.sln`
+- All tests must pass locally: `dotnet test Web7-DSA.sln`
 - New behaviour requires new tests.
 - C# code must target .NET 8 (`net8.0`), use nullable reference types, and follow the
   existing naming conventions (see `README.md` Section 19).

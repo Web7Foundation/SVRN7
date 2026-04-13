@@ -397,3 +397,18 @@ Elements 7, 8, 10 are Web 7.0 / SVRN7 specific (substitute equivalents for other
 
 Each LOBE ships .psm1 + .psd1 + .lobe.json (MCP-aligned descriptor).
 lobes.config.json: eager = [Common, Federation, Society, UX]; jit = [Email, Calendar, Presence, Notifications, Onboarding, Invoicing, Identity]
+
+## PPML Core Principles (PP-1 through PP-9)
+
+PP-1: Diagram Primacy — diagram is the source of truth; code conforms to diagram.
+PP-2: Legend Formalism — every element type formally defined in the Legend.
+PP-3: Element Instance Unambiguity — every element belongs to exactly one type.
+PP-4: Tractability — every element has an artefact or Gap Register entry.
+PP-5: Change Record — diagram changes precede code changes.
+PP-6: Epoch Stability — Legend frozen within an epoch.
+PP-7: AI Legibility — diagram sufficient for correct AI code generation.
+PP-8: Living Specification — diagram evolves with the system across its lifetime.
+PP-9: Consistent Code Generation — two independent generators given the same conformant
+      diagram MUST produce functionally equivalent artefacts (same interfaces, ownership,
+      dependencies, protocol registrations). Enables session independence: the diagram
+      alone is sufficient to regenerate any artefact without chat history or prior context.

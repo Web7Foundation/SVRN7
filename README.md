@@ -3,7 +3,6 @@
 
 > **Epoch 0 — Endowment Phase** | .NET 8 | DIDComm V2 | PowerShell LOBEs | W3C DID + VC | LiteDB | PPML
 
-[![CI](https://github.com/web7foundation/svrn7/actions/workflows/ci.yml/badge.svg)](https://github.com/web7foundation/svrn7/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/Code-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![License: CC BY-SA 4.0](https://img.shields.io/badge/Docs-CC--BY--SA--4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 
 The Web 7.0 Decentralized System Architecture (DSA) is a sovereign, DID-native, DIDComm-native
@@ -115,60 +114,30 @@ Every component is traceable to a diagram element in DSA 0.24 via a derivation t
 
 ## 3. Parchment Programming and Consistent Code Generation
 
-This repository is built using **Parchment Programming** (PPML — Parchment Programming
-Modeling Language), a diagram-first methodology in which the architecture diagram is the
-primary specification and all code is derived from it. PPML has nine core principles
-(PP-1 through PP-9).
+This repository is specified and built using **Parchment Programming** (PPML — Parchment
+Programming Modeling Language), a diagram-first methodology in which the DSA 0.24 Epoch 0
+architecture diagram is the primary specification and all code is derived from it. PPML has
+nine core principles (PP-1 through PP-9).
 
-The four most important for understanding this codebase:
-
-**PP-1 Diagram Primacy.** The DSA 0.24 diagram is the source of truth. Every source file
-carries a derivation trace:
+Every source file carries a derivation trace:
 ```csharp
-// Derived from: "DIDComm Message Switchboard" — DSA 0.24 Epoch 0 (PPML)
+// Derived from: "DIDComm Message Switchboard" — element type Switchboard — DSA 0.24 Epoch 0 (PPML)
 ```
 
-**PP-4 Tractability.** Every diagram element has a corresponding artefact or Gap Register
-entry. Every artefact is traceable to a diagram element. This is a release gate.
+**PP-9 Consistent Code Generation** — the most relevant principle for AI-assisted
+development — states that two independent AI generators given the same conformant diagram
+MUST produce functionally equivalent artefacts. This enables **session independence**: the
+diagram alone, without chat history, is sufficient to regenerate any artefact correctly.
 
-**PP-7 AI Legibility.** The diagram is sufficient for an AI code generator to produce a
-correct artefact for any element instance. LOBE descriptors (`.lobe.json`) are the
-machine-readable form of this property, with MCP-aligned `inputSchema`/`outputSchema`
-on every cmdlet.
+For the full treatment of PPML implications for software development — including the
+specification artefact inversion, deterministic AI code generation, explicit architectural
+change governance, testability traceability, documentation staleness detection, and
+scalability with AI capability — see:
 
-**PP-9 Consistent Code Generation.** Two independent AI generators given the same conformant
-diagram MUST produce functionally equivalent artefacts. This enables **session independence**:
-the diagram alone — without chat history — is sufficient to regenerate any artefact correctly.
-
-### Implications for this codebase
-
-**The specification artefact is the diagram, not prose.** The IETF drafts and docx files
-explain and justify the architecture. When they conflict with DSA 0.24, DSA 0.24 wins.
-
-**AI code generation is deterministic at the architecture level.** The Legend derivation
-rules and `.lobe.json` descriptors give an AI generator a closed-world assumption: every
-artefact must be traceable to a diagram element. It cannot invent dependencies or reorganise
-the architecture. Creativity is in the diagram; precision is in the derivation.
-
-**Architectural changes are explicit diagram changes.** Implementing a new feature without
-a corresponding diagram change is a tractability violation. The boundary between architecture
-and implementation detail is drawn precisely at the diagram boundary.
-
-**Testing is traceable to the diagram.** Every test is traceable to a diagram element
-instance. A test with no corresponding element is either testing an undocumented artefact
-or exposing an implementation detail that should not be public.
-
-**Documentation staleness is structurally impossible.** If the diagram drifts from the
-code, the derivation traces are wrong, the Gap Register is wrong, and any AI-generated
-code derived from the diagram will be wrong. Maintaining derivation traces is what keeps
-the diagram honest.
-
-**The methodology scales with AI capability.** As AI capability increases, the human role
-shifts toward diagram authorship and review. The `.lobe.json` descriptors — with their
-`compositionHints`, `useCases`, and `limitations` — are the first step toward AI-readable
-PPML artefacts that an AI pipeline composer can use to discover and chain LOBEs without
-reading source code. In a future epoch, the TDA will expose LOBEs as MCP tools via a
-`tools/list` interface; the descriptor becomes the MCP tool definition with no translation.
+- **`draft-herman-parchment-programming-00`** Section 8.6 — *Implications for Software Development* (normative)
+- **`SVRN7_Architecture_Whitepaper.docx`** Section 2a — *Parchment Programming and Consistent Code Generation*
+- **`Web7_TDA_Design_v024_Consolidated.docx`** Section 11b — *PPML Implications for this Codebase*
+- **`draft-herman-svrn7-ai-legibility-00`** Section 13a — *PPML and AI Legibility* (AI-specific implications)
 
 ---
 
@@ -197,7 +166,7 @@ communications, and value exchange.
 ### Solution Structure
 
 ```
-Svrn7.sln
+Web7-DSA.sln
 +-- src/
 |   +-- Svrn7.Core/        Models, interfaces, exceptions, TdaResourceId
 |   +-- Svrn7.Crypto/      secp256k1, Ed25519, AES-256-GCM, Blake3
