@@ -32,7 +32,7 @@ public sealed class CryptoService : ICryptoService
 
     public Svrn7KeyPair GenerateSecp256k1KeyPair()
     {
-        var key = new Key();
+        var key = new NBitcoin.Key();
         return new Svrn7KeyPair
         {
             PublicKeyHex   = key.PubKey.ToHex(),
@@ -58,7 +58,7 @@ public sealed class CryptoService : ICryptoService
 
     public string SignSecp256k1(byte[] payload, byte[] privateKeyBytes)
     {
-        var key  = new Key(privateKeyBytes);
+        var key  = new NBitcoin.Key(privateKeyBytes);
         var hash = Hashes.SHA256(payload);
         var sig  = key.Sign(new uint256(hash));
         return Svrn7Constants.CesrPrefixSecp256k1 +

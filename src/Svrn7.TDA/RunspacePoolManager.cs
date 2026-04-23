@@ -1,3 +1,4 @@
+using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -8,30 +9,27 @@ namespace Svrn7.TDA;
 //
 // Derived from: "PowerShell Runspace Pool" (Runspace Pool element type) — DSA 0.24 Epoch 0.
 //
-// Wraps System.Management.Automation.Runspaces.RunspacePool.
-// Owns the pool lifecycle (Open, Close, Dispose).
-// Provides OpenAgentRunspace() for Switchboard use when dispatching task LOBEs.
+// Builds the shared InitialSessionState (ISS) via LobeManager and vends
+// per-invocation IsolatedPipeline instances.  Each dispatch creates its own
+// Runspace from the ISS — a crash or runaway cmdlet in one pipeline cannot
+// affect any other concurrent dispatch.
 // Owns the 60-second epoch refresh timer that keeps Svrn7RunspaceContext.CurrentEpoch
-// current in all runspaces without per-runspace polling.
+// current without per-runspace polling.
 
 /// <summary>
-/// Singleton that owns the PowerShell <see cref="RunspacePool"/> lifecycle.
+/// Singleton that builds the shared <see cref="InitialSessionState"/> and vends
+/// per-invocation <see cref="IsolatedPipeline"/> instances for LOBE dispatch.
 /// Derived from: PowerShell Runspace Pool — DSA 0.24 Epoch 0 (PPML).
 /// </summary>
 public sealed class RunspacePoolManager : IDisposable
 {
-    private readonly TdaOptions              _opts;
     private readonly LobeManager             _lobes;
     private readonly Svrn7RunspaceContext    _ctx;
     private readonly ILogger<RunspacePoolManager> _log;
 
-    private RunspacePool?  _pool;
-    private Timer?         _epochTimer;
-    private bool           _disposed;
-
-    // ── Pool configuration (DSA 0.24 design spec) ────────────────────────────
-    // minRunspaces: 2 — Agent 1 (coordinator, always open) + one task runspace warm.
-    // maxRunspaces: configurable, default ProcessorCount × 2.
+    private InitialSessionState? _iss;
+    private Timer?               _epochTimer;
+    private bool                 _disposed;
 
     public RunspacePoolManager(
         IOptions<TdaOptions>         opts,
@@ -39,7 +37,6 @@ public sealed class RunspacePoolManager : IDisposable
         Svrn7RunspaceContext         ctx,
         ILogger<RunspacePoolManager> log)
     {
-        _opts  = opts.Value;
         _lobes = lobes;
         _ctx   = ctx;
         _log   = log;
@@ -48,26 +45,16 @@ public sealed class RunspacePoolManager : IDisposable
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Builds the <see cref="InitialSessionState"/> via <see cref="LobeManager"/>,
-    /// opens the pool, and starts the epoch refresh timer.
-    /// Called once by <see cref="TdaHostedService"/> on startup.
+    /// Builds the <see cref="InitialSessionState"/> via <see cref="LobeManager"/>
+    /// and starts the epoch refresh timer.
+    /// Called once by <see cref="SwitchboardHostedService"/> on startup.
     /// </summary>
     public void Start()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var iss  = _lobes.BuildInitialSessionState();
-        int min  = _opts.MinRunspaces;
-        int max  = _opts.MaxRunspaces > 0
-                    ? _opts.MaxRunspaces
-                    : Environment.ProcessorCount * 2;
-
-        _pool = RunspaceFactory.CreateRunspacePool(min, max, iss);
-        _pool.ThreadOptions = PSThreadOptions.ReuseThread;
-        _pool.Open();
-
-        _log.LogInformation(
-            "RunspacePoolManager: pool open (min={Min}, max={Max}).", min, max);
+        _iss = _lobes.BuildInitialSessionState();
+        _log.LogInformation("RunspacePoolManager: InitialSessionState built — per-invocation runspace isolation active.");
 
         // 60-second epoch refresh — keeps $SVRN7.CurrentEpoch current in all runspaces.
         _epochTimer = new Timer(
@@ -78,19 +65,17 @@ public sealed class RunspacePoolManager : IDisposable
     }
 
     /// <summary>
-    /// Opens a new <see cref="PowerShell"/> instance bound to the pool.
-    /// Used by the <see cref="DIDCommMessageSwitchboard"/> to dispatch task LOBEs.
-    /// The caller is responsible for disposing the returned instance.
+    /// Creates an isolated <see cref="PowerShell"/> pipeline backed by a dedicated
+    /// <see cref="Runspace"/> opened from the shared <see cref="InitialSessionState"/>.
+    /// Each LOBE invocation gets its own runspace — a crash or runaway cmdlet cannot
+    /// affect other concurrent dispatches. Caller must dispose the returned instance.
     /// </summary>
-    public PowerShell CreatePipelineForPool()
+    public IsolatedPipeline CreateIsolatedPipeline()
     {
-        if (_pool is null)
+        if (_iss is null)
             throw new InvalidOperationException(
                 "RunspacePoolManager has not been started. Call Start() first.");
-
-        var ps = PowerShell.Create();
-        ps.RunspacePool = _pool;
-        return ps;
+        return new IsolatedPipeline(_iss);
     }
 
     // ── Epoch refresh ─────────────────────────────────────────────────────────
@@ -105,26 +90,47 @@ public sealed class RunspacePoolManager : IDisposable
         _log.LogDebug("RunspacePoolManager: epoch refreshed to {Epoch}.", epoch);
     }
 
-    // ── Status ────────────────────────────────────────────────────────────────
-
-    /// <summary>Current available runspace count in the pool.</summary>
-    public int AvailableRunspaces =>
-        _pool?.GetAvailableRunspaces() ?? 0;
-
     // ── Disposal ──────────────────────────────────────────────────────────────
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-
         _epochTimer?.Dispose();
+        _log.LogInformation("RunspacePoolManager: disposed.");
+    }
+}
 
-        if (_pool is not null)
-        {
-            _pool.Close();
-            _pool.Dispose();
-            _log.LogInformation("RunspacePoolManager: pool closed.");
-        }
+// ── IsolatedPipeline ──────────────────────────────────────────────────────────
+
+/// <summary>
+/// Pairs a <see cref="PowerShell"/> instance with its own dedicated
+/// <see cref="Runspace"/> opened from the shared <see cref="InitialSessionState"/>.
+/// Disposing closes and releases both. A fault in one <see cref="IsolatedPipeline"/>
+/// cannot affect any other concurrent dispatch.
+/// </summary>
+public sealed class IsolatedPipeline : IDisposable
+{
+    /// <summary>The PowerShell pipeline bound to the dedicated runspace.</summary>
+    public PowerShell Ps { get; }
+
+    private readonly Runspace _runspace;
+    private bool              _disposed;
+
+    internal IsolatedPipeline(InitialSessionState iss)
+    {
+        _runspace = RunspaceFactory.CreateRunspace(iss);
+        _runspace.Open();
+        Ps = PowerShell.Create();
+        Ps.Runspace = _runspace;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        try { Ps.Dispose(); }         catch { /* best-effort */ }
+        try { _runspace.Close(); }    catch { /* best-effort */ }
+        try { _runspace.Dispose(); }  catch { /* best-effort */ }
     }
 }

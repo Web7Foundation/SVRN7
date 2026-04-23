@@ -28,8 +28,31 @@ public sealed class Svrn7LiteContext : IDisposable
 
     public Svrn7LiteContext(string connectionString)
     {
-        _db = new LiteDatabase(connectionString);
+        var mapper = BuildMapper();
+        _db = new LiteDatabase(connectionString, mapper);
         EnsureIndexes();
+    }
+
+    /// <summary>
+    /// Exposes the underlying LiteDatabase so that other contexts (e.g. FederationLiteContext)
+    /// can share the same open file handle rather than opening a second exclusive connection.
+    /// </summary>
+    public LiteDatabase Database => _db;
+
+    private static BsonMapper BuildMapper()
+    {
+        var m = new BsonMapper();
+        m.Entity<Wallet>()                  .Id(w => w.Did);
+        m.Entity<CitizenRecord>()           .Id(c => c.Did);
+        m.Entity<CitizenDidRecord>()        .Id(r => r.Did);
+        m.Entity<SocietyRecord>()           .Id(s => s.Did);
+        m.Entity<SocietyMembershipRecord>() .Id(r => r.CitizenPrimaryDid);
+        m.Entity<SocietyOverdraftRecord>()  .Id(o => o.SocietyDid);
+        m.Entity<NonceRecord>()             .Id(n => n.Nonce);
+        m.Entity<LogEntry>()                .Id(l => l.TxId);
+        m.Entity<TreeHead>()                .Id(t => t.RootHash);
+        m.Entity<FederationRecord>()        .Id(f => f.Did);
+        return m;
     }
 
     private void EnsureIndexes()

@@ -1,4 +1,3 @@
-using Svrn7.Core.Interfaces;
 using System.Text;
 using System.Text.Json;
 using Svrn7.Core;
@@ -73,7 +72,7 @@ public sealed class TransferValidator : ITransferValidator
         await ValidateSanctionsAsync(payerDid, payeeDid, ct);
 
         // Step 6 — Signature
-        ValidateSignature(request, payerDid);
+        await ValidateSignatureAsync(request, payerDid, ct);
 
         // Step 7 — Balance (dry-run — no UTXOs marked spent here)
         await ValidateBalanceAsync(payerDid, request.AmountGrana, ct);
@@ -151,14 +150,12 @@ public sealed class TransferValidator : ITransferValidator
             throw new SanctionedPartyException(payeeDid);
     }
 
-    private void ValidateSignature(TransferRequest request, string resolvedPayerDid)
+    private async Task ValidateSignatureAsync(TransferRequest request, string resolvedPayerDid, CancellationToken ct)
     {
         var canonical = CanonicalJson(request);
         var payload   = Encoding.UTF8.GetBytes(canonical);
 
-        // Look up payer's public key
-        var payer = _registry.GetCitizenAsync(resolvedPayerDid)
-            .GetAwaiter().GetResult();  // sync — already have primary DID
+        var payer = await _registry.GetCitizenAsync(resolvedPayerDid, ct);
         var pubKeyHex = payer?.PublicKeyHex
             ?? throw new InvalidDidException(resolvedPayerDid, "Citizen not found for signature verification.");
 
@@ -184,7 +181,7 @@ public sealed class TransferValidator : ITransferValidator
 }
 
 /// <summary>Thrown when a transfer amount is zero or negative.</summary>
-public sealed class InvalidAmountException : Exception
+public sealed class InvalidAmountException : Svrn7.Core.Exceptions.Svrn7Exception
 {
     public long Amount { get; }
     public InvalidAmountException(long amount)

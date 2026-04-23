@@ -33,6 +33,7 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
     private readonly IVcDocumentResolver   _vcResolver;
     private readonly Svrn7SocietyOptions   _opts;
     private readonly ILogger<Svrn7SocietyDriver> _log;
+    private readonly HttpClient?           _httpClient;
     private int _disposed;
 
     private void ThrowIfDisposed()
@@ -59,7 +60,8 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
         IDIDCommService didComm,
         IVcDocumentResolver vcResolver,
         IOptions<Svrn7SocietyOptions> opts,
-        ILogger<Svrn7SocietyDriver> log)
+        ILogger<Svrn7SocietyDriver> log,
+        HttpClient? federationHttpClient = null)
     {
         _inner           = inner;
         _registry        = registry;
@@ -73,6 +75,7 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
         _vcResolver      = vcResolver;
         _opts            = opts.Value;
         _log             = log;
+        _httpClient      = federationHttpClient;
     }
 
     // ── Society identity ──────────────────────────────────────────────────────
@@ -184,11 +187,36 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
             .Body(drawRequest)
             .Build();
 
-        // In production this sends via DIDComm transport and awaits receipt
-        // For v1: log the request — transport adapter is a future enhancement
         _log.LogInformation(
             "Overdraft draw requested: {Amount} grana from Federation {Federation}",
             overdraft.DrawAmountGrana, _opts.FederationDid);
+
+        // Deliver via DIDComm HTTP transport when endpoint is configured.
+        // The Federation TDA processes the draw asynchronously and returns an
+        // OverdraftDrawReceipt via the Society's inbound /didcomm route.
+        if (_httpClient is not null && !string.IsNullOrEmpty(_opts.FederationEndpointUrl))
+        {
+            try
+            {
+                var packed = await _didComm.PackEncryptedAsync(
+                    msg,
+                    _opts.FederationMessagingPublicKeyEd25519,
+                    _opts.SocietyMessagingPrivateKeyEd25519,
+                    ct: ct);
+                var content = new System.Net.Http.StringContent(
+                    packed, System.Text.Encoding.UTF8, "application/didcomm+json");
+                var resp = await _httpClient.PostAsync(_opts.FederationEndpointUrl, content, ct);
+                _log.LogInformation(
+                    "Overdraft draw delivered to Federation TDA: HTTP {Status}", (int)resp.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex,
+                    "Overdraft draw delivery failed (Federation endpoint: {Url}). " +
+                    "Record updated locally — receipt will arrive when Federation reconnects.",
+                    _opts.FederationEndpointUrl);
+            }
+        }
 
         // Update overdraft record
         overdraft.TotalOverdrawnGrana += overdraft.DrawAmountGrana;
@@ -250,7 +278,7 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
         ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(packedDIDCommMessage);
 
-        var unpacked = await _didComm.UnpackAsync(packedDIDCommMessage, ct);
+        var unpacked = await _didComm.UnpackAsync(packedDIDCommMessage, null, ct);
         var type     = unpacked.Type;
 
         string responseJson;
@@ -454,8 +482,9 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
     public Task<IReadOnlyList<CitizenDidRecord>> GetAllDidsForCitizenAsync(string d, CancellationToken ct) => _inner.GetAllDidsForCitizenAsync(d, ct);
     public Task<string?> ResolveCitizenPrimaryDidAsync(string d, CancellationToken ct) => _inner.ResolveCitizenPrimaryDidAsync(d, ct);
     public Task<OperationResult>  RegisterSocietyAsync(RegisterSocietyRequest r, CancellationToken ct) => _inner.RegisterSocietyAsync(r, ct);
-    public Task<SocietyRecord?>   GetSocietyAsync(string d, CancellationToken ct)    => _inner.GetSocietyAsync(d, ct);
-    public Task<bool>             IsSocietyActiveAsync(string d, CancellationToken ct)=> _inner.IsSocietyActiveAsync(d, ct);
+    public Task<SocietyRecord?>   GetSocietyAsync(string d, CancellationToken ct)             => _inner.GetSocietyAsync(d, ct);
+    public Task<IReadOnlyList<SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct)      => _inner.GetAllSocietiesAsync(ct);
+    public Task<bool>             IsSocietyActiveAsync(string d, CancellationToken ct)        => _inner.IsSocietyActiveAsync(d, ct);
     public Task DeactivateSocietyAsync(string d, CancellationToken ct)               => _inner.DeactivateSocietyAsync(d, ct);
     public Task<OperationResult>  RegisterAdditionalDidMethodAsync(string s, string m, CancellationToken ct) => _inner.RegisterAdditionalDidMethodAsync(s, m, ct);
     public Task<OperationResult>  DeregisterDidMethodAsync(string s, string m, CancellationToken ct) => _inner.DeregisterDidMethodAsync(s, m, ct);
@@ -468,6 +497,7 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
     public Task<BalanceResult>    GetBalanceResultAsync(string d, CancellationToken ct) => _inner.GetBalanceResultAsync(d, ct);
     public Task<FederationRecord?> GetFederationAsync(CancellationToken ct)             => _inner.GetFederationAsync(ct);
     public Task<OperationResult>  UpdateFederationSupplyAsync(long n, string s, string r, CancellationToken ct) => _inner.UpdateFederationSupplyAsync(n, s, r, ct);
+    public Task<OperationResult>  InitialiseFederationAsync(string d, string n, string k, string m, CancellationToken ct) => _inner.InitialiseFederationAsync(d, n, k, m, ct);
     public Task CreateDidAsync(DidDocument d, CancellationToken ct)                    => _inner.CreateDidAsync(d, ct);
     public Task UpdateDidAsync(DidDocument d, CancellationToken ct)                    => _inner.UpdateDidAsync(d, ct);
     public Task<DidResolutionResult> ResolveDidAsync(string d, CancellationToken ct)   => _inner.ResolveDidAsync(d, ct);

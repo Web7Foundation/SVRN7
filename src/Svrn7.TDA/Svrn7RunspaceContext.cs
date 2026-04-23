@@ -101,7 +101,7 @@ public sealed class Svrn7RunspaceContext
         var msg = await _inbox.GetByIdAsync(messageDid, ct);
         if (msg is null) return null;
 
-        var view = new InboxMessageView(msg.Id, msg.MessageType, msg.PackedPayload, msg.AttemptCount);
+        var view = new InboxMessageView(msg.Id, msg.MessageType, msg.PackedPayload, msg.FromDid, msg.AttemptCount);
         _cache.Set(messageDid, view, TimeSpan.FromHours(24));
         return view;
     }
@@ -115,7 +115,8 @@ public sealed class Svrn7RunspaceContext
 /// The <see cref="Id"/> is the pass-by-reference handle passed through pipelines.
 /// </summary>
 public sealed record InboxMessageView(
-    string Id,
-    string MessageType,
-    string PackedPayload,
-    int    AttemptCount);
+    string  Id,
+    string  MessageType,
+    string  PackedPayload,
+    string? FromDid,
+    int     AttemptCount);

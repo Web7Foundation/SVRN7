@@ -23,9 +23,9 @@ Data Storage databases of a Web 7.0 Trusted Digital Assistant (TDA). It defines 
 structured DID URL scheme in which the authority segment identifies the owning TDA,
 the first path segment identifies the Data Storage database, the second path segment
 identifies the collection (resource type), and the final path segment is the record's
-natural key — which is a citizen DID suffix for identity-bearing records, a Blake3 hex
-hash for content-addressed records, or a LiteDB ObjectId hex string for surrogate-keyed
-records.
+natural key — which is a citizen local id for citizen records, a society DID suffix for
+society/federation identity-bearing records, a Blake3 hex hash for content-addressed
+records, or a LiteDB ObjectId hex string for surrogate-keyed records.
 
 This scheme makes TDA data records addressable as first-class locators within the
 `did:drn` ecosystem, enables cross-TDA record resolution via DIDComm proxy, and
@@ -75,8 +75,8 @@ identify subjects and are not associated with DID Documents.
    Records with a human-meaningful common name (schemas) use that name.
    Only records with no natural key use a LiteDB ObjectId surrogate.
 
-4. **Epoch-safe.** In future epochs, the citizen DID suffix in identity-bearing record
-   DID URLs MAY be replaced with an anonymised form (hash, GUID, or salted hash) without
+4. **Epoch-safe.** In future epochs, the citizen local id in citizen Locator DID URLs
+   MAY be replaced with an anonymised form (hash, GUID, or salted hash) without
    changing any other segment of the scheme.
 
 5. **Cross-TDA resolution.** A TDA that receives a DID URL whose authority segment
@@ -285,12 +285,12 @@ alphanumeric, `.`, `-`).
 ### 4.3 Examples
 
 ```
-did:drn:alpha.svrn7.net/main/citizen/alice.alpha.svrn7.net
+did:drn:alpha.svrn7.net/citizen/alice
 did:drn:alpha.svrn7.net/main/logentry/a3f9b2c1d4e5f67890ab1234cd5678ef90ab12cd34ef5678
 did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678
 did:drn:alpha.svrn7.net/vcs/vc/vc-3fa85f64-5717-4562-b3fc-2c963f66afa6
 did:drn:foundation.svrn7.net/main/society/alpha.svrn7.net
-did:drn:alpha.svrn7.net/schemas/schema/5f43a2b1c8e9d7f012345678
+did:drn:alpha.svrn7.net/schemas/schema/CitizenEndowmentCredential
 ```
 
 ---
@@ -321,16 +321,16 @@ using these database segments.
 
 | Type Segment  | Collection          | Key Type              | Description                                    |
 |---------------|---------------------|-----------------------|------------------------------------------------|
-| `citizen`     | Citizens            | Identity (DID suffix) | CitizenRecord — primary DID, public key, status. |
-| `wallet`      | Wallets             | Identity (DID suffix) | Wallet — UTXO set for a citizen or society.    |
+| `citizen`     | Citizens            | Local id              | CitizenRecord — uses 2-segment `/citizen/{id}` form. |
+| `wallet`      | Wallets             | Local id / DID suffix | Wallet — UTXO set. Citizen wallets use local id; society wallets use DID suffix. |
 | `utxo`        | UTXOs               | Content (Blake3)      | Unspent Transaction Output — atomic balance unit. |
 | `society`     | Societies           | Identity (DID suffix) | SocietyRecord — society DID, name, status.     |
-| `membership`  | Memberships         | Identity (DID suffix) | SocietyMembershipRecord — citizen + society.   |
+| `membership`  | Memberships         | Local id              | SocietyMembershipRecord — citizen local id + society. |
 | `logentry`    | LogEntries          | Content (Blake3)      | Merkle log entry — event type, payload, hash.  |
 | `treehead`    | TreeHeads           | Content (Blake3)      | Signed Merkle Tree Head — root hash, signature.|
 | `nonce`       | Nonces              | Surrogate (ObjectId)  | Transfer replay nonce with TTL expiry.         |
 | `overdraft`   | Overdrafts          | Identity (DID suffix) | SocietyOverdraftRecord — society overdraft state. |
-| `keybak`      | KeyBackups          | Identity (DID suffix) | Encrypted key backup for a citizen DID.        |
+| `keybak`      | KeyBackups          | Local id              | Encrypted key backup — keyed by citizen local id. |
 
 ### 5.2 `inbox` database (`svrn7-inbox.db`)
 
@@ -343,7 +343,7 @@ using these database segments.
 
 | Type Segment | Collection    | Key Type              | Description                                      |
 |--------------|---------------|-----------------------|--------------------------------------------------|
-| `doc`        | DIDDocuments  | Identity (DID suffix) | DID Document — verification methods, services.  |
+| `doc`        | DIDDocuments  | Identity (DID suffix) | DID Document for a society or federation — keyed by DID suffix. |
 
 ### 5.4 `vcs` database (`svrn7-vcs.db`) — Society TDA Only
 
@@ -367,17 +367,28 @@ ObjectId. The UUID is treated as a surrogate key for purposes of this specificat
 
 ## 7. Natural Key Selection Rules
 
-### 6.1 Identity-Bearing Records (DID Suffix)
+### 6.1 Identity-Bearing Records
 
-Records whose subject has a `did:drn` DID MUST use the DID suffix as the natural key.
-The DID suffix is the method-specific identifier — the portion of the DID after
-`did:drn:`.
+There are two sub-categories of identity-bearing records:
+
+**6.1.1 Citizen Records — Local Id Key**
+
+Citizens are identified by Locator DID URLs using a 2-segment path. The natural key is
+the citizen's local identifier within the society (e.g., `alice`), NOT a DID suffix.
 
 ```
-Citizen DID:    did:drn:alice.alpha.svrn7.net
-DID suffix:     alice.alpha.svrn7.net
-DID URL:        did:drn:alpha.svrn7.net/main/citizen/alice.alpha.svrn7.net
+Citizen Locator DID URL:  did:drn:alpha.svrn7.net/citizen/alice
+Natural key:              alice
+Path segments:            /citizen/alice   (2 segments; database = "main" implied)
 ```
+
+This 2-segment form applies to: `citizen` type segment only.
+
+**6.1.2 Society and Federation Records — DID Suffix Key**
+
+Records whose subject has an Identity DID (society or federation) MUST use the DID
+suffix as the natural key. The DID suffix is the method-specific identifier — the
+portion of the DID after `did:drn:`.
 
 ```
 Society DID:    did:drn:alpha.svrn7.net
@@ -385,8 +396,8 @@ DID suffix:     alpha.svrn7.net
 DID URL:        did:drn:foundation.svrn7.net/main/society/alpha.svrn7.net
 ```
 
-This rule applies to: `citizen`, `wallet`, `membership`, `society`, `overdraft`,
-`keybak`, and `doc` type segments.
+This rule applies to: `society`, `overdraft`, `keybak`, `wallet` (when owner is a society),
+and `doc` type segments.
 
 ### 6.2 Content-Addressed Records (Blake3 Hash)
 
@@ -542,33 +553,36 @@ RECOMMENDED TTL values are:
 The following table provides the normative complete DID URL scheme for all record types
 in an Epoch 0 TDA deployment.
 
-| Record Type         | Database | Collection        | Key Type  | Example DID URL                                                        |
-|---------------------|----------|-------------------|-----------|------------------------------------------------------------------------|
-| Citizen             | main     | Citizens          | DID suffix| `did:drn:alpha.svrn7.net/main/citizen/alice.alpha.svrn7.net`           |
-| Wallet              | main     | Wallets           | DID suffix| `did:drn:alpha.svrn7.net/main/wallet/alice.alpha.svrn7.net`            |
-| UTXO                | main     | UTXOs             | Blake3    | `did:drn:alpha.svrn7.net/main/utxo/a3f9b2c1...`                        |
-| Society             | main     | Societies         | DID suffix| `did:drn:foundation.svrn7.net/main/society/alpha.svrn7.net`            |
-| Membership          | main     | Memberships       | DID suffix| `did:drn:alpha.svrn7.net/main/membership/alice.alpha.svrn7.net`        |
-| Merkle log entry    | main     | LogEntries        | Blake3    | `did:drn:alpha.svrn7.net/main/logentry/a3f9b2c1...`                    |
-| Merkle tree head    | main     | TreeHeads         | Blake3    | `did:drn:alpha.svrn7.net/main/treehead/a3f9b2c1...`                    |
-| Nonce               | main     | Nonces            | ObjectId  | `did:drn:alpha.svrn7.net/main/nonce/5f43a2b1c8e9d7f012345678`          |
-| Overdraft record    | main     | Overdrafts        | DID suffix| `did:drn:alpha.svrn7.net/main/overdraft/alpha.svrn7.net`               |
-| Key backup          | main     | KeyBackups        | DID suffix| `did:drn:alpha.svrn7.net/main/keybak/alice.alpha.svrn7.net`            |
-| Inbox message       | inbox    | InboxMessages     | ObjectId  | `did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678`           |
-| Processed order     | inbox    | ProcessedOrders   | ObjectId  | `did:drn:alpha.svrn7.net/inbox/processedorder/5f43a2b1c8e9d7f012345678`|
-| DID Document        | dids     | DIDDocuments      | DID suffix| `did:drn:alpha.svrn7.net/dids/doc/alice.alpha.svrn7.net`               |
-| VC record           | vcs      | VcRecords         | VC UUID   | `did:drn:alpha.svrn7.net/vcs/vc/vc-3fa85f64-5717-4562-b3fc-2c963f66afa6` |
-| Revocation event    | vcs      | RevocationEvents  | ObjectId  | `did:drn:alpha.svrn7.net/vcs/revocation/5f43a2b1c8e9d7f012345678`      |
-| Schema              | schemas  | Schemas           | Named     | `did:drn:alpha.svrn7.net/schemas/schema/CitizenEndowmentCredential`    |
+| Record Type         | Database | Collection        | Key Type       | Example DID URL                                                        |
+|---------------------|----------|-------------------|----------------|------------------------------------------------------------------------|
+| Citizen             | main*    | Citizens          | Local id       | `did:drn:alpha.svrn7.net/citizen/alice`                                |
+| Wallet (citizen)    | main     | Wallets           | Local id       | `did:drn:alpha.svrn7.net/main/wallet/alice`                            |
+| UTXO                | main     | UTXOs             | Blake3         | `did:drn:alpha.svrn7.net/main/utxo/a3f9b2c1...`                        |
+| Society             | main     | Societies         | DID suffix     | `did:drn:foundation.svrn7.net/main/society/alpha.svrn7.net`            |
+| Membership          | main     | Memberships       | Local id       | `did:drn:alpha.svrn7.net/main/membership/alice`                        |
+| Merkle log entry    | main     | LogEntries        | Blake3         | `did:drn:alpha.svrn7.net/main/logentry/a3f9b2c1...`                    |
+| Merkle tree head    | main     | TreeHeads         | Blake3         | `did:drn:alpha.svrn7.net/main/treehead/a3f9b2c1...`                    |
+| Nonce               | main     | Nonces            | ObjectId       | `did:drn:alpha.svrn7.net/main/nonce/5f43a2b1c8e9d7f012345678`          |
+| Overdraft record    | main     | Overdrafts        | DID suffix     | `did:drn:alpha.svrn7.net/main/overdraft/alpha.svrn7.net`               |
+| Key backup          | main     | KeyBackups        | Local id       | `did:drn:alpha.svrn7.net/main/keybak/alice`                            |
+| Inbox message       | inbox    | InboxMessages     | ObjectId       | `did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678`           |
+| Processed order     | inbox    | ProcessedOrders   | ObjectId       | `did:drn:alpha.svrn7.net/inbox/processedorder/5f43a2b1c8e9d7f012345678`|
+| DID Document        | dids     | DIDDocuments      | DID suffix     | `did:drn:alpha.svrn7.net/dids/doc/alpha.svrn7.net`                     |
+| VC record           | vcs      | VcRecords         | VC UUID        | `did:drn:alpha.svrn7.net/vcs/vc/vc-3fa85f64-5717-4562-b3fc-2c963f66afa6` |
+| Revocation event    | vcs      | RevocationEvents  | ObjectId       | `did:drn:alpha.svrn7.net/vcs/revocation/5f43a2b1c8e9d7f012345678`      |
+| Schema              | schemas  | Schemas           | Named          | `did:drn:alpha.svrn7.net/schemas/schema/CitizenEndowmentCredential`    |
+
+\* Citizen records use a 2-segment Locator DID URL (`/citizen/{localId}`); the `main`
+database is implied. All other record types use the explicit 3-segment form (`/{db}/{type}/{key}`).
 
 ---
 
 ## 10. Future Epoch Anonymisation
 
-In Epoch 0, identity-bearing records use the citizen's primary DID suffix as the
-natural key. This makes the DID URL human-readable and directly traceable to the
-citizen's identity — which is appropriate for the Endowment Phase when the VTC7 mesh
-is small and governance is close.
+In Epoch 0, citizen records use the citizen's local id as the natural key in their
+Locator DID URL. This makes the DID URL human-readable and directly traceable to the
+citizen's chosen identifier — which is appropriate for the Endowment Phase when the
+VTC7 mesh is small and governance is close.
 
 In future epochs, the citizen DID suffix in identity-bearing record DID URLs MAY be
 replaced with an anonymised form. Three candidate approaches are identified here for

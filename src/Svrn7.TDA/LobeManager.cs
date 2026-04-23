@@ -195,42 +195,44 @@ public sealed class LobeManager : IDisposable
     // ── 3. EnsureLoadedAsync ──────────────────────────────────────────────────
 
     /// <summary>
-    /// Ensures a LOBE module is imported into the runspace bound to <paramref name="ps"/>.
-    /// Idempotent: if already imported in this process, returns immediately.
-    /// Called by the Switchboard before invoking a dynamically-registered cmdlet.
+    /// Imports a JIT LOBE module into the dedicated runspace bound to <paramref name="ps"/>.
+    /// Skipped automatically for eager LOBEs — they are already present in the
+    /// <see cref="InitialSessionState"/> and therefore in every new runspace.
+    /// Each call operates on a fresh isolated runspace, so JIT modules are always
+    /// imported (no process-level cache applies here).
     /// </summary>
     public async Task EnsureLoadedAsync(
         PowerShell ps, string modulePath, CancellationToken ct = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        // Eager modules are baked into the InitialSessionState — every fresh runspace
+        // already has them. No import needed.
         if (_importedModules.ContainsKey(modulePath)) return;
 
         if (!File.Exists(modulePath))
-        {
-            _log.LogError("LobeManager: module file not found for JIT import — {Path}.", modulePath);
-            return;
-        }
+            throw new FileNotFoundException(
+                $"LobeManager: JIT module not found — '{modulePath}'.", modulePath);
 
-        _log.LogInformation("LobeManager: JIT importing — {Path}", modulePath);
+        _log.LogInformation("LobeManager: JIT importing into isolated runspace — {Path}", modulePath);
 
         ps.Commands.Clear();
         ps.AddCommand("Import-Module")
           .AddParameter("Name",   modulePath)
           .AddParameter("Force",  false)
-          .AddParameter("Global", false);
+          .AddParameter("Global", true);  // must be global-scope so subsequent pipeline commands see it
 
         await Task.Run(() => ps.Invoke(), ct);
 
         if (ps.HadErrors)
         {
             var errors = string.Join("; ", ps.Streams.Error.Select(e => e.ToString()));
-            _log.LogError("LobeManager: Import-Module failed for {Path}: {Errors}",
-                modulePath, errors);
-            return;
+            throw new InvalidOperationException(
+                $"LobeManager: Import-Module failed for '{modulePath}': {errors}");
         }
 
-        _importedModules[modulePath] = true;
+        // Do NOT add to _importedModules — that tracks modules baked into the ISS.
+        // Each isolated runspace is ephemeral; the next invocation will import again.
         _log.LogInformation("LobeManager: JIT import complete — {Path}", modulePath);
     }
 
@@ -279,7 +281,7 @@ public sealed class LobeManager : IDisposable
         _watcher = new FileSystemWatcher(LobeBaseDir, "*.lobe.json")
         {
             NotifyFilter          = NotifyFilters.FileName | NotifyFilters.LastWrite,
-            IncludeSubdirectories = false,
+            IncludeSubdirectories = true,
             EnableRaisingEvents   = true
         };
 
@@ -294,23 +296,48 @@ public sealed class LobeManager : IDisposable
     {
         _log.LogInformation(
             "LobeManager: descriptor change — {Path}. Re-registering protocols.", e.FullPath);
-        try
+
+        // Fire off the FSW callback thread immediately — do not block it.
+        // A 200 ms pause lets the writer finish flushing before we parse.
+        var path   = e.FullPath;
+        var config = _config;
+        _ = Task.Run(async () =>
         {
-            Thread.Sleep(200); // allow file write to complete
-            RegisterFromDescriptor(e.FullPath);
-        }
-        catch (Exception ex)
-        {
-            _log.LogError(ex, "LobeManager: failed to register from '{Path}'.", e.FullPath);
-        }
+            try
+            {
+                await Task.Delay(200);
+                RegisterFromDescriptor(path);
+
+                // Warn if the newly detected LOBE is listed as eager in lobes.config.json.
+                // The ISS is built once at startup and cannot be rebuilt at runtime without
+                // restarting the TDA. The LOBE's cmdlets will still run (imported JIT per
+                // runspace) but will not benefit from eager pre-loading.
+                if (config is not null)
+                {
+                    var fileName = Path.GetFileNameWithoutExtension(path);
+                    var isEager  = config.Eager.Any(p =>
+                        Path.GetFileNameWithoutExtension(p)
+                            .Equals(fileName, StringComparison.OrdinalIgnoreCase));
+                    if (isEager)
+                        _log.LogWarning(
+                            "LobeManager: LOBE '{Name}' is configured as eager but was detected " +
+                            "at runtime after startup. It will be treated as JIT this session. " +
+                            "Restart the TDA to apply eager loading.", fileName);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "LobeManager: failed to register from '{Path}'.", path);
+            }
+        });
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void ScanDescriptors()
     {
-        var files = Directory.GetFiles(LobeBaseDir, "*.lobe.json");
-        _log.LogInformation("LobeManager: scanning {N} descriptor(s) in '{Dir}'.",
+        var files = Directory.GetFiles(LobeBaseDir, "*.lobe.json", SearchOption.AllDirectories);
+        _log.LogInformation("LobeManager: scanning {N} descriptor(s) under '{Dir}'.",
             files.Length, LobeBaseDir);
         foreach (var f in files) RegisterFromDescriptor(f);
     }

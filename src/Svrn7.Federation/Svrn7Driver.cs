@@ -289,34 +289,44 @@ public sealed class Svrn7Driver : ISvrn7Driver
             var didDoc = BuildMinimalDidDocument(request.Did, request.PublicKeyHex, request.PrimaryDidMethodName);
             await _didRegistry.CreateAsync(didDoc, ct);
 
-            // VTC Credential
-            var jwtVc = await _vcService.IssueAsync(
-                _options.DidMethodName + ":foundation",
-                request.Did,
-                "Svrn7VtcCredential",
-                new { id = request.Did, societyName = request.SocietyName, methodName = request.PrimaryDidMethodName },
-                _foundationPrivateKey, ct: ct);
-            var vcRecord = new VcRecord
+            // VTC Credential — skipped when foundation private key is not configured (dev mode)
+            string? vtcVcId = null;
+            if (_foundationPrivateKey.Length > 0)
             {
-                VcId       = $"urn:uuid:{Guid.NewGuid()}",
-                IssuerDid  = _options.DidMethodName + ":foundation",
-                SubjectDid = request.Did,
-                Types      = new List<string> { "VerifiableCredential", "Svrn7VtcCredential" },
-                VcHash     = _crypto.Blake3Hex(Encoding.UTF8.GetBytes(jwtVc)),
-                JwtEncoded = jwtVc,
-                IssuedAt   = DateTimeOffset.UtcNow,
-                ExpiresAt  = DateTimeOffset.UtcNow.AddYears(5),
-            };
-            await _vcRegistry.StoreIfAbsentAsync(vcRecord, ct);
+                var jwtVc = await _vcService.IssueAsync(
+                    _options.DidMethodName + ":foundation",
+                    request.Did,
+                    "Svrn7VtcCredential",
+                    new { id = request.Did, societyName = request.SocietyName, methodName = request.PrimaryDidMethodName },
+                    _foundationPrivateKey, ct: ct);
+                var vcRecord = new VcRecord
+                {
+                    VcId       = $"urn:uuid:{Guid.NewGuid()}",
+                    IssuerDid  = _options.DidMethodName + ":foundation",
+                    SubjectDid = request.Did,
+                    Types      = new List<string> { "VerifiableCredential", "Svrn7VtcCredential" },
+                    VcHash     = _crypto.Blake3Hex(Encoding.UTF8.GetBytes(jwtVc)),
+                    JwtEncoded = jwtVc,
+                    IssuedAt   = DateTimeOffset.UtcNow,
+                    ExpiresAt  = DateTimeOffset.UtcNow.AddYears(5),
+                };
+                await _vcRegistry.StoreIfAbsentAsync(vcRecord, ct);
+                vtcVcId = vcRecord.VcId;
+                _vcIssued.Add(1);
+            }
+            else
+            {
+                _log.LogWarning("RegisterSocietyAsync: FoundationPrivateKey not configured — " +
+                    "VTC credential skipped for {Did} (development mode)", request.Did);
+            }
 
             await _merkle.AppendAsync("SocietyRegistration",
                 JsonSerializer.Serialize(new { did = request.Did, method = request.PrimaryDidMethodName }), ct);
 
             _socReg.Add(1);
             _didsPubl.Add(1);
-            _vcIssued.Add(1);
             _log.LogInformation("Society registered: {Did} ({Method})", request.Did, request.PrimaryDidMethodName);
-            return OperationResult.Ok(new { request.Did, VcId = vcRecord.VcId });
+            return OperationResult.Ok(new { request.Did, VcId = vtcVcId });
         }
         catch (Exception ex)
         {
@@ -329,6 +339,12 @@ public sealed class Svrn7Driver : ISvrn7Driver
     {
         ThrowIfDisposed();
         return _registry.GetSocietyAsync(did, ct);
+    }
+
+    public Task<IReadOnlyList<SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct = default)
+    {
+        ThrowIfDisposed();
+        return _registry.GetAllSocietiesAsync(ct);
     }
 
     public Task<bool> IsSocietyActiveAsync(string did, CancellationToken ct = default)
@@ -491,10 +507,9 @@ public sealed class Svrn7Driver : ISvrn7Driver
             throw new ArgumentException($"Batch size {list.Count} exceeds maximum {Svrn7Constants.MaxBatchSize}.");
         _batch.Record(list.Count);
 
-        // Validate all before committing any
-        foreach (var r in list)
-            await _validator.ValidateAsync(r, ct);
-
+        // Each TransferAsync validates internally. Pre-validating here would
+        // consume nonces in the nonce store and cause replay failures on the
+        // second validation pass inside each TransferAsync.
         var results = new List<OperationResult>();
         foreach (var r in list)
             results.Add(await TransferAsync(r, ct));
@@ -566,6 +581,56 @@ public sealed class Svrn7Driver : ISvrn7Driver
         _log.LogInformation("Federation supply updated to {Supply} grana (+{Delta})",
             newTotalSupplyGrana, delta);
         return OperationResult.Ok(new { newTotalSupplyGrana, delta });
+    }
+
+    public async Task<OperationResult> InitialiseFederationAsync(
+        string federationDid, string federationName, string publicKeyHex,
+        string primaryDidMethodName, CancellationToken ct = default)
+    {
+        ThrowIfDisposed();
+        var existing = await _federation.GetAsync(ct);
+        if (existing is not null)
+        {
+            _log.LogInformation("InitialiseFederationAsync: federation already initialised ({Did})", existing.Did);
+            return OperationResult.Ok(new { alreadyInitialised = true, federationDid = existing.Did });
+        }
+
+        var record = new FederationRecord
+        {
+            Did                    = federationDid,
+            PublicKeyHex           = publicKeyHex,
+            FederationName         = federationName,
+            PrimaryDidMethodName   = primaryDidMethodName,
+            TotalSupplyGrana       = Svrn7Constants.FederationInitialSupplyGrana,
+            EndowmentPerSocietyGrana = 0,
+        };
+        await _federation.InitialiseAsync(record, ct);
+
+        // Genesis wallet for the federation DID
+        await _wallets.CreateWalletAsync(new Wallet
+        {
+            Did          = federationDid,
+            BalanceGrana = Svrn7Constants.FederationInitialSupplyGrana,
+            IsRestricted = false,
+        }, ct);
+
+        await _merkle.AppendAsync("FederationInitialised",
+            JsonSerializer.Serialize(new
+            {
+                federationDid,
+                federationName,
+                primaryDidMethodName,
+                totalSupplyGrana = Svrn7Constants.FederationInitialSupplyGrana,
+            }), ct);
+
+        _log.LogInformation("Federation initialised: {Did} ({Name}), supply {Supply} grana",
+            federationDid, federationName, Svrn7Constants.FederationInitialSupplyGrana);
+        return OperationResult.Ok(new
+        {
+            alreadyInitialised   = false,
+            federationDid,
+            totalSupplyGrana     = Svrn7Constants.FederationInitialSupplyGrana,
+        });
     }
 
     // ── DID registry pass-through ──────────────────────────────────────────────

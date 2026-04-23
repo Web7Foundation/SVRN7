@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Net.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -24,59 +25,83 @@ public sealed class TdaOptions
 
     /// <summary>Society DID — e.g., "did:drn:alpha.svrn7.net".</summary>
     [Required]
-    public string SocietyDid { get; init; } = string.Empty;
+    public string SocietyDid { get; set; } = string.Empty;
 
     /// <summary>
     /// Society Ed25519 messaging private key (raw 32 bytes).
     /// Used by KestrelListenerService for UnpackAsync (DIDComm V2 Messaging boundary).
     /// </summary>
     [Required]
-    public byte[] SocietyMessagingPrivateKeyEd25519 { get; init; } = Array.Empty<byte>();
+    public byte[] SocietyMessagingPrivateKeyEd25519 { get; set; } = Array.Empty<byte>();
 
     // ── Network ───────────────────────────────────────────────────────────────
 
     /// <summary>Port for Kestrel HTTP/2 + mTLS inbound listener (default 8443).</summary>
-    public int ListenPort { get; init; } = 8443;
+    public int ListenPort { get; set; } = 8443;
 
     /// <summary>TLS certificate path (.pfx or .pem). Null = cleartext development mode.</summary>
-    public string? TlsCertificatePath { get; init; }
+    public string? TlsCertificatePath { get; set; }
 
     /// <summary>TLS certificate password (if .pfx). Null = no password.</summary>
-    public string? TlsCertificatePassword { get; init; }
+    public string? TlsCertificatePassword { get; set; }
 
     /// <summary>
     /// Require mutual TLS (mTLS) — peer TDA must present a valid certificate.
     /// Default true. Set false only in development/test environments.
     /// </summary>
-    public bool RequireMutualTls { get; init; } = true;
+    public bool RequireMutualTls { get; set; } = true;
 
     /// <summary>
     /// Accept self-signed peer certificates. Development mode only.
     /// Never true in production.
     /// </summary>
-    public bool AcceptSelfSignedPeerCertificates { get; init; } = false;
+    public bool AcceptSelfSignedPeerCertificates { get; set; } = false;
 
     // ── PowerShell Runspace Pool ──────────────────────────────────────────────
 
     /// <summary>
     /// Minimum runspaces in the pool (default 2 — Agent 1 coordinator + one task runspace).
     /// </summary>
-    public int MinRunspaces { get; init; } = 2;
+    public int MinRunspaces { get; set; } = 2;
 
     /// <summary>
     /// Maximum runspaces. 0 = ProcessorCount × 2 (default).
     /// </summary>
-    public int MaxRunspaces { get; init; } = 0;
+    public int MaxRunspaces { get; set; } = 0;
 
     // ── LOBE configuration ────────────────────────────────────────────────────
 
     /// <summary>Path to lobes.config.json. Default: "./lobes/lobes.config.json".</summary>
-    public string LobesConfigPath { get; init; } = "./lobes/lobes.config.json";
+    public string LobesConfigPath { get; set; } = "./lobes/lobes.config.json";
+
+    /// <summary>
+    /// Maximum age of an inbound message before it is dead-lettered without processing.
+    /// A stale transfer or invoice from a prior session should never execute.
+    /// Default: 3600 seconds (1 hour). Set to 0 to disable age checking.
+    /// </summary>
+    public int MaxMessageAgeSeconds { get; set; } = 3600;
+
+    /// <summary>
+    /// Per-LOBE cmdlet invocation timeout in seconds. 0 = no timeout (not recommended).
+    /// Default 30s. A runaway cmdlet that exceeds this is stopped and the message
+    /// is dead-lettered so the drain loop can continue.
+    /// </summary>
+    public int LobeInvocationTimeoutSeconds { get; set; } = 30;
+
+    // ── Rate limiting ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Maximum POST /didcomm requests per second accepted per remote IP.
+    /// Excess requests receive HTTP 429. Set to 0 to disable rate limiting.
+    /// Default: 100 requests/second — generous for TDA-to-TDA traffic,
+    /// protective against a misbehaving or compromised peer.
+    /// </summary>
+    public int RateLimitRequestsPerSecond { get; set; } = 100;
 
     // ── Data Storage databases ────────────────────────────────────────────────
 
     /// <summary>Path to svrn7-inbox.db (Long-Term Message Memory).</summary>
-    public string InboxDbPath { get; init; } = "svrn7-inbox.db";
+    public string InboxDbPath { get; set; } = "svrn7-inbox.db";
 }
 
 // ── SwitchboardHostedService ──────────────────────────────────────────────────
@@ -93,9 +118,12 @@ public sealed class TdaOptions
 /// </summary>
 public sealed class SwitchboardHostedService : BackgroundService
 {
-    private readonly DIDCommMessageSwitchboard _switchboard;
-    private readonly RunspacePoolManager       _pool;
+    private readonly DIDCommMessageSwitchboard         _switchboard;
+    private readonly RunspacePoolManager               _pool;
     private readonly ILogger<SwitchboardHostedService> _log;
+
+    // Delay before restarting the drain loop after an unexpected fault.
+    private const int DrainRestartDelayMs = 5_000;
 
     public SwitchboardHostedService(
         DIDCommMessageSwitchboard          switchboard,
@@ -109,11 +137,29 @@ public sealed class SwitchboardHostedService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Start the Runspace Pool before the Switchboard begins dispatching.
         _pool.Start();
         _log.LogInformation("SwitchboardHostedService: RunspacePool started.");
 
-        await _switchboard.RunAsync(stoppingToken);
+        // Startup recovery: reset stuck inbox messages and re-enqueue dead-lettered
+        // outbound messages from any prior unclean shutdown.
+        await _switchboard.StartupAsync(stoppingToken);
+
+        // Restart loop: if the drain loop faults unexpectedly, log and restart
+        // rather than silently stopping message processing.
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await _switchboard.RunAsync(stoppingToken);
+            }
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                _log.LogCritical(ex,
+                    "SwitchboardHostedService: drain loop faulted — restarting in {Delay}ms.",
+                    DrainRestartDelayMs);
+                await Task.Delay(DrainRestartDelayMs, stoppingToken);
+            }
+        }
     }
 }
 
@@ -184,7 +230,7 @@ public static class TdaServiceCollectionExtensions
         // IOutboxStore — dead-letter outbox for failed outbound messages.
         services.TryAddSingleton<Svrn7.Core.Interfaces.IOutboxStore>(sp =>
             new Svrn7.Society.LiteOutboxStore(
-                sp.GetRequiredService<Svrn7.Store.InboxLiteContext>()));
+                sp.GetRequiredService<Svrn7.Society.InboxLiteContext>()));
 
         // DIDCommMessageSwitchboard — sole inbox reader + outbound delivery.
         // LobeManager injected for dynamic protocol registry lookup.
@@ -202,6 +248,15 @@ public static class TdaServiceCollectionExtensions
 
         // 7. SwitchboardHostedService (drain loop)
         services.AddHostedService<SwitchboardHostedService>();
+
+        // Align the host shutdown timeout with the LOBE invocation timeout so that
+        // a running LOBE is given the full timeout period to complete (or be stopped
+        // by ps.Stop()) before the process is forcibly killed.
+        // Buffer = 10s to cover ps.Stop() wind-down + inbox MarkFailed write.
+        services.AddOptions<Microsoft.Extensions.Hosting.HostOptions>()
+            .Configure<Microsoft.Extensions.Options.IOptions<TdaOptions>>((hostOpts, tdaOpts) =>
+                hostOpts.ShutdownTimeout = TimeSpan.FromSeconds(
+                    tdaOpts.Value.LobeInvocationTimeoutSeconds + 10));
 
         // 8. KestrelListenerService (POST /didcomm, HTTP/2 + mTLS)
         // Derived from: "HTTP Listener/Sender (HTTPClient)" — DSA 0.24 Epoch 0.

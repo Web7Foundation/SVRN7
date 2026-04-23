@@ -71,7 +71,7 @@ public class TestFixture : IAsyncDisposable
     public async Task<(string Did, string PubKey)> RegisterCitizenAsync(string id = "alice")
     {
         var kp  = Crypto.GenerateSecp256k1KeyPair();
-        var did = $"did:drn:{id}";
+        var did = $"did:drn:svrn7.net/citizen/{id}";
         var r   = await Driver.RegisterCitizenAsync(new RegisterCitizenRequest
         {
             Did             = did,
@@ -233,7 +233,7 @@ public class CitizenRegistrationTests : IAsyncLifetime
     [Fact] public async Task RegisterCitizen_HappyPath_Succeeds()
     {
         var (did, _) = await _f.RegisterCitizenAsync("alice");
-        did.Should().Be("did:drn:alice");
+        did.Should().Be("did:drn:svrn7.net/citizen/alice");
     }
 
     [Fact] public async Task RegisterCitizen_WalletCreated()
@@ -299,7 +299,7 @@ public class SocietyRegistrationTests : IAsyncLifetime
     private async Task<string> RegisterSocietyAsync(string id = "s1", string method = "testsoc")
     {
         var kp = _f.Crypto.GenerateSecp256k1KeyPair();
-        var did = $"did:{method}:{id}";
+        var did = $"did:drn:{method}";
         var r = await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
         {
             Did = did, PublicKeyHex = kp.PublicKeyHex, PrivateKeyBytes = kp.PrivateKeyBytes,
@@ -336,7 +336,7 @@ public class SocietyRegistrationTests : IAsyncLifetime
         var kp = _f.Crypto.GenerateSecp256k1KeyPair();
         var r  = await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
         {
-            Did = "did:uniquesoc:s5", PublicKeyHex = kp.PublicKeyHex,
+            Did = "did:drn:uniquesoc", PublicKeyHex = kp.PublicKeyHex,
             PrivateKeyBytes = kp.PrivateKeyBytes, SocietyName = "Second Society",
             PrimaryDidMethodName = "uniquesoc",
             DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
@@ -350,7 +350,7 @@ public class SocietyRegistrationTests : IAsyncLifetime
         var kp = _f.Crypto.GenerateSecp256k1KeyPair();
         var r  = await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
         {
-            Did = "did:Bad-Method:s6", PublicKeyHex = kp.PublicKeyHex,
+            Did = "did:drn:Bad-Method", PublicKeyHex = kp.PublicKeyHex,
             PrivateKeyBytes = kp.PrivateKeyBytes, SocietyName = "Bad Method Society",
             PrimaryDidMethodName = "Bad-Method",
             DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
@@ -378,7 +378,7 @@ public class TransferTests : IAsyncLifetime
             PrivateKeyBytes = payerKp.PrivateKeyBytes
         });
         var socKp = _f.Crypto.GenerateSecp256k1KeyPair();
-        var socDid = "did:testsoc:society-e0";
+        var socDid = "did:drn:testsoc";
         await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
         {
             Did = socDid, PublicKeyHex = socKp.PublicKeyHex,
@@ -387,7 +387,7 @@ public class TransferTests : IAsyncLifetime
             DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
         });
 
-        var amount = 100 * Svrn7Constants.GranaPerSvrn7;
+        var amount = 500L;
         var req    = _f.BuildSignedTransfer(payerDid, payerKp.PrivateKeyBytes, socDid, amount);
         var result = await _f.Driver.TransferAsync(req);
 
@@ -450,10 +450,11 @@ public class TransferTests : IAsyncLifetime
         });
 
         var overAmount = 999_999_999_999_999L; // far exceeds endowment
+        // Sign with payerDid2 as both payer and payee so the signature covers the
+        // actual request fields (epoch=1 allows self-transfer; signature matches).
         var req = _f.BuildSignedTransfer(
             payerDid2, payerKp.PrivateKeyBytes,
-            "did:drn:payee-rich", overAmount);
-        req = req with { PayeeDid = payerDid2 }; // same party — workaround epoch check
+            payerDid2, overAmount);
 
         await Assert.ThrowsAsync<InsufficientBalanceException>(() => validator.ValidateAsync(req));
     }
@@ -500,6 +501,15 @@ public class TransferTests : IAsyncLifetime
 
     [Fact] public async Task Transfer_StaleTimestamp_ThrowsException()
     {
+        // Register payer and payee so Step 2 (epoch/citizen check) passes
+        // and Step 4 (freshness) fires before Step 6 (signature).
+        var kp1 = _f.Crypto.GenerateSecp256k1KeyPair();
+        var kp2 = _f.Crypto.GenerateSecp256k1KeyPair();
+        await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
+            { Did = "did:drn:stale-x", PublicKeyHex = kp1.PublicKeyHex, PrivateKeyBytes = kp1.PrivateKeyBytes });
+        await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
+            { Did = "did:drn:stale-y", PublicKeyHex = kp2.PublicKeyHex, PrivateKeyBytes = kp2.PrivateKeyBytes });
+
         var validator = new TransferValidator(
             new LiteWalletStore(_f.Context),
             new LiteIdentityRegistry(_f.Context),
@@ -511,7 +521,7 @@ public class TransferTests : IAsyncLifetime
         // Stale timestamp — step 4 fires before step 6 (signature)
         var req = new TransferRequest
         {
-            PayerDid = "did:drn:x", PayeeDid = "did:drn:y",
+            PayerDid = "did:drn:stale-x", PayeeDid = "did:drn:stale-y",
             AmountGrana = 1,
             Nonce       = Guid.NewGuid().ToString("N"),
             Timestamp   = DateTimeOffset.UtcNow.AddHours(-2),
@@ -540,7 +550,7 @@ public class TransferTests : IAsyncLifetime
             DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
         });
 
-        var amount = 10 * Svrn7Constants.GranaPerSvrn7;
+        var amount = Svrn7Constants.CitizenEndowmentGrana / 3;  // 333 grana; two transfers = 666 ≤ 1,000 endowment
         var requests = new[]
         {
             _f.BuildSignedTransfer(payerDid, payerKp.PrivateKeyBytes, payeeDid, amount),
@@ -748,7 +758,7 @@ public class DidMethodNameTests : IAsyncLifetime
     private async Task<string> RegisterSocietyAsync(string method)
     {
         var kp = _f.Crypto.GenerateSecp256k1KeyPair();
-        var did = $"did:{method}:soc";
+        var did = $"did:drn:{method}";
         await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
         {
             Did = did, PublicKeyHex = kp.PublicKeyHex, PrivateKeyBytes = kp.PrivateKeyBytes,
@@ -787,9 +797,9 @@ public class DidMethodNameTests : IAsyncLifetime
     {
         await RegisterSocietyAsync("primarylock");
         var kp = _f.Crypto.GenerateSecp256k1KeyPair();
-        var society = await _f.Driver.GetSocietyAsync("did:primarylock:soc");
+        var society = await _f.Driver.GetSocietyAsync("did:drn:primarylock");
         await Assert.ThrowsAsync<PrimaryDidMethodException>(
-            () => _f.Driver.DeregisterDidMethodAsync("did:primarylock:soc", "primarylock"));
+            () => _f.Driver.DeregisterDidMethodAsync("did:drn:primarylock", "primarylock"));
     }
 
     [Fact] public async Task GetAllDidMethods_ReturnsRegisteredMethods()
@@ -854,7 +864,7 @@ public class BalanceTests : IAsyncLifetime
         var payerKp  = _f.Crypto.GenerateSecp256k1KeyPair();
         var payerDid = "did:drn:bal-payer";
         var socKp    = _f.Crypto.GenerateSecp256k1KeyPair();
-        var socDid   = "did:balsoc:society";
+        var socDid   = "did:drn:balsoc";
         await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
             { Did = payerDid, PublicKeyHex = payerKp.PublicKeyHex, PrivateKeyBytes = payerKp.PrivateKeyBytes });
         await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
@@ -862,13 +872,14 @@ public class BalanceTests : IAsyncLifetime
               SocietyName = "Bal Society", PrimaryDidMethodName = "balsoc",
               DrawAmountGrana = 0, OverdraftCeilingGrana = 0 });
 
-        var amount = 1 * Svrn7Constants.GranaPerSvrn7;
+        var amount = 100L;
         var req    = _f.BuildSignedTransfer(payerDid, payerKp.PrivateKeyBytes, socDid, amount);
         await _f.Driver.TransferAsync(req);
 
         var balance = await _f.Driver.GetBalanceGranaAsync(payerDid);
         balance.Should().Be(Svrn7Constants.CitizenEndowmentGrana - amount);
     }
+}
 
 // ── Test helper: in-memory nonce store (replaces LiteDB for unit tests) ───────
 internal sealed class InMemoryTransferNonceStore : ITransferNonceStore
@@ -886,6 +897,4 @@ internal sealed class InMemoryTransferNonceStore : ITransferNonceStore
                 _seen.TryRemove(k, out _);
         return Task.FromResult(!_seen.TryAdd(nonce, DateTimeOffset.UtcNow));
     }
-}
-
 }

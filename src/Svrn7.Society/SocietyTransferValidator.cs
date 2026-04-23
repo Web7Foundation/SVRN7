@@ -58,6 +58,7 @@ public sealed class SocietyTransferValidator : ITransferValidator
         _crypto        = crypto;
         _societyDid    = societyDid;
         _federationDid = federationDid;
+        _nonceStore    = nonceStore;
         _currentEpoch  = currentEpoch;
     }
 

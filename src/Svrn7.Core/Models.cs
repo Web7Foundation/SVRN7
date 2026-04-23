@@ -24,9 +24,9 @@ public enum DidMethodStatus{ Active, Dormant }   // Available = not in registry
 /// </summary>
 public record NonceRecord
 {
-    public required string        Nonce      { get; init; }
-    public required DateTimeOffset SeenAt    { get; init; }
-    public required DateTimeOffset ExpiresAt { get; init; }
+    public required string        Nonce      { get; set; }
+    public required DateTimeOffset SeenAt    { get; set; }
+    public required DateTimeOffset ExpiresAt { get; set; }
 }
 
 
@@ -43,11 +43,13 @@ public enum InboxMessageStatus { Pending, Processing, Processed, Failed }
 /// </summary>
 public record InboxMessage
 {
-    public required string             Id            { get; init; }  // TDA resource DID URL
+    public required string             Id            { get; set; }  // TDA resource DID URL
                                                                       // e.g. did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678
-    public required string             MessageType   { get; init; }  // Protocol URI
-    public required string             PackedPayload { get; init; }  // Raw DIDComm packed string
-    public required DateTimeOffset     ReceivedAt    { get; init; }
+    public required string             MessageType   { get; set; }  // Protocol URI
+    public required string             PackedPayload { get; set; }  // Unpacked DIDComm body (plaintext)
+    public string?                     FromDid       { get; set; }  // Sender DID from DIDComm envelope
+    public string?                     WireId        { get; set; }  // DIDComm wire 'id' from the sender's envelope (null for encrypted/opaque messages)
+    public required DateTimeOffset     ReceivedAt    { get; set; }
     public InboxMessageStatus          Status        { get; set; } = InboxMessageStatus.Pending;
     public DateTimeOffset?             ProcessedAt   { get; set; }
     public string?                     LastError     { get; set; }
@@ -62,17 +64,17 @@ public record InboxMessage
 /// </summary>
 public record ProcessedOrderRecord
 {
-    public required string        TransferId    { get; init; }  // Blake3 hex — unique key
-    public required string        PackedReceipt { get; init; }  // Packed DIDComm receipt
-    public required DateTimeOffset ProcessedAt  { get; init; }
+    public required string        TransferId    { get; set; }  // Blake3 hex — unique key
+    public required string        PackedReceipt { get; set; }  // Packed DIDComm receipt
+    public required DateTimeOffset ProcessedAt  { get; set; }
 }
 
 public record Wallet
 {
-    public required string Did           { get; init; }
+    public required string Did           { get; set; }
     public long   BalanceGrana           { get; set; }
     public bool   IsRestricted           { get; set; } = true;
-    public DateTimeOffset CreatedAt      { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset CreatedAt      { get; set; } = DateTimeOffset.UtcNow;
 }
 
 /// <summary>
@@ -81,12 +83,12 @@ public record Wallet
 /// </summary>
 public record Utxo
 {
-    public required string Id         { get; init; }  // Blake3 of creation context
-    public required string OwnerDid   { get; init; }
-    public required long   AmountGrana{ get; init; }
+    public required string Id         { get; set; }  // Blake3 of creation context
+    public required string OwnerDid   { get; set; }
+    public required long   AmountGrana{ get; set; }
     public bool            IsSpent    { get; set; }
     public string?         SpentByTxId{ get; set; }
-    public DateTimeOffset  CreatedAt  { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset  CreatedAt  { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? SpentAt    { get; set; }
 }
 
@@ -101,11 +103,11 @@ public record BalanceResult(long Grana, decimal Svrn7);
 /// </summary>
 public record CitizenRecord
 {
-    public required string Did                      { get; init; }  // primary DID
-    public required string PublicKeyHex             { get; init; }
+    public required string Did                      { get; set; }  // primary DID
+    public required string PublicKeyHex             { get; set; }
     public required string EncryptedPrivateKeyBase64{ get; set;  }
     public bool            IsActive                 { get; set; } = true;
-    public DateTimeOffset  RegisteredAt             { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset  RegisteredAt             { get; set; } = DateTimeOffset.UtcNow;
 }
 
 /// <summary>
@@ -114,11 +116,11 @@ public record CitizenRecord
 /// </summary>
 public record CitizenDidRecord
 {
-    public required string CitizenPrimaryDid { get; init; }  // FK → CitizenRecord.Did
-    public required string Did               { get; init; }  // the additional DID
-    public required string MethodName        { get; init; }  // e.g. "socalpha", "socalphahealth" — must match [a-z0-9]+
-    public bool            IsPrimary         { get; init; }
-    public DateTimeOffset  IssuedAt          { get; init; } = DateTimeOffset.UtcNow;
+    public required string CitizenPrimaryDid { get; set; }  // FK → CitizenRecord.Did
+    public required string Did               { get; set; }  // the additional DID
+    public required string MethodName        { get; set; }  // e.g. "socalpha", "socalphahealth" — must match [a-z0-9]+
+    public bool            IsPrimary         { get; set; }
+    public DateTimeOffset  IssuedAt          { get; set; } = DateTimeOffset.UtcNow;
 }
 
 /// <summary>
@@ -127,12 +129,12 @@ public record CitizenDidRecord
 /// </summary>
 public record SocietyRecord
 {
-    public required string Did                 { get; init; }
-    public required string PublicKeyHex        { get; init; }
-    public required string SocietyName         { get; init; }
-    public required string PrimaryDidMethodName{ get; init; }  // immutable
+    public required string Did                 { get; set; }
+    public required string PublicKeyHex        { get; set; }
+    public required string SocietyName         { get; set; }
+    public required string PrimaryDidMethodName{ get; set; }  // immutable
     public bool            IsActive            { get; set; } = true;
-    public DateTimeOffset  RegisteredAt        { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset  RegisteredAt        { get; set; } = DateTimeOffset.UtcNow;
 }
 
 /// <summary>
@@ -141,11 +143,12 @@ public record SocietyRecord
 /// </summary>
 public record SocietyDidMethodRecord
 {
-    public required string         SocietyDid     { get; init; }
-    public required string         MethodName     { get; init; }
-    public bool                    IsPrimary      { get; init; }
+    public string                  Id             { get; set; } = Guid.NewGuid().ToString("N");
+    public required string         SocietyDid     { get; set; }
+    public required string         MethodName     { get; set; }
+    public bool                    IsPrimary      { get; set; }
     public DidMethodStatus         Status         { get; set;  } = DidMethodStatus.Active;
-    public DateTimeOffset          RegisteredAt   { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset          RegisteredAt   { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset?         DeregisteredAt { get; set;  }
     public DateTimeOffset?         DormantUntil   { get; set;  }
 }
@@ -156,14 +159,14 @@ public record SocietyDidMethodRecord
 /// </summary>
 public record FederationRecord
 {
-    public required string Did                       { get; init; }
-    public required string PublicKeyHex              { get; init; }
-    public required string FederationName            { get; init; }
-    public required string PrimaryDidMethodName      { get; init; }
+    public required string Did                       { get; set; }
+    public required string PublicKeyHex              { get; set; }
+    public required string FederationName            { get; set; }
+    public required string PrimaryDidMethodName      { get; set; }
     public long            TotalSupplyGrana          { get; set;  }
-    public long            EndowmentPerSocietyGrana  { get; init; }
+    public long            EndowmentPerSocietyGrana  { get; set; }
     public bool            IsActive                  { get; set; } = true;
-    public DateTimeOffset  CreatedAt                 { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset  CreatedAt                 { get; set; } = DateTimeOffset.UtcNow;
 }
 
 /// <summary>
@@ -171,9 +174,9 @@ public record FederationRecord
 /// </summary>
 public record SocietyMembershipRecord
 {
-    public required string CitizenPrimaryDid { get; init; }
-    public required string SocietyDid       { get; init; }
-    public DateTimeOffset  JoinedAt         { get; init; } = DateTimeOffset.UtcNow;
+    public required string CitizenPrimaryDid { get; set; }
+    public required string SocietyDid       { get; set; }
+    public DateTimeOffset  JoinedAt         { get; set; } = DateTimeOffset.UtcNow;
 }
 
 /// <summary>
@@ -183,9 +186,9 @@ public record SocietyMembershipRecord
 /// </summary>
 public record SocietyOverdraftRecord
 {
-    public required string         SocietyDid            { get; init; }
-    public required long           DrawAmountGrana        { get; init; }   // fixed per draw
-    public required long           OverdraftCeilingGrana  { get; init; }   // max accumulated
+    public required string         SocietyDid            { get; set; }
+    public required long           DrawAmountGrana        { get; set; }   // fixed per draw
+    public required long           OverdraftCeilingGrana  { get; set; }   // max accumulated
     public long                    TotalOverdrawnGrana    { get; set;  }   // resets on top-up
     public long                    LifetimeDrawsGrana     { get; set;  }   // never resets
     public int                     DrawCount              { get; set;  }   // since last top-up
@@ -202,12 +205,13 @@ public record SocietyOverdraftRecord
 /// </summary>
 public record DidDocument
 {
-    public required string        Did          { get; init; }
-    public required string        MethodName   { get; init; }
+    public string                 Id           { get; set; } = Guid.NewGuid().ToString("N");
+    public required string        Did          { get; set; }
+    public required string        MethodName   { get; set; }
     public int                    Version      { get; set;  }
     public DidStatus              Status       { get; set;  } = DidStatus.Active;
     public required string        DocumentJson { get; set;  }
-    public DateTimeOffset         CreatedAt    { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset         CreatedAt    { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset         UpdatedAt    { get; set;  } = DateTimeOffset.UtcNow;
     public DateTimeOffset?        DeactivatedAt{ get; set;  }
 }
@@ -215,11 +219,11 @@ public record DidDocument
 /// <summary>Result of a W3C DID Document Resolution.</summary>
 public record DidResolutionResult
 {
-    public required DidDocument?  Document         { get; init; }
-    public required string        Did              { get; init; }
-    public required bool          Found            { get; init; }
-    public string?                ErrorCode        { get; init; }  // W3C error code
-    public DateTimeOffset         ResolvedAt       { get; init; } = DateTimeOffset.UtcNow;
+    public required DidDocument?  Document         { get; set; }
+    public required string        Did              { get; set; }
+    public required bool          Found            { get; set; }
+    public string?                ErrorCode        { get; set; }  // W3C error code
+    public DateTimeOffset         ResolvedAt       { get; set; } = DateTimeOffset.UtcNow;
 }
 
 // ── Verifiable Credential models ───────────────────────────────────────────────
@@ -231,15 +235,15 @@ public record DidResolutionResult
 /// </summary>
 public record VcRecord
 {
-    public required string        VcId         { get; init; }  // jti claim
-    public required string        IssuerDid    { get; init; }
-    public required string        SubjectDid   { get; init; }
-    public required List<string>  Types        { get; init; }  // List<T> for LiteDB
-    public required string        VcHash       { get; init; }  // Blake3 hex
-    public required string        JwtEncoded   { get; init; }
+    public required string        VcId         { get; set; }  // jti claim
+    public required string        IssuerDid    { get; set; }
+    public required string        SubjectDid   { get; set; }
+    public required List<string>  Types        { get; set; }  // List<T> for LiteDB
+    public required string        VcHash       { get; set; }  // Blake3 hex
+    public required string        JwtEncoded   { get; set; }
     public VcStatus               Status       { get; set;  } = VcStatus.Active;
-    public DateTimeOffset         IssuedAt     { get; init; }
-    public DateTimeOffset?        ExpiresAt    { get; init; }
+    public DateTimeOffset         IssuedAt     { get; set; }
+    public DateTimeOffset?        ExpiresAt    { get; set; }
     public DateTimeOffset?        RevokedAt    { get; set;  }
     public string?                RevokedReason{ get; set;  }
 }
@@ -247,20 +251,20 @@ public record VcRecord
 /// <summary>An immutable revocation event record.</summary>
 public record RevocationEvent
 {
-    public required string        VcId        { get; init; }
-    public required string        RevokedBy   { get; init; }
-    public required string        Reason      { get; init; }
-    public DateTimeOffset         RevokedAt   { get; init; } = DateTimeOffset.UtcNow;
+    public required string        VcId        { get; set; }
+    public required string        RevokedBy   { get; set; }
+    public required string        Reason      { get; set; }
+    public DateTimeOffset         RevokedAt   { get; set; } = DateTimeOffset.UtcNow;
 }
 
 /// <summary>Result of a VC Document Resolution.</summary>
 public record VcResolutionResult
 {
-    public required VcRecord?     Record       { get; init; }
-    public required string        VcId         { get; init; }
-    public required bool          Found        { get; init; }
-    public VcStatus?              CurrentStatus{ get; init; }
-    public DateTimeOffset         ResolvedAt   { get; init; } = DateTimeOffset.UtcNow;
+    public required VcRecord?     Record       { get; set; }
+    public required string        VcId         { get; set; }
+    public required bool          Found        { get; set; }
+    public VcStatus?              CurrentStatus{ get; set; }
+    public DateTimeOffset         ResolvedAt   { get; set; } = DateTimeOffset.UtcNow;
 }
 
 // ── Ledger models ──────────────────────────────────────────────────────────────
@@ -271,20 +275,20 @@ public record VcResolutionResult
 /// </summary>
 public record LogEntry
 {
-    public required string        TxId        { get; init; }
-    public required string        EntryType   { get; init; }
-    public required string        PayloadJson { get; init; }
-    public required string        MerkleHash  { get; init; }  // SHA-256 leaf hash
-    public DateTimeOffset         CreatedAt   { get; init; } = DateTimeOffset.UtcNow;
+    public required string        TxId        { get; set; }
+    public required string        EntryType   { get; set; }
+    public required string        PayloadJson { get; set; }
+    public required string        MerkleHash  { get; set; }  // SHA-256 leaf hash
+    public DateTimeOffset         CreatedAt   { get; set; } = DateTimeOffset.UtcNow;
 }
 
 /// <summary>A signed Merkle tree head snapshot.</summary>
 public record TreeHead
 {
-    public required string        RootHash    { get; init; }
-    public required long          TreeSize    { get; init; }
-    public required string        Signature   { get; init; }  // secp256k1 CESR
-    public DateTimeOffset         SignedAt    { get; init; } = DateTimeOffset.UtcNow;
+    public required string        RootHash    { get; set; }
+    public required long          TreeSize    { get; set; }
+    public required string        Signature   { get; set; }  // secp256k1 CESR
+    public DateTimeOffset         SignedAt    { get; set; } = DateTimeOffset.UtcNow;
 }
 
 // ── Transfer models ────────────────────────────────────────────────────────────
@@ -292,13 +296,13 @@ public record TreeHead
 /// <summary>A request to transfer SVRN7 between participants.</summary>
 public record TransferRequest
 {
-    public required string        PayerDid    { get; init; }
-    public required string        PayeeDid    { get; init; }
-    public required long          AmountGrana { get; init; }
-    public required string        Nonce       { get; init; }
-    public required DateTimeOffset Timestamp  { get; init; }
-    public required string        Signature   { get; init; }  // secp256k1 CESR over canonical JSON
-    public string?                Memo        { get; init; }
+    public required string        PayerDid    { get; set; }
+    public required string        PayeeDid    { get; set; }
+    public required long          AmountGrana { get; set; }
+    public required string        Nonce       { get; set; }
+    public required DateTimeOffset Timestamp  { get; set; }
+    public required string        Signature   { get; set; }  // secp256k1 CESR over canonical JSON
+    public string?                Memo        { get; set; }
 }
 
 /// <summary>
@@ -308,16 +312,16 @@ public record TransferRequest
 /// </summary>
 public record TransferOrderCredential
 {
-    public required string        TransferId        { get; init; }  // Blake3 of canonical transfer JSON
-    public required string        PayerDid          { get; init; }
-    public required string        PayeeDid          { get; init; }
-    public required long          AmountGrana       { get; init; }
-    public required string        OriginSocietyDid  { get; init; }
-    public required string        TargetSocietyDid  { get; init; }
-    public required int           Epoch             { get; init; }
-    public required string        Nonce             { get; init; }
-    public required DateTimeOffset Timestamp        { get; init; }
-    public required DateTimeOffset ExpiresAt        { get; init; }
+    public required string        TransferId        { get; set; }  // Blake3 of canonical transfer JSON
+    public required string        PayerDid          { get; set; }
+    public required string        PayeeDid          { get; set; }
+    public required long          AmountGrana       { get; set; }
+    public required string        OriginSocietyDid  { get; set; }
+    public required string        TargetSocietyDid  { get; set; }
+    public required int           Epoch             { get; set; }
+    public required string        Nonce             { get; set; }
+    public required DateTimeOffset Timestamp        { get; set; }
+    public required DateTimeOffset ExpiresAt        { get; set; }
 }
 
 /// <summary>
@@ -326,39 +330,39 @@ public record TransferOrderCredential
 /// </summary>
 public record TransferReceiptCredential
 {
-    public required string        TransferId        { get; init; }
-    public required string        PayeeDid          { get; init; }
-    public required long          CreditedGrana     { get; init; }
-    public required string        TargetSocietyDid  { get; init; }
-    public required DateTimeOffset CreditedAt       { get; init; }
+    public required string        TransferId        { get; set; }
+    public required string        PayeeDid          { get; set; }
+    public required long          CreditedGrana     { get; set; }
+    public required string        TargetSocietyDid  { get; set; }
+    public required DateTimeOffset CreditedAt       { get; set; }
 }
 
 // ── Overdraft / endowment DIDComm message payloads ────────────────────────────
 
 public record OverdraftDrawRequest
 {
-    public required string        SocietyDid        { get; init; }
-    public required long          DrawAmountGrana   { get; init; }
-    public required int           DrawCount         { get; init; }
-    public required string        Reason            { get; init; }  // e.g. "CitizenRegistration"
-    public required DateTimeOffset RequestedAt      { get; init; }
+    public required string        SocietyDid        { get; set; }
+    public required long          DrawAmountGrana   { get; set; }
+    public required int           DrawCount         { get; set; }
+    public required string        Reason            { get; set; }  // e.g. "CitizenRegistration"
+    public required DateTimeOffset RequestedAt      { get; set; }
 }
 
 public record OverdraftDrawReceipt
 {
-    public required string        SocietyDid        { get; init; }
-    public required long          DrawAmountGrana   { get; init; }
-    public required string        TransferId        { get; init; }  // Merkle log TxId
-    public required DateTimeOffset ApprovedAt       { get; init; }
+    public required string        SocietyDid        { get; set; }
+    public required long          DrawAmountGrana   { get; set; }
+    public required string        TransferId        { get; set; }  // Merkle log TxId
+    public required DateTimeOffset ApprovedAt       { get; set; }
 }
 
 // ── Registration requests ─────────────────────────────────────────────────────
 
 public record RegisterCitizenRequest
 {
-    public required string        Did               { get; init; }
-    public required string        PublicKeyHex      { get; init; }
-    public required byte[]        PrivateKeyBytes   { get; init; }
+    public required string        Did               { get; set; }
+    public required string        PublicKeyHex      { get; set; }
+    public required byte[]        PrivateKeyBytes   { get; set; }
 }
 
 /// <summary>
@@ -367,31 +371,31 @@ public record RegisterCitizenRequest
 /// </summary>
 public record RegisterCitizenInSocietyRequest
 {
-    public required string        Did               { get; init; }
-    public required string        PublicKeyHex      { get; init; }
-    public required byte[]        PrivateKeyBytes   { get; init; }
-    public required string        SocietyDid        { get; init; }
-    public string?                PreferredMethodName{ get; init; }  // null = Society primary
+    public required string        Did               { get; set; }
+    public required string        PublicKeyHex      { get; set; }
+    public required byte[]        PrivateKeyBytes   { get; set; }
+    public required string        SocietyDid        { get; set; }
+    public string?                PreferredMethodName{ get; set; }  // null = Society primary
 }
 
 public record RegisterSocietyRequest
 {
-    public required string        Did               { get; init; }
-    public required string        PublicKeyHex      { get; init; }
-    public required byte[]        PrivateKeyBytes   { get; init; }
-    public required string        SocietyName       { get; init; }
-    public required string        PrimaryDidMethodName { get; init; }
-    public required long          DrawAmountGrana   { get; init; }
-    public required long          OverdraftCeilingGrana { get; init; }
+    public required string        Did               { get; set; }
+    public required string        PublicKeyHex      { get; set; }
+    public required byte[]        PrivateKeyBytes   { get; set; }
+    public required string        SocietyName       { get; set; }
+    public required string        PrimaryDidMethodName { get; set; }
+    public required long          DrawAmountGrana   { get; set; }
+    public required long          OverdraftCeilingGrana { get; set; }
 }
 
 // ── Key pair ──────────────────────────────────────────────────────────────────
 
 public record Svrn7KeyPair
 {
-    public required string        PublicKeyHex      { get; init; }
-    public required byte[]        PrivateKeyBytes   { get; init; }
-    public required KeyAlgorithm  Algorithm         { get; init; }
+    public required string        PublicKeyHex      { get; set; }
+    public required byte[]        PrivateKeyBytes   { get; set; }
+    public required KeyAlgorithm  Algorithm         { get; set; }
 
     public void ZeroPrivateKey() => Array.Clear(PrivateKeyBytes, 0, PrivateKeyBytes.Length);
 }
@@ -400,9 +404,9 @@ public record Svrn7KeyPair
 
 public record OperationResult
 {
-    public bool    Success      { get; init; }
-    public string? ErrorMessage { get; init; }
-    public object? Payload      { get; init; }
+    public bool    Success      { get; set; }
+    public string? ErrorMessage { get; set; }
+    public object? Payload      { get; set; }
 
     public static OperationResult Ok(object? payload = null)
         => new() { Success = true, Payload = payload };
@@ -419,12 +423,12 @@ public record OperationResult
 /// </summary>
 public record OutboxRecord
 {
-    public required string Id            { get; init; }  // TDA resource DID URL
-    public required string PeerEndpoint  { get; init; }  // target TDA endpoint
-    public required string PackedMessage { get; init; }  // packed DIDComm payload
-    public required string MessageType   { get; init; }  // DIDComm @type URI
-    public DateTimeOffset  FailedAt      { get; init; } = DateTimeOffset.UtcNow;
-    public int             AttemptCount  { get; init; }
+    public required string Id            { get; set; }  // TDA resource DID URL
+    public required string PeerEndpoint  { get; set; }  // target TDA endpoint
+    public required string PackedMessage { get; set; }  // packed DIDComm payload
+    public required string MessageType   { get; set; }  // DIDComm @type URI
+    public DateTimeOffset  FailedAt      { get; set; } = DateTimeOffset.UtcNow;
+    public int             AttemptCount  { get; set; }
     public string?         LastError     { get; set; }
     public bool            IsRetried     { get; set; } = false;
 }

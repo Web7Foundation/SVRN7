@@ -7,6 +7,7 @@ using Svrn7.Core;
 using Svrn7.Core.Interfaces;
 using Svrn7.Core.Models;
 using Svrn7.DIDComm;
+using Svrn7.Federation;
 
 namespace Svrn7.Society;
 
@@ -73,7 +74,7 @@ public sealed class DIDCommTransferHandler : IDIDCommTransferHandler
             .Build();
 
         return await _didComm.PackEncryptedAsync(receipt,
-            _opts.SocietyMessagingPrivateKeyEd25519,
+            _opts.FederationMessagingPublicKeyEd25519,
             _opts.SocietyMessagingPrivateKeyEd25519,
             DIDCommPackMode.SignThenEncrypt, ct);
     }
@@ -138,7 +139,7 @@ public sealed class DIDCommTransferHandler : IDIDCommTransferHandler
             .Build();
 
         var packed = await _didComm.PackEncryptedAsync(receiptMsg,
-            _opts.SocietyMessagingPrivateKeyEd25519,
+            _opts.FederationMessagingPublicKeyEd25519,
             _opts.SocietyMessagingPrivateKeyEd25519,
             DIDCommPackMode.SignThenEncrypt, ct);
 
@@ -179,7 +180,7 @@ public sealed class DIDCommTransferHandler : IDIDCommTransferHandler
 /// Reliability:
 ///   • On startup, ResetStuckMessagesAsync recovers any messages left in
 ///     Processing state by an unclean prior shutdown.
-///   • Failed messages are retried up to MaxAttempts (default 3) times before
+///   • Failed messages are retried up to MaxAttempts (Svrn7Constants.InboxMaxAttempts) times before
 ///     being moved to the Failed dead-letter state for operator inspection.
 ///   • The inbox database (svrn7-inbox.db) is separate from svrn7.db so inbox
 ///     I/O never contends with wallet or identity operations.
@@ -192,7 +193,7 @@ public sealed class DIDCommMessageProcessorService : BackgroundService
     private readonly ILogger<DIDCommMessageProcessorService> _log;
 
     private const int BatchSize   = 20;
-    private const int MaxAttempts = 3;
+    private const int MaxAttempts = Svrn7.Core.Svrn7Constants.InboxMaxAttempts;
 
     public DIDCommMessageProcessorService(
         IServiceScopeFactory scopeFactory,
@@ -211,8 +212,8 @@ public sealed class DIDCommMessageProcessorService : BackgroundService
     /// Returns immediately; processing happens asynchronously on the next sweep.
     /// </summary>
     public Task EnqueueAsync(string messageType, string packedMessage,
-        CancellationToken ct = default)
-        => _inbox.EnqueueAsync(messageType, packedMessage, ct);
+        string? fromDid = null, string? wireId = null, CancellationToken ct = default)
+        => _inbox.EnqueueAsync(messageType, packedMessage, fromDid, wireId, ct);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -318,5 +319,4 @@ public sealed class DIDCommMessageProcessorService : BackgroundService
                 ct);
         }
     }
-}
 }

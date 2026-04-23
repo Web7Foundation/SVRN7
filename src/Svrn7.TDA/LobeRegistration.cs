@@ -152,7 +152,7 @@ public sealed class LobeProtocol
     /// <summary>
     /// PowerShell cmdlet name to invoke for this @type URI.
     /// The Switchboard opens a runspace from the pool and runs:
-    ///   Get-TdaMessage -Did $messageDid | {Entrypoint} | Send-TdaMessage
+    ///   Get-Web7Message -Did $messageDid | {Entrypoint} | Send-Web7Message
     /// </summary>
     [JsonPropertyName("entrypoint")]
     public string Entrypoint   { get; init; } = string.Empty;
@@ -174,7 +174,7 @@ public sealed class LobeProtocol
 /// </summary>
 public sealed class LobeCmdlet
 {
-    /// <summary>PowerShell cmdlet name (e.g., "Receive-TdaEmail"). Unique within the LOBE.</summary>
+    /// <summary>PowerShell cmdlet name (e.g., "Receive-Web7Email"). Unique within the LOBE.</summary>
     [JsonPropertyName("name")]
     public string Name          { get; init; } = string.Empty;
 
@@ -214,7 +214,7 @@ public sealed class LobeCmdlet
 
     /// <summary>
     /// Illustrative pipeline usage string.
-    /// Example: "Get-TdaMessage -Did $MessageDid | Receive-TdaEmail"
+    /// Example: "Get-Web7Message -Did $MessageDid | Receive-Web7Email"
     /// </summary>
     [JsonPropertyName("pipelineExample")]
     public string? PipelineExample { get; init; }
@@ -263,7 +263,7 @@ public sealed class LobeCmdletAnnotations
     /// Suggested position in a PowerShell pipeline.
     /// "source" = produces output, no pipeline input required.
     /// "transform" = receives pipeline input, produces pipeline output.
-    /// "sink" = receives pipeline input, no useful pipeline output (e.g., Send-TdaMessage).
+    /// "sink" = receives pipeline input, no useful pipeline output (e.g., Send-Web7Message).
     /// null = position not specified.
     /// </summary>
     [JsonPropertyName("pipelinePosition")]

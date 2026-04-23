@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(dotnet pack:*)",
+      "WebFetch(domain:hyperonomy.com)"
+    ]
+  }
+}

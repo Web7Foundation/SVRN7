@@ -76,8 +76,8 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<IWalletStore>(),
             sp.GetRequiredService<IIdentityRegistry>(),
             sp.GetRequiredService<ISanctionsChecker>(),
-            sp.GetRequiredService<ITransferNonceStore>(),
             sp.GetRequiredService<ICryptoService>(),
+            sp.GetRequiredService<ITransferNonceStore>(),
             0 /* initial epoch */));
 
         services.AddSingleton<ISvrn7Driver>(sp => new Svrn7Driver(

@@ -19,12 +19,18 @@ public sealed class DidRegistryLiteContext : IDisposable
 
     public DidRegistryLiteContext(string connectionString)
     {
-        _db = new LiteDatabase(connectionString);
+        var mapper = new BsonMapper();
+        // Synthetic Id property is _id; Did/MethodName/Status are LINQ-queryable set properties.
+        mapper.Entity<DidDocument>().Id(d => d.Id);
+        _db = new LiteDatabase(connectionString, mapper);
         var docs = _db.GetCollection<DidDocument>(ColDocuments);
         docs.EnsureIndex(d => d.Did, unique: true);
         docs.EnsureIndex(d => d.MethodName);
         docs.EnsureIndex(d => d.Status);
     }
+
+    // DidDocument uses a synthetic string Id (_id). History stores multiple versions
+    // of the same DID, so each insert gets a fresh Id via `document with { Id = ... }`.
 
     public ILiteCollection<DidDocument>  Documents => Get<DidDocument>(ColDocuments);
     public ILiteCollection<DidDocument>  History   => Get<DidDocument>(ColHistory);
@@ -68,7 +74,8 @@ public sealed class LiteDidDocumentRegistry : IDidDocumentRegistry
             throw new InvalidDidException(document.Did, "A DID Document already exists for this DID.");
         document = document with { Version = 1, UpdatedAt = DateTimeOffset.UtcNow };
         _ctx.Documents.Insert(document);
-        _ctx.History.Insert(document);
+        _ctx.History.Insert(document with { Id = Guid.NewGuid().ToString("N") });
+        IndexVerificationMethods(document);
         return Task.CompletedTask;
     }
 
@@ -84,7 +91,7 @@ public sealed class LiteDidDocumentRegistry : IDidDocumentRegistry
                 $"Version must be {current.Version + 1}, got {document.Version}.");
         document = document with { UpdatedAt = DateTimeOffset.UtcNow };
         _ctx.Documents.Update(document);
-        _ctx.History.Insert(document);
+        _ctx.History.Insert(document with { Id = Guid.NewGuid().ToString("N") });
         return Task.CompletedTask;
     }
 
@@ -163,6 +170,28 @@ public sealed class LiteDidDocumentRegistry : IDidDocumentRegistry
         return Task.FromResult<string?>(entry?["Did"]?.AsString);
     }
 
+    private void IndexVerificationMethods(DidDocument document)
+    {
+        if (string.IsNullOrWhiteSpace(document.DocumentJson)) return;
+        try
+        {
+            using var jsonDoc = System.Text.Json.JsonDocument.Parse(document.DocumentJson);
+            if (!jsonDoc.RootElement.TryGetProperty("verificationMethod", out var vms)) return;
+            foreach (var vm in vms.EnumerateArray())
+            {
+                if (!vm.TryGetProperty("publicKeyHex", out var pkProp)) continue;
+                var pkHex = pkProp.GetString();
+                if (string.IsNullOrWhiteSpace(pkHex)) continue;
+                _ctx.VMIndex.Insert(new LiteDB.BsonDocument
+                {
+                    ["PublicKeyHex"] = pkHex,
+                    ["Did"]          = document.Did,
+                });
+            }
+        }
+        catch (System.Text.Json.JsonException) { /* malformed doc — skip */ }
+    }
+
     public Task<IReadOnlyList<DidDocument>> QueryAsync(
         string? methodName = null, DidStatus? status = null, CancellationToken ct = default)
     {
@@ -193,9 +222,10 @@ public sealed class VcRegistryLiteContext : IDisposable
 
     public VcRegistryLiteContext(string connectionString)
     {
-        _db = new LiteDatabase(connectionString);
+        var mapper = new BsonMapper();
+        mapper.Entity<VcRecord>().Id(v => v.VcId);
+        _db = new LiteDatabase(connectionString, mapper);
         var col = _db.GetCollection<VcRecord>(ColVcRecords);
-        col.EnsureIndex(v => v.VcId, unique: true);
         col.EnsureIndex(v => v.SubjectDid);
         col.EnsureIndex(v => v.IssuerDid);
         col.EnsureIndex(v => v.Status);

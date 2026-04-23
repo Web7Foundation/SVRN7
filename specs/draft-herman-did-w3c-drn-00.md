@@ -78,9 +78,10 @@ NOT RECOMMENDED, MAY, and OPTIONAL are to be interpreted as described in BCP 14 
 - **DID URL**: A DID extended with a path (`/`), query (`?`), or fragment (`#`) component
   per W3C DID Core Section 3.2. A DID URL is a **locator** — it addresses a resource
   relative to a DID subject. It is not itself an identity and has no DID Document.
-- **Identity DID**: A bare `did:drn` DID that identifies a subject (citizen, society,
-  federation). Uses `:` as the delimiter within the method-specific identifier.
-  Example: `did:drn:alice.alpha.svrn7.net`. Resolvable to a DID Document.
+- **Identity DID**: A bare `did:drn` DID that identifies a subject (society or federation).
+  Uses `:` as the delimiter within the method-specific identifier.
+  Example: `did:drn:alpha.svrn7.net`. Resolvable to a DID Document.
+  Note: citizens are NOT Identity DID subjects — they are addressed by Locator DID URLs.
 - **Locator DID URL**: A `did:drn` DID URL with a path component (`/`) that addresses
   a specific resource within a subject's namespace. Uses `/` to separate the subject
   identity from the resource path. Example: `did:drn:alpha.svrn7.net/inbox/msg/5f43a2...`.
@@ -90,7 +91,7 @@ NOT RECOMMENDED, MAY, and OPTIONAL are to be interpreted as described in BCP 14 
 - **Controller**: An entity with the capability to make changes to a DID Document.
 - **Fingerprint**: A cryptographic hash of a canonical representation of the embedded URN.
 - **Web 7.0 Profile**: A domain-style profile of `did:drn` in which the method-specific
-  identifier uses `.`-separated labels (e.g., `alice.alpha.svrn7.net`) rather than a
+  identifier uses `.`-separated labels (e.g., `alpha.svrn7.net`) rather than a
   `urn:NID:NSS` form. See Section 5a.
 
 ---
@@ -158,19 +159,23 @@ Where `{network-id}` is a dot-separated label string identifying the subject wit
 the SVRN7 network:
 
 ```
-did:drn:alpha.svrn7.net              ← Society identity DID
-did:drn:alice.alpha.svrn7.net        ← Citizen identity DID
-did:drn:foundation.svrn7.net         ← Federation identity DID
+did:drn:alpha.svrn7.net              ← Society Identity DID
+did:drn:sovronia.svrn7.net           ← Society Identity DID
+did:drn:svrn7.net                    ← Federation Identity DID
 ```
+
+Citizens are NOT Identity DID subjects. A citizen is addressed by a Locator DID URL
+of the form `did:drn:{societyHost}/citizen/{localId}` (see Section 5a.3).
 
 **Properties of Identity DIDs:**
 
 - Are **persistent** — they survive database migration, TDA restart, and epoch transitions.
 - Are **resolvable** — an Identity DID resolves to a DID Document containing verification
   methods and service endpoints.
-- Are **subjects** — the DID Document describes the citizen, society, or federation.
+- Are **subjects** — the DID Document describes the society or federation.
 - Use `:` exclusively as the delimiter within the method-specific identifier. No `/`
   character appears in an Identity DID.
+- Societies and federations only — not citizens.
 
 ```abnf
 identity-did     = "did:drn:" network-id
@@ -192,11 +197,17 @@ The `/` character is the W3C DID Core DID URL path delimiter. It is **not** part
 method-specific identifier — it separates the identity from the resource address.
 
 ```
-did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678   ← inbox record
-did:drn:alpha.svrn7.net/main/citizen/alice.alpha.svrn7.net    ← citizen DB record
-did:drn:alpha.svrn7.net/main/logentry/a3f9b2c1d4e5f678...     ← Merkle log entry
+did:drn:alpha.svrn7.net/citizen/alice                           ← citizen Locator DID URL
+did:drn:sovronia.svrn7.net/citizen/alice                        ← citizen in another society
+did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678     ← inbox record
+did:drn:alpha.svrn7.net/main/logentry/a3f9b2c1d4e5f678...       ← Merkle log entry
 did:drn:alpha.svrn7.net/schemas/schema/CitizenEndowmentCredential
 ```
+
+The citizen Locator DID URL (`/citizen/{localId}`) is the canonical citizen identifier.
+It serves as both the citizen's DID and the address of their record in the TDA's
+Citizens collection. The `localId` is the citizen's short local identifier within
+the society (e.g., `alice`) — it is NOT a DID suffix.
 
 **Properties of Locator DID URLs:**
 
@@ -217,10 +228,10 @@ The table below summarises the structural and semantic difference between the tw
 | Property              | Identity DID                            | Locator DID URL                                    |
 |-----------------------|-----------------------------------------|----------------------------------------------------|
 | Delimiter after prefix| `:` (method-specific id delimiter)      | `/` (DID URL path delimiter)                       |
-| Example               | `did:drn:alice.alpha.svrn7.net`         | `did:drn:alpha.svrn7.net/main/citizen/alice...`    |
-| Identifies            | A subject (citizen, society, federation)| A data record in a TDA Data Storage database       |
+| Example               | `did:drn:alpha.svrn7.net` (society)     | `did:drn:alpha.svrn7.net/citizen/alice`            |
+| Identifies            | A subject (society or federation only)  | A data record — citizen, inbox msg, log entry, etc.|
 | Has DID Document      | Yes                                     | No                                                 |
-| Persistent            | Yes                                     | Record-lifetime (some permanent, some ephemeral)   |
+| Persistent            | Yes                                     | Record-lifetime (citizen DIDs are persistent)      |
 | W3C DID Core role     | DID                                     | DID URL (path component)                           |
 | Resolvable            | To a DID Document                       | To a data record (via TDA resolver)                |
 | Analogy               | `https://example.com`                   | `https://example.com/path/to/resource`             |
@@ -236,20 +247,22 @@ which defines DID URLs as extensions of DIDs:
 
 The Web 7.0 profile applies this standard distinction rigorously:
 
-- Bare DID = Identity. `did:drn:alice.alpha.svrn7.net` identifies Alice as a subject.
-- DID + `/` path = Locator. `did:drn:alpha.svrn7.net/main/citizen/alice.alpha.svrn7.net`
-  locates Alice's citizen record in the Society TDA's main database.
+- Bare DID = Identity. `did:drn:alpha.svrn7.net` identifies the Alpha society as a subject.
+- DID + `/` path = Locator. `did:drn:alpha.svrn7.net/citizen/alice`
+  locates Alice's citizen record in the Alpha Society TDA.
+- Citizens are identified exclusively by Locator DID URLs — they are records within a
+  society, not standalone DID subjects with their own DID Documents.
 
 The `:` vs `/` choice is therefore not arbitrary — it reflects the W3C DID Core
 structural semantics, made explicit as a design principle of the Web 7.0 profile.
 
 ### 5a.6 Epoch 0 Anonymisation Note
 
-In Epoch 0, citizen Identity DIDs are used directly as the key segment in Locator DID
-URLs (e.g., `.../main/citizen/alice.alpha.svrn7.net`). This makes the citizen's identity
-visible in the Locator DID URL. In a future epoch, the key segment will be replaced with
-an anonymised form (Blake3 hash, GUID, or salted hash) to break the direct linkage
-between a citizen's Identity DID and their Locator DID URL. See [DRN-RESOURCE] Section 9.
+In Epoch 0, the citizen's local id (e.g., `alice`) is used as the key segment in their
+Locator DID URL (e.g., `did:drn:alpha.svrn7.net/citizen/alice`). This makes the citizen's
+chosen local identifier visible in the DID URL. In a future epoch, the key segment MAY be
+replaced with an anonymised form (Blake3 hash, GUID, or salted hash) to decouple the
+human-readable local id from the locator. See [DRN-RESOURCE] Section 9.
 
 ## 6. Core Properties
 

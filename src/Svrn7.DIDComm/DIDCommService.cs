@@ -17,7 +17,7 @@ public enum DIDCommPackMode
 
 public record DIDCommMessage
 {
-    public string  Id      { get; init; } = Guid.NewGuid().ToString();
+    public string  Id      { get; init; } = Svrn7.Core.TdaResourceId.DIDCommMessage(Guid.NewGuid().ToString("N"));
     public string  Type    { get; init; } = string.Empty;
     public string? From    { get; init; }
     public string? To      { get; init; }
@@ -27,6 +27,7 @@ public record DIDCommMessage
 
 public record DIDCommUnpackedMessage
 {
+    public string? Id      { get; init; }
     public string  Type    { get; init; } = string.Empty;
     public string? From    { get; init; }
     public string  Body    { get; init; } = "{}";
@@ -186,9 +187,10 @@ public sealed class DIDCommPackingService : IDIDCommService
                 // Plaintext
                 return Task.FromResult(new DIDCommUnpackedMessage
                 {
+                    Id   = root.TryGetProperty("id",   out var idEl)   ? idEl.GetString()             : null,
                     Type = typeEl.GetString() ?? string.Empty,
-                    From = root.TryGetProperty("from", out var fromEl) ? fromEl.GetString() : null,
-                    Body = root.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "{}" : "{}",
+                    From = root.TryGetProperty("from", out var fromEl) ? fromEl.GetString()            : null,
+                    Body = root.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "{}"   : "{}",
                     Mode = DIDCommPackMode.Plaintext,
                 });
             }

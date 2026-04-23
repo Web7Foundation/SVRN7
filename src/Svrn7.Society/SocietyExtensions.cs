@@ -102,11 +102,9 @@ public static class SocietyServiceCollectionExtensions
             var opts = sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>().Value;
             return new VcRegistryLiteContext(opts.VcsDbPath);
         });
+        // Share Svrn7LiteContext's open LiteDatabase — avoids a second exclusive lock on svrn7.db.
         services.TryAddSingleton<FederationLiteContext>(sp =>
-        {
-            var opts = sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>().Value;
-            return new FederationLiteContext(opts.Svrn7DbPath);
-        });
+            new FederationLiteContext(sp.GetRequiredService<Svrn7LiteContext>().Database));
         services.TryAddSingleton<InboxLiteContext>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>().Value;
@@ -152,9 +150,9 @@ public static class SocietyServiceCollectionExtensions
                 sp.GetRequiredService<IIdentityRegistry>(),
                 sp.GetRequiredService<ISanctionsChecker>(),
                 sp.GetRequiredService<ICryptoService>(),
-                sp.GetRequiredService<ITransferNonceStore>(),
                 opts.SocietyDid,
                 opts.FederationDid,
+                sp.GetRequiredService<ITransferNonceStore>(),
                 currentEpoch: 0);
         });
 
@@ -210,6 +208,9 @@ public static class SocietyServiceCollectionExtensions
             new LiteSocietyMembershipStore(sp.GetRequiredService<Svrn7LiteContext>()));
 
         // 8. Society driver
+        // If IHttpClientFactory is registered (e.g., via services.AddHttpClient()),
+        // the driver uses it to deliver DIDComm OverdraftDrawRequest to the Federation TDA.
+        // If not registered, delivery is logged only (development/test mode).
         services.AddSingleton<ISvrn7SocietyDriver>(sp =>
             new Svrn7SocietyDriver(
                 sp.GetRequiredService<ISvrn7Driver>(),
@@ -223,7 +224,8 @@ public static class SocietyServiceCollectionExtensions
                 sp.GetRequiredService<IDIDCommService>(),
                 sp.GetRequiredService<IVcDocumentResolver>(),
                 sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>(),
-                sp.GetRequiredService<ILogger<Svrn7SocietyDriver>>()));
+                sp.GetRequiredService<ILogger<Svrn7SocietyDriver>>(),
+                sp.GetService<IHttpClientFactory>()?.CreateClient("svrn7-federation")));
 
         // Schema Registry + Schema Resolver (Society TDA Only — DSA 0.24)
         // Derived from: Schema Registry (LiteDB) + Schema Resolver — DSA 0.24 Epoch 0.

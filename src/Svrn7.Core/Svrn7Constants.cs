@@ -35,6 +35,43 @@ public static class Svrn7Constants
     /// <summary>Maximum transfers allowed in a single batch.</summary>
     public const int MaxBatchSize = 100;
 
+    // ── Inbox reliability ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Maximum processing attempts for transactional inbox messages before
+    /// permanent dead-lettering (Status = Failed).
+    /// Set to 1: transactional messages (transfers, invoices, overdrafts) are
+    /// idempotency-keyed — a second attempt risks a double-spend, not a safe retry.
+    /// </summary>
+    public const int InboxMaxAttempts = 1;
+
+    /// <summary>
+    /// Maximum processing attempts for non-transactional inbox messages
+    /// (DID resolution, onboarding queries) before permanent dead-lettering.
+    /// These carry no financial state so retrying on transient failure is safe.
+    /// </summary>
+    public const int InboxNonTransactionalMaxAttempts = 3;
+
+    /// <summary>
+    /// Protocol @type URIs that carry financial or supply state and must never
+    /// be retried on failure. A second execution risks a double-spend.
+    /// All other protocol types may retry up to <see cref="InboxNonTransactionalMaxAttempts"/>.
+    /// </summary>
+    public static readonly IReadOnlySet<string> TransactionalProtocols =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            Protocols.TransferRequest,
+            Protocols.TransferReceipt,
+            Protocols.TransferOrder,
+            Protocols.TransferOrderReceipt,
+            Protocols.OverdraftDrawRequest,
+            Protocols.OverdraftDrawReceipt,
+            Protocols.EndowmentTopUp,
+            Protocols.SupplyUpdate,
+            Protocols.InvoiceRequest,
+            Protocols.InvoiceReceipt,
+        };
+
     /// <summary>Maximum age of a Merkle tree head before health check reports Degraded.</summary>
     public static readonly TimeSpan MaxTreeHeadAge = TimeSpan.FromHours(24);
 
@@ -129,13 +166,21 @@ public static class TdaResourceId
     public static string ProcessedOrder(string networkId, string objectIdHex)
         => $"did:drn:{networkId}/inbox/processedorder/{objectIdHex}";
 
-    /// <summary>Citizen record DID URL. Key = citizen DID suffix.</summary>
-    public static string Citizen(string networkId, string citizenDidSuffix)
-        => $"did:drn:{networkId}/main/citizen/{citizenDidSuffix}";
+    /// <summary>Citizen Locator DID URL. Key = citizen local id (e.g., "alice").</summary>
+    public static string Citizen(string networkId, string citizenKey)
+        => $"did:drn:{networkId}/citizen/{citizenKey}";
 
-    /// <summary>Wallet DID URL. Key = owner DID suffix.</summary>
-    public static string Wallet(string networkId, string ownerDidSuffix)
-        => $"did:drn:{networkId}/main/wallet/{ownerDidSuffix}";
+    /// <summary>Wallet DID URL. Key = citizen local id or society DID suffix.</summary>
+    public static string Wallet(string networkId, string ownerKey)
+        => $"did:drn:{networkId}/main/wallet/{ownerKey}";
+
+    /// <summary>Society record DID URL. Key = society DID suffix (e.g., "alpha.svrn7.net").</summary>
+    public static string Society(string networkId, string societyDidSuffix)
+        => $"did:drn:{networkId}/main/society/{societyDidSuffix}";
+
+    /// <summary>Membership DID URL. Key = citizen local id (e.g., "alice").</summary>
+    public static string Membership(string networkId, string citizenKey)
+        => $"did:drn:{networkId}/main/membership/{citizenKey}";
 
     /// <summary>UTXO DID URL. Key = Blake3 hex hash.</summary>
     public static string Utxo(string networkId, string blake3Hex)
@@ -160,6 +205,14 @@ public static class TdaResourceId
     /// <summary>Schema DID URL. Key = schema common name.</summary>
     public static string Schema(string networkId, string schemaName)
         => $"did:drn:{networkId}/schemas/schema/{schemaName}";
+
+    /// <summary>
+    /// DIDComm message DID. Network-agnostic — uses the global svrn7.net protocol namespace.
+    /// Key = UUID (32-char hex, no hyphens). Generated at message creation time.
+    /// Form: did:drn:svrn7.net/didcomm/msg/{uuid}
+    /// </summary>
+    public static string DIDCommMessage(string uuidHex)
+        => $"did:drn:svrn7.net/didcomm/msg/{uuidHex}";
 
     // ── Parse ─────────────────────────────────────────────────────────────────
 

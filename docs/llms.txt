@@ -83,6 +83,24 @@ DIDComm protocol URIs (all svrn7.net — not svrn7.io):
   did:drn:svrn7.net/protocols/supply/1.0/update
   did:drn:svrn7.net/protocols/did/1.0/resolve-request
   did:drn:svrn7.net/protocols/did/1.0/resolve-response
+  did:drn:svrn7.net/protocols/society/1.0/society-query
+  did:drn:svrn7.net/protocols/society/1.0/society-query-result
+  did:drn:svrn7.net/protocols/society/1.0/member-query
+  did:drn:svrn7.net/protocols/society/1.0/member-query-result
+  did:drn:svrn7.net/protocols/society/1.0/overdraft-query
+  did:drn:svrn7.net/protocols/society/1.0/overdraft-query-result
+  did:drn:svrn7.net/protocols/society/1.0/did-methods-query
+  did:drn:svrn7.net/protocols/society/1.0/did-methods-query-result
+  did:drn:svrn7.net/protocols/society/1.0/did-method-register
+  did:drn:svrn7.net/protocols/society/1.0/did-method-register-result
+  did:drn:svrn7.net/protocols/society/1.0/citizen-did-add
+  did:drn:svrn7.net/protocols/society/1.0/citizen-did-add-result
+  did:drn:svrn7.net/protocols/federation/1.0/federation-query
+  did:drn:svrn7.net/protocols/federation/1.0/federation-query-result
+  did:drn:svrn7.net/protocols/federation/1.0/init
+  did:drn:svrn7.net/protocols/federation/1.0/init-result
+  did:drn:svrn7.net/protocols/federation/1.0/register-society
+  did:drn:svrn7.net/protocols/federation/1.0/register-society-result
 
 ---
 
@@ -100,7 +118,7 @@ Society (1..N per Federation)
   └── Owns 1..N DID method names (primary method immutable)
 
 Citizen (1..N per Society)
-  └── Has a primary DID (did:{methodName}:{base58PubKey})
+  └── Has a primary DID (did:drn:{methodName}:{localId})
   └── May hold additional DIDs under other Society method names
   └── Receives 1,000 grana (0.001 SVRN7) endowment on registration (v0.8.0)
 
@@ -135,7 +153,8 @@ Step 8: ValidateSocietyMembership — cross-Society Epoch 1 only
 
 ## Key Interfaces
 
-ISvrn7Driver (Svrn7.Federation, 44 members):
+ISvrn7Driver (Svrn7.Federation, 45 members):
+  InitialiseFederationAsync(federationDid, federationName, publicKeyHex, primaryDidMethodName) → OperationResult
   RegisterCitizenAsync(RegisterCitizenRequest) → OperationResult
   RegisterSocietyAsync(RegisterSocietyRequest) → OperationResult
   TransferAsync(TransferRequest) → OperationResult
@@ -174,6 +193,8 @@ IDIDCommService (Svrn7.DIDComm):
   PackSignedAndEncryptedAsync(DIDCommMessage, byte[] recipientPublicKey,
     byte[] senderPrivateKey) → string
   UnpackAsync(string packed, byte[]? recipientPrivateKey = null) → DIDCommUnpackedMessage
+    DIDCommUnpackedMessage fields: Id (wire 'id'; null for encrypted), Type, From, Body, Mode
+    Note: recipientPrivateKey is not yet used — JWE decryption not implemented; encrypted messages return Type="application/didcomm-encrypted+json"
   NewMessage() → DIDCommMessageBuilder
 
 ---
@@ -192,7 +213,7 @@ Federation deployment:
 Society deployment (self-contained, do NOT also call AddSvrn7Federation):
   services.AddSvrn7Society(opts => {
       opts.FoundationPublicKeyHex = "02...";
-      opts.SocietyDid    = "did:socalpha:my-society";
+      opts.SocietyDid    = "did:drn:socalpha";
       opts.FederationDid = "did:drn:federation";
       opts.DidMethodNames = new List<string> { "socalpha" };
       opts.SocietyMessagingPrivateKeyEd25519   = societyEd25519PrivKey;
@@ -291,13 +312,42 @@ The TDA Host is a .NET 8 console app (Generic Host + Kestrel HTTP/2 + mTLS).
 Single inbound surface: POST /didcomm. Closed TDA-to-TDA ecosystem. No gRPC.
 
 Key classes:
-  KestrelListenerService  — POST /didcomm, HTTP/2 + mTLS, UnpackAsync boundary
-  DIDCommMessageSwitchboard — sole inbox reader, DID URL pass-by-reference routing
-  RunspacePoolManager     — PowerShell RunspacePool lifecycle (min=2, max=N)
-  LobeManager             — eager/JIT LOBE loading from lobes.config.json
-  Svrn7RunspaceContext    — $SVRN7 session variable (Driver, Inbox, Cache, Epoch)
+  KestrelListenerService  — POST /didcomm, HTTP/2 + mTLS, UnpackAsync boundary;
+                            threads unpacked.From → IInboxStore.EnqueueAsync as fromDid;
+                            threads unpacked.Id   → IInboxStore.EnqueueAsync as wireId (null for encrypted);
+                            returns 503 + Retry-After:5 if EnqueueAsync throws; body size limit 2 MB;
+                            rate-limited by FixedWindowLimiter (TdaOptions.RateLimitRequestsPerSecond, default 100; 0=disabled);
+                            returns HTTP 429 when rate limit exceeded
+  DIDCommMessageSwitchboard — sole inbox reader, DID URL pass-by-reference routing;
+                            processes inbound messages sequentially (one at a time — no parallel dispatch;
+                            financial correctness: prevents read-modify-write races on shared financial state);
+                            StartupAsync calls IInboxStore.ResetStuckMessagesAsync() (recover messages left
+                            in Processing state from unclean shutdown) and IOutboxStore.GetPendingAsync()
+                            (re-enqueue dead-lettered outbound messages from prior session);
+                            TTL check: messages older than TdaOptions.MaxMessageAgeSeconds are dead-lettered
+                            before processing begins (default 3600s = 1 hour; 0=disabled)
+  RunspacePoolManager     — Builds shared InitialSessionState (ISS) at startup; vends per-invocation
+                            IsolatedPipeline (crash-isolated runspace per dispatch);
+                            CreateIsolatedPipeline() opens a fresh Runspace from the ISS, disposed after invocation;
+                            ISS is shared read-only; $SVRN7 (Svrn7RunspaceContext) is shared but thread-safe
+  IsolatedPipeline        — Pairs a PowerShell instance with its own dedicated Runspace; opened per dispatch,
+                            disposed after; provides complete blast-radius isolation between concurrent dispatches
+                            (a crash or runaway in one pipeline cannot affect any other)
+  LobeManager             — eager/JIT LOBE loading from lobes.config.json; uses SearchOption.AllDirectories;
+                            LOBEs live in per-LOBE subfolders (e.g. lobes/Svrn7.Common/);
+                            FileSystemWatcher.OnDescriptorChanged uses Task.Run/Task.Delay (non-blocking);
+                            new eager LOBEs hot-detected after startup run as JIT this session (warning logged;
+                            restart required for eager loading)
+  Svrn7RunspaceContext    — $SVRN7 session variable (Driver, Inbox, Cache, Epoch);
+                            InboxMessageView exposes FromDid to LOBE cmdlets.
+                            In TDA context $SVRN7.Driver replaces $Script:SocietyDriver
+                            and $Script:FederationDriver (both null in TDA runspace).
   TdaResourceAddress      — DID URL builder/parser for Data Storage database records
-  TdaOptions              — Host configuration (port, mTLS, LOBE paths, DB paths)
+  TdaOptions              — Host configuration (port, mTLS, LOBE paths, DB paths);
+                            LobeInvocationTimeoutSeconds (default 30) — LOBE cmdlets exceeding this are
+                            interrupted via ps.Stop(); HostOptions.ShutdownTimeout = timeout + 10s;
+                            MaxMessageAgeSeconds (default 3600) — message TTL before dead-letter; 0=disabled;
+                            RateLimitRequestsPerSecond (default 100) — POST /didcomm rate limit; 0=disabled
 
 TdaResourceId (Svrn7.Core — zero dependencies):
   InboxMessage(networkId, objectId)  → did:drn:{networkId}/inbox/msg/{objectId}
@@ -305,19 +355,39 @@ TdaResourceId (Svrn7.Core — zero dependencies):
   ParseKey(didUrl)                   → extracts final path segment
   Build(networkId, db, type, key)    → generic builder
 
-InboxMessage.Id is a TDA resource DID URL (not a UUID):
-  Example: did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678
-  Generated by LiteInboxStore.EnqueueAsync() using LiteDB.ObjectId + TdaResourceId.
+InboxMessage fields (Svrn7.Core.Models):
+  Id            — TDA resource DID URL (e.g. did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1...)
+  MessageType   — DIDComm @type URI
+  PackedPayload — unpacked DIDComm body (plaintext JSON string)
+  FromDid       — sender DID from DIDComm envelope (nullable; threaded from KestrelListenerService via unpacked.From)
+  WireId        — sender's DIDComm wire 'id' field (nullable; threaded via unpacked.Id; null for encrypted messages)
+  ReceivedAt    — timestamp
+  Status        — Pending | Processing | Processed | Failed
+  AttemptCount  — retry count (max 1 for transactional messages; max 3 for non-transactional messages)
+Generated by LiteInboxStore.EnqueueAsync(messageType, packedPayload, fromDid?, wireId?, ct).
 
-LOBE modules (lobes/):
-  Eager (pre-loaded): Svrn7.Common.psm1, Svrn7.Federation.psm1, Svrn7.Society.psm1
+LOBE modules (lobes/ — per-LOBE subfolders, e.g. lobes/Svrn7.Common/):
+  Eager (pre-loaded): Svrn7.Common.psm1, Svrn7.Federation.psm1, Svrn7.Society.psm1, Svrn7.UX.psm1
   JIT (on-demand):    Svrn7.Email.psm1, Svrn7.Calendar.psm1, Svrn7.Presence.psm1,
                       Svrn7.Notifications.psm1, Svrn7.Onboarding.psm1, Svrn7.Invoicing.psm1
 
 Agent scripts (lobes/):
-  Agent1-Coordinator.ps1 — JIT LOBE dispatch for Email/Calendar/Presence/Notifications
-  Agent2-Onboarding.ps1  — onboard/1.0/request pipeline → Register-Svrn7CitizenInSociety
-  AgentN-Invoicing.ps1   — invoice/1.0/request pipeline → Invoke-Svrn7IncomingTransfer
+  Agent1-Coordinator.ps1 — JIT LOBE dispatch via Get-Web7Message / Send-Web7Message
+  Agent2-Onboarding.ps1  — onboard/1.0/request pipeline → ConvertFrom-Web7OnboardRequest
+  AgentN-Invoicing.ps1   — invoice/1.0/request pipeline → ConvertFrom-Web7InvoiceRequest
+
+LOBE cmdlet naming convention (v0.8.0):
+  DIDComm handler cmdlets use the -Web7 infix: Invoke-Web7*, Receive-Web7*, Send-Web7*,
+  Get-Web7Message, Send-Web7Message, ConvertFrom-Web7*, Render-Web7*, etc.
+  Federation-specific handlers: Invoke-Web7FederationQuery, Invoke-Web7FederationInit,
+    Invoke-Web7RegisterSociety.
+  Society-specific handlers: Invoke-Web7SocietyQuery, Invoke-Web7MemberQuery,
+    Invoke-Web7OverdraftQuery, Invoke-Web7DidMethodsQuery, Invoke-Web7DidMethodRegister,
+    Invoke-Web7CitizenDidAdd.
+  Svrn7.Common.psm1 shared helpers: Get-ActiveSocietyDriver, Get-ActiveFederationDriver,
+    Resolve-SocietySenderEndpoint (TDA-aware: returns $SVRN7.Driver in TDA context,
+    falls back to $Script:SocietyDriver / $Script:FederationDriver in standalone mode).
+  UX helper: New-Svrn7TransferIntent (Svrn7.UX.psm1).
 
 Schema Registry (Society TDA Only — DSA 0.24 Conditional Component):
   SchemaLiteContext.cs    — svrn7-schemas.db
@@ -335,7 +405,9 @@ LobeManager responsibilities:
     _prefixRegistry — ConcurrentDictionary keyed by URI prefix (longest-prefix wins)
   EnsureLoadedAsync(ps, modulePath) — idempotent JIT Import-Module on first use
   TryResolveProtocol(messageType)   — exact match first, then longest prefix match
-  FileSystemWatcher on lobes/ dir   — hot-detects new *.lobe.json files at runtime
+  FileSystemWatcher on lobes/ dir   — hot-detects new *.lobe.json files at runtime (SearchOption.AllDirectories;
+                                    per-LOBE subfolders supported, e.g. lobes/Svrn7.Common/);
+                                    OnDescriptorChanged uses Task.Run/Task.Delay (non-blocking FSW thread)
   BuildInitialSessionState()        — scans all *.lobe.json at startup, starts watcher
 
 Each {module-name}.lobe.json descriptor declares:
@@ -344,6 +416,13 @@ Each {module-name}.lobe.json descriptor declares:
   cmdlets[].{name, title, inputSchema, outputSchema, annotations, pipelineExample}
   dependencies.lobes[]             — dependency graph (LobeManager resolves before import)
   ai.{_note, summary, useCases, compositionHints, limitations}  — AI legibility
+
+Per-message-type retry policy:
+  Svrn7Constants.TransactionalProtocols (IReadOnlySet<string>) — all transfer, overdraft, invoice, supply URIs;
+    maxAttempts=1, retry=false (no retry — double-spend risk)
+  Svrn7Constants.InboxNonTransactionalMaxAttempts = 3 — non-transactional messages (DID resolution, onboarding)
+  Outbound retry: up to 3 attempts with exponential backoff (500ms, 1000ms, 2000ms);
+    after exhaustion, message written to IOutboxStore dead-letter outbox
 
 Option A: transfer/1.0/order idempotency check stays in Switchboard (only hardcoded concern).
 All other routing: LobeManager.TryResolveProtocol() → EnsureLoadedAsync() → InvokeCmdletPipelineAsync().
@@ -384,8 +463,8 @@ Elements 7, 8, 10 are Web 7.0 / SVRN7 specific (substitute equivalents for other
 | # | Module | Type | Protocol families |
 |---|---|---|---|
 | 1 | Svrn7.Common.psm1 | Eager | — (shared helpers) |
-| 2 | Svrn7.Federation.psm1 | Eager | transfer/1.0/*, did/1.0/* |
-| 3 | Svrn7.Society.psm1 | Eager | transfer/1.0/*, onboard/1.0/* |
+| 2 | Svrn7.Federation.psm1 | Eager | federation/1.0/*, transfer/1.0/*, did/1.0/* |
+| 3 | Svrn7.Society.psm1 | Eager | transfer/1.0/*, onboard/1.0/*, society/1.0/* |
 | 4 | Svrn7.UX.psm1 | Eager | ux/1.0/* (balance-update, notification, registration-complete) |
 | 5 | Svrn7.Email.psm1 | JIT | did:drn:svrn7.net/protocols/email/1.0/* |
 | 6 | Svrn7.Calendar.psm1 | JIT | did:drn:svrn7.net/protocols/calendar/1.0/* |
@@ -395,7 +474,8 @@ Elements 7, 8, 10 are Web 7.0 / SVRN7 specific (substitute equivalents for other
 |10 | Svrn7.Invoicing.psm1 | JIT | did:drn:svrn7.net/protocols/invoice/1.0/* |
 |11 | Svrn7.Identity.psm1 | JIT | did:drn:svrn7.net/protocols/did/1.0/*, vc/1.0/* |
 
-Each LOBE ships .psm1 + .psd1 + .lobe.json (MCP-aligned descriptor).
+Each LOBE ships .psm1 + .psd1 + .lobe.json (MCP-aligned descriptor) in its own subfolder under lobes/
+  (e.g. lobes/Svrn7.Common/, lobes/Svrn7.Federation/, lobes/Svrn7.Email/, etc.).
 lobes.config.json: eager = [Common, Federation, Society, UX]; jit = [Email, Calendar, Presence, Notifications, Onboarding, Invoicing, Identity]
 
 ## PPML Core Principles (PP-1 through PP-9)

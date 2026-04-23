@@ -63,8 +63,10 @@ This document specifies:
 5. The overdraft draw DIDComm flow.
 6. The DID Document resolution DIDComm flow.
 7. The VC cross-Society query DIDComm flow.
-8. Message processing requirements.
-9. Idempotency requirements.
+8. The Society query and admin protocol family (society/1.0/*).
+9. The Federation bootstrap protocol family (federation/1.0/*).
+10. Message processing requirements.
+11. Idempotency requirements.
 
 This document does not specify:
 - The monetary accounting model (see [DRAFT-MONETARY]).
@@ -213,6 +215,24 @@ namespace for standard SVRN7 protocol type URIs.
 | `DidResolveResponse` | `did:drn:svrn7.net/protocols/did/1.0/resolve-response` | Society → Society |
 | `VcResolveBySubjectRequest` | `did:drn:svrn7.net/protocols/vc/1.0/resolve-by-subject-request` | Society → Society |
 | `VcResolveBySubjectResponse` | `did:drn:svrn7.net/protocols/vc/1.0/resolve-by-subject-response` | Society → Society |
+| `SocietyQuery` | `did:drn:svrn7.net/protocols/society/1.0/society-query` | Client → Society |
+| `SocietyQueryResult` | `did:drn:svrn7.net/protocols/society/1.0/society-query-result` | Society → Client |
+| `MemberQuery` | `did:drn:svrn7.net/protocols/society/1.0/member-query` | Client → Society |
+| `MemberQueryResult` | `did:drn:svrn7.net/protocols/society/1.0/member-query-result` | Society → Client |
+| `OverdraftQuery` | `did:drn:svrn7.net/protocols/society/1.0/overdraft-query` | Client → Society |
+| `OverdraftQueryResult` | `did:drn:svrn7.net/protocols/society/1.0/overdraft-query-result` | Society → Client |
+| `DidMethodsQuery` | `did:drn:svrn7.net/protocols/society/1.0/did-methods-query` | Client → Society |
+| `DidMethodsQueryResult` | `did:drn:svrn7.net/protocols/society/1.0/did-methods-query-result` | Society → Client |
+| `DidMethodRegister` | `did:drn:svrn7.net/protocols/society/1.0/did-method-register` | Client → Society |
+| `DidMethodRegisterResult` | `did:drn:svrn7.net/protocols/society/1.0/did-method-register-result` | Society → Client |
+| `CitizenDidAdd` | `did:drn:svrn7.net/protocols/society/1.0/citizen-did-add` | Client → Society |
+| `CitizenDidAddResult` | `did:drn:svrn7.net/protocols/society/1.0/citizen-did-add-result` | Society → Client |
+| `FederationQuery` | `did:drn:svrn7.net/protocols/federation/1.0/federation-query` | Client → Federation |
+| `FederationQueryResult` | `did:drn:svrn7.net/protocols/federation/1.0/federation-query-result` | Federation → Client |
+| `FederationInit` | `did:drn:svrn7.net/protocols/federation/1.0/init` | Client → Federation |
+| `FederationInitResult` | `did:drn:svrn7.net/protocols/federation/1.0/init-result` | Federation → Client |
+| `RegisterSociety` | `did:drn:svrn7.net/protocols/federation/1.0/register-society` | Client → Federation |
+| `RegisterSocietyResult` | `did:drn:svrn7.net/protocols/federation/1.0/register-society-result` | Federation → Client |
 
 ---
 
@@ -430,6 +450,225 @@ Returned with the set of VCs for the requested subject DID held by the respondin
   "subjectDid": "<string>",
   "vcJwts":     ["<JWT>", ...],
   "respondedAt":"<ISO-8601-UTC>"
+}
+```
+
+### 7.13 Society Query and Admin Protocol Family (society/1.0/*)
+
+The `society/1.0/*` protocol family provides DIDComm-based read and admin access to a
+running Society TDA. These protocols are request-response pairs; the TDA processes the
+request asynchronously and sends the result message to the sender's TDA endpoint.
+
+All `society/1.0/*` requests require `InboxMessage.FromDid` to be set (the sender DID
+from the DIDComm envelope, threaded from `KestrelListenerService.HandleInboundAsync`
+through `IInboxStore.EnqueueAsync(messageType, packedPayload, fromDid?, wireId?, ct)`).
+If `FromDid` is null the handler returns an error. `InboxMessage.WireId` carries the
+sender's DIDComm wire `id` field (populated for plaintext messages; null for encrypted).
+
+**7.13.1 SocietyQuery / SocietyQueryResult**
+
+Returns this Society's own record (DID, epoch, Federation DID).
+
+Request body: `{}` (empty)
+
+Result body schema:
+```json
+{
+  "SocietyDid":    "<string>",
+  "FederationDid": "<string>",
+  "Epoch":         <int>,
+  "Success":       <bool>
+}
+```
+
+**7.13.2 MemberQuery / MemberQueryResult**
+
+Tests membership for a specific DID, or lists all member DIDs when no DID is supplied.
+
+Request body schema:
+```json
+{ "Did": "<string | null>" }
+```
+
+Result body schema:
+```json
+{
+  "Did":       "<string | null>",
+  "IsMember":  <bool | null>,
+  "Members":   ["<string>", ...] | null,
+  "Success":   <bool>
+}
+```
+
+**7.13.3 OverdraftQuery / OverdraftQueryResult**
+
+Returns the full overdraft accounting record for this Society.
+
+Request body: `{}` (empty)
+
+Result body schema:
+```json
+{
+  "TotalOverdrawnGrana":  <int64 | null>,
+  "LifetimeDrawsGrana":   <int64 | null>,
+  "DrawCount":            <int | null>,
+  "Status":               "<string | null>",
+  "Success":              <bool>
+}
+```
+
+**7.13.4 DidMethodsQuery / DidMethodsQueryResult**
+
+Returns all DID method names registered to this Society.
+
+Request body: `{}` (empty)
+
+Result body schema:
+```json
+{
+  "Methods": [
+    { "MethodName": "<string>", "IsPrimary": <bool>, "RegisteredAt": "<ISO-8601-UTC>" }
+  ],
+  "Success": <bool>
+}
+```
+
+**7.13.5 DidMethodRegister / DidMethodRegisterResult**
+
+Registers a new DID method name for this Society.
+
+Request body schema:
+```json
+{ "methodName": "<string>" }
+```
+
+Result body schema:
+```json
+{
+  "MethodName": "<string>",
+  "Success":    <bool>,
+  "Error":      "<string | null>"
+}
+```
+
+**7.13.6 CitizenDidAdd / CitizenDidAddResult**
+
+Issues a secondary DID under an additional method name for an existing citizen.
+
+Request body schema:
+```json
+{
+  "citizenPrimaryDid": "<string>",
+  "methodName":        "<string>"
+}
+```
+
+Result body schema:
+```json
+{
+  "CitizenPrimaryDid": "<string>",
+  "NewDid":            "<string | null>",
+  "Success":           <bool>,
+  "Error":             "<string | null>"
+}
+```
+
+### 7.14 Federation Bootstrap Protocol Family (federation/1.0/*)
+
+The `federation/1.0/*` protocol family provides DIDComm-based bootstrap and query access
+to the Federation TDA. These three protocols enable a fresh TDA deployment to be
+initialised entirely via DIDComm messages without direct driver API access.
+
+All `federation/1.0/*` requests require `InboxMessage.FromDid` to be set. If `FromDid`
+is null the handler returns an error and cannot route the reply. `InboxMessage.WireId`
+carries the sender's DIDComm wire `id` field (populated for plaintext messages; null for encrypted).
+
+`InitialiseFederationAsync` (driver level) is idempotent: if the Federation record
+already exists the call is a no-op and returns the existing record DID. VTC credential
+issuance in `RegisterSocietyAsync` is skipped when the Foundation private key is not
+configured (dev/test mode); a `LogWarning` entry is written instead.
+
+**7.14.1 FederationQuery / FederationQueryResult**
+
+Returns the current Federation record. Safe to call before initialisation — returns
+`{ "found": false }` if the federation has not been initialised.
+
+Request body: `{}` (empty)
+
+Result body schema:
+```json
+{
+  "found":                    <bool>,
+  "federationDid":            "<string | null>",
+  "federationName":           "<string | null>",
+  "primaryDidMethodName":     "<string | null>",
+  "totalSupplyGrana":         <int64 | null>,
+  "endowmentPerSocietyGrana": <int64 | null>,
+  "currentEpoch":             <int | null>,
+  "isActive":                 <bool | null>,
+  "createdAt":                "<ISO-8601-UTC | null>",
+  "queriedAt":                "<ISO-8601-UTC>"
+}
+```
+
+**7.14.2 FederationInit / FederationInitResult**
+
+Initialises the Federation record (idempotent). Creates the genesis wallet with
+`FederationInitialSupplyGrana` (10¹⁵ grana). Appends `FederationInitialised` to the
+Merkle log. If already initialised, returns `alreadyInitialised: true` with the existing
+DID and takes no further action.
+
+Request body schema:
+```json
+{
+  "federationDid":        "<string>",
+  "federationName":       "<string>",
+  "publicKeyHex":         "<string>",
+  "primaryDidMethodName": "<string>"
+}
+```
+
+Result body schema:
+```json
+{
+  "federationDid":        "<string>",
+  "federationName":       "<string>",
+  "primaryDidMethodName": "<string>",
+  "totalSupplyGrana":     <int64>,
+  "alreadyInitialised":   <bool>,
+  "initialisedAt":        "<ISO-8601-UTC>"
+}
+```
+
+**7.14.3 RegisterSociety / RegisterSocietyResult**
+
+Registers a new Society with the Federation. Creates the Society's wallet and registers
+its primary DID method name. VTC credential issuance is skipped in dev/test mode (when
+`FoundationPrivateKey` is not configured). Equivalent to calling
+`ISvrn7Driver.RegisterSocietyAsync` directly.
+
+Request body schema:
+```json
+{
+  "societyDid":            "<string>",
+  "publicKeyHex":          "<string>",
+  "societyName":           "<string>",
+  "primaryDidMethodName":  "<string>",
+  "drawAmountGrana":       <int64>,
+  "overdraftCeilingGrana": <int64>
+}
+```
+
+Result body schema:
+```json
+{
+  "societyDid":            "<string>",
+  "societyName":           "<string>",
+  "primaryDidMethodName":  "<string>",
+  "drawAmountGrana":       <int64>,
+  "overdraftCeilingGrana": <int64>,
+  "success":               <bool>,
+  "registeredAt":          "<ISO-8601-UTC>"
 }
 ```
 

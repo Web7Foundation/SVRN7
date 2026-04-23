@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
 using System.Management.Automation;
+using System.Net.Http;
 using Microsoft.Extensions.Logging;
 using Svrn7.Core;
 using Svrn7.Core.Interfaces;
+using Svrn7.Core.Models;
 
 namespace Svrn7.TDA;
 
@@ -50,9 +52,15 @@ public sealed class DIDCommMessageSwitchboard
     // the drain loop delivers via HttpClient.
     private readonly ConcurrentQueue<OutboundMessage> _outboundQueue = new();
 
-    private const int BatchSize    = 20;
-    private const int MaxAttempts  = 3;
-    private const int IdleMs       = 100;
+    private const int BatchSize                    = 20;
+    private const int TransactionalMaxAttempts    = Svrn7.Core.Svrn7Constants.InboxMaxAttempts;
+    private const int NonTransactionalMaxAttempts = Svrn7.Core.Svrn7Constants.InboxNonTransactionalMaxAttempts;
+    private const int IdleMs                      = 100;
+    private const int StoreBackoffMs              = 2_000; // backoff when inbox store throws
+    private const int OutboundMaxAttempts         = 3;      // retries for outbound HTTP delivery
+
+    private static bool IsTransactional(string messageType)
+        => Svrn7.Core.Svrn7Constants.TransactionalProtocols.Contains(messageType);
 
     public DIDCommMessageSwitchboard(
         Svrn7RunspaceContext                ctx,
@@ -74,6 +82,54 @@ public sealed class DIDCommMessageSwitchboard
         _log         = log;
     }
 
+    // ── Startup recovery ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Called once by <see cref="SwitchboardHostedService"/> before the drain loop starts.
+    /// Recovers two classes of state left behind by an unclean prior shutdown:
+    ///
+    ///   1. Stuck inbox messages — any message left in <c>Processing</c> status (the TDA
+    ///      was killed mid-dispatch) is reset to <c>Pending</c> so it will be dequeued again.
+    ///
+    ///   2. Dead-letter outbox — any outbound message that exhausted all delivery attempts
+    ///      in the previous session is re-enqueued into the outbound queue for another round
+    ///      of retries. The operator can inspect <c>svrn7-inbox.db</c> for persistent failures.
+    /// </summary>
+    public async Task StartupAsync(CancellationToken ct)
+    {
+        // 1. Reset stuck inbox messages.
+        try
+        {
+            await _inbox.ResetStuckMessagesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex,
+                "Switchboard: failed to reset stuck inbox messages on startup — " +
+                "some messages may remain stuck in Processing.");
+        }
+
+        // 2. Re-enqueue dead-lettered outbound messages from the previous session.
+        try
+        {
+            var pending = await _outbox.GetPendingAsync(ct);
+            if (pending.Count > 0)
+            {
+                _log.LogInformation(
+                    "Switchboard: re-enqueuing {Count} dead-lettered outbound message(s) from prior session.",
+                    pending.Count);
+                foreach (var record in pending)
+                    _outboundQueue.Enqueue(new OutboundMessage(record.PeerEndpoint, record.PackedMessage));
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex,
+                "Switchboard: failed to read dead-letter outbox on startup — " +
+                "previously failed outbound messages will not be retried this session.");
+        }
+    }
+
     // ── Main drain loop (runs in Agent 1 Runspace via SwitchboardHostedService) ─
 
     /// <summary>
@@ -89,20 +145,36 @@ public sealed class DIDCommMessageSwitchboard
             // ── 1. Drain outbound queue ───────────────────────────────────────
             await DrainOutboundAsync(ct);
 
-            // ── 2. Dequeue inbound batch ──────────────────────────────────────
-            var batch = await _inbox.DequeueBatchAsync(BatchSize, ct);
-            if (batch.Count == 0)
+            // ── 2. Dequeue and dispatch inbound batch ─────────────────────────
+            // Guarded by a top-level try/catch so a transient inbox store error
+            // (LiteDB lock, disk full, etc.) backs off and retries rather than
+            // crashing the drain loop and taking the TDA down.
+            try
             {
-                await Task.Delay(IdleMs, ct);
-                continue;
+                var batch = await _inbox.DequeueBatchAsync(BatchSize, ct);
+                if (batch.Count == 0)
+                {
+                    await Task.Delay(IdleMs, ct);
+                    continue;
+                }
+
+                _log.LogInformation("Switchboard: processing {Count} inbound message(s).", batch.Count);
+
+                // Messages are dispatched sequentially — the Switchboard cannot know whether
+                // two messages in a batch target the same society or credential. Sequential
+                // processing is the only safe default for a transactional financial system.
+                foreach (var msg in batch)
+                {
+                    if (ct.IsCancellationRequested) break;
+                    await DispatchAsync(msg, ct);
+                }
             }
-
-            _log.LogInformation("Switchboard: processing {Count} inbound message(s).", batch.Count);
-
-            foreach (var msg in batch)
+            catch (Exception ex) when (!ct.IsCancellationRequested)
             {
-                if (ct.IsCancellationRequested) break;
-                await DispatchAsync(msg, ct);
+                _log.LogError(ex,
+                    "Switchboard: inbox store error — backing off {Backoff}ms before retry.",
+                    StoreBackoffMs);
+                await Task.Delay(StoreBackoffMs, ct);
             }
         }
 
@@ -115,6 +187,24 @@ public sealed class DIDCommMessageSwitchboard
     {
         try
         {
+            // ── Message TTL ───────────────────────────────────────────────────
+            // Reject messages older than MaxMessageAgeSeconds. A stale financial
+            // message from a crashed peer session must never execute.
+            if (_opts.MaxMessageAgeSeconds > 0 &&
+                (DateTimeOffset.UtcNow - msg.ReceivedAt).TotalSeconds > _opts.MaxMessageAgeSeconds)
+            {
+                var ageSecs = (DateTimeOffset.UtcNow - msg.ReceivedAt).TotalSeconds;
+                _log.LogWarning(
+                    "Switchboard: message {Id} (type={Type}) is {Age:F0}s old — " +
+                    "exceeds MaxMessageAgeSeconds ({Max}). Dead-lettering.",
+                    msg.Id, msg.MessageType, ageSecs, _opts.MaxMessageAgeSeconds);
+                await _inbox.MarkFailedAsync(
+                    msg.Id,
+                    $"Message expired: age {ageSecs:F0}s exceeds limit of {_opts.MaxMessageAgeSeconds}s.",
+                    retry: false, maxAttempts: TransactionalMaxAttempts, ct);
+                return;
+            }
+
             // ── Epoch gate ────────────────────────────────────────────────────
             if (!IsPermittedInEpoch(msg.MessageType, _ctx.CurrentEpoch))
             {
@@ -124,7 +214,7 @@ public sealed class DIDCommMessageSwitchboard
                 await _inbox.MarkFailedAsync(
                     msg.Id,
                     $"Epoch {_ctx.CurrentEpoch} does not permit {msg.MessageType}",
-                    retry: false, maxAttempts: MaxAttempts, ct);
+                    retry: false, maxAttempts: TransactionalMaxAttempts, ct);
                 return;
             }
 
@@ -154,7 +244,7 @@ public sealed class DIDCommMessageSwitchboard
                 await _inbox.MarkFailedAsync(
                     msg.Id,
                     $"No LOBE registered for @type: {msg.MessageType}",
-                    retry: false, maxAttempts: MaxAttempts, ct);
+                    retry: false, maxAttempts: TransactionalMaxAttempts, ct);
                 return;
             }
 
@@ -163,38 +253,61 @@ public sealed class DIDCommMessageSwitchboard
                 "Switchboard: routing {Did} (type={Type}) → {EP} [{LOBE}]",
                 msg.Id, msg.MessageType, reg.Entrypoint, reg.LobeName);
 
-            // Ensure the LOBE module is loaded before invoking the cmdlet.
-            using var ensurePs = _pool.CreatePipelineForPool();
-            await _lobes.EnsureLoadedAsync(ensurePs, reg.ModulePath, ct);
-
-            await InvokeCmdletPipelineAsync(reg.Entrypoint, msg.Id, ct);
+            await InvokeCmdletPipelineAsync(reg.Entrypoint, reg.ModulePath, msg.Id, ct);
             await _inbox.MarkProcessedAsync(msg.Id, ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             _log.LogError(ex,
-                "Switchboard: dispatch failed for message {Id} (attempt {Attempt}).",
-                msg.Id, msg.AttemptCount + 1);
-            await _inbox.MarkFailedAsync(
-                msg.Id, ex.ToString(),
-                retry: true, maxAttempts: MaxAttempts, ct);
+                "Switchboard: dispatch failed for message {Id} (attempt {Attempt}, transactional={T}).",
+                msg.Id, msg.AttemptCount + 1, IsTransactional(msg.MessageType));
+            try
+            {
+                // Transactional messages: never retry — dead-letter immediately.
+                // Non-transactional messages: retry up to NonTransactionalMaxAttempts.
+                var transactional = IsTransactional(msg.MessageType);
+                await _inbox.MarkFailedAsync(
+                    msg.Id, ex.ToString(),
+                    retry: !transactional,
+                    maxAttempts: transactional ? TransactionalMaxAttempts : NonTransactionalMaxAttempts,
+                    ct);
+            }
+            catch (Exception markEx)
+            {
+                // Dead-lettering is best-effort. If the store is unavailable the
+                // message stays in Processing and will be recovered by
+                // ResetStuckMessagesAsync on next startup.
+                _log.LogError(markEx,
+                    "Switchboard: could not dead-letter message {Id} — store unavailable.",
+                    msg.Id);
+            }
         }
     }
 
     // ── Cmdlet pipeline invocation ────────────────────────────────────────────
 
     /// <summary>
-    /// Opens a runspace from the pool and invokes the LOBE cmdlet pipeline,
-    /// passing the LiteDB ObjectId as the -MessageId parameter.
+    /// Creates a dedicated isolated <see cref="Runspace"/>, optionally imports a
+    /// JIT LOBE module into it, then invokes the cmdlet or agent script pipeline.
+    /// The runspace is disposed on return — a fault here cannot affect any other
+    /// concurrent dispatch.
     ///
     /// Pipeline pattern (PowerShell, pass-by-reference):
-    ///   Get-TdaMessage -Id $msgId | Invoke-{Lobe}Cmdlet | Send-TdaMessage
+    ///   Get-Web7Message -Did $did | Invoke-{Lobe}Cmdlet -MessageDid $did
     /// </summary>
     private async Task InvokeCmdletPipelineAsync(
-        string cmdletOrScript, string didUrl, CancellationToken ct)
+        string cmdletOrScript, string modulePath, string didUrl, CancellationToken ct)
     {
-        using var ps = _pool.CreatePipelineForPool();
+        using var isolated = _pool.CreateIsolatedPipeline();
+        var ps = isolated.Ps;
 
+        // For LOBE cmdlets (not agent .ps1 scripts), ensure the module is present
+        // in this runspace. Eager LOBEs are skipped (already in the ISS).
+        // JIT LOBEs are imported now into this dedicated runspace.
+        if (!cmdletOrScript.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
+            await _lobes.EnsureLoadedAsync(ps, modulePath, ct);
+
+        ps.Commands.Clear();
         if (cmdletOrScript.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
         {
             // Agent script: executed with MessageDid parameter.
@@ -203,15 +316,58 @@ public sealed class DIDCommMessageSwitchboard
         }
         else
         {
-            // LOBE cmdlet pipeline: Get-TdaMessage | cmdlet (pass-by-reference).
-            ps.AddCommand("Get-TdaMessage")
+            // LOBE cmdlet pipeline: Get-Web7Message | cmdlet (pass-by-reference).
+            ps.AddCommand("Get-Web7Message")
               .AddParameter("Did", didUrl)
               .AddStatement()
               .AddCommand(cmdletOrScript)
               .AddParameter("MessageDid", didUrl);
         }
 
-        var results = await Task.Run(() => ps.Invoke(), ct);
+        _log.LogTrace("PS invoke: {Cmdlet} -MessageDid {Did}", cmdletOrScript, didUrl);
+
+        // ps.Invoke() is synchronous. Wrap in Task.Run so it doesn't block the thread pool.
+        // PowerShell does not honour CancellationToken internally — interruption is via
+        // ps.Stop(). Apply an external timeout using WaitAsync + a linked CTS.
+        var invokeTask = Task.Run(() => ps.Invoke());
+
+        if (_opts.LobeInvocationTimeoutSeconds > 0)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(_opts.LobeInvocationTimeoutSeconds));
+            try
+            {
+                await invokeTask.WaitAsync(timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                // Timeout fired (not shutdown) — stop the runspace and fail the message.
+                ps.Stop();
+                try { await invokeTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None); }
+                catch { /* best-effort wind-down; runspace disposed by IsolatedPipeline */ }
+                throw new TimeoutException(
+                    $"LOBE cmdlet '{cmdletOrScript}' timed out after " +
+                    $"{_opts.LobeInvocationTimeoutSeconds}s for message {didUrl}.");
+            }
+        }
+        else
+        {
+            await invokeTask.WaitAsync(ct);
+        }
+
+        var results = invokeTask.Result; // task is completed at this point
+
+        _log.LogTrace("PS complete: {Cmdlet} → {Count} result(s).", cmdletOrScript, results.Count);
+
+        // Forward PowerShell streams to the .NET logger.
+        foreach (var v in ps.Streams.Verbose)
+            _log.LogTrace("  [PS Verbose] {Message}", v.Message);
+        foreach (var d in ps.Streams.Debug)
+            _log.LogDebug("  [PS Debug] {Message}", d.Message);
+        foreach (var i in ps.Streams.Information)
+            _log.LogInformation("  [PS Info] {Message}", i.MessageData);
+        foreach (var w in ps.Streams.Warning)
+            _log.LogWarning("  [PS Warning] {Message}", w.Message);
 
         if (ps.HadErrors)
         {
@@ -252,11 +408,17 @@ public sealed class DIDCommMessageSwitchboard
 
     /// <summary>
     /// Enqueues a packed outbound DIDComm message for delivery.
-    /// Called by LOBE cmdlets via the <c>Send-TdaMessage</c> cmdlet wrapper,
+    /// Called by LOBE cmdlets via the <c>Send-Web7Message</c> cmdlet wrapper,
     /// which posts an <see cref="OutboundMessage"/> to this queue.
     /// </summary>
     public void EnqueueOutbound(string peerEndpoint, string packedMessage)
         => _outboundQueue.Enqueue(new OutboundMessage(peerEndpoint, packedMessage));
+
+    /// <summary>
+    /// Number of outbound messages waiting in the in-memory delivery queue.
+    /// Exposed for diagnostics and testing.
+    /// </summary>
+    public int PendingOutboundCount => _outboundQueue.Count;
 
     private async Task DrainOutboundAsync(CancellationToken ct)
     {
@@ -271,54 +433,68 @@ public sealed class DIDCommMessageSwitchboard
 
     private async Task DeliverOutboundAsync(OutboundMessage msg, CancellationToken ct)
     {
-        // Uses the named HttpClient "didcomm" registered in TdaServiceCollectionExtensions.
-        // Polly retry: exponential backoff, 3 attempts — configured at registration time.
-        var client  = _httpFactory.CreateClient("didcomm");
+        var client   = _httpFactory.CreateClient("didcomm");
         var endpoint = msg.PeerEndpoint.TrimEnd('/') + "/didcomm";
 
-        try
+        Exception? lastException = null;
+
+        for (int attempt = 1; attempt <= OutboundMaxAttempts; attempt++)
         {
-            using var content = new System.Net.Http.StringContent(
-                msg.PackedMessage,
-                System.Text.Encoding.UTF8,
-                "application/didcomm-encrypted+json");
-
-            var response = await client.PostAsync(endpoint, content, ct);
-
-            if (response.IsSuccessStatusCode)
+            try
             {
-                _log.LogInformation(
-                    "Switchboard: outbound message delivered to {Endpoint} ({Status}).",
-                    endpoint, (int)response.StatusCode);
-            }
-            else
-            {
+                using var content = new System.Net.Http.StringContent(
+                    msg.PackedMessage,
+                    System.Text.Encoding.UTF8,
+                    "application/didcomm-encrypted+json");
+
+                var response = await client.PostAsync(endpoint, content, ct);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    _log.LogInformation(
+                        "Switchboard: outbound delivered to {Endpoint} ({Status}).",
+                        endpoint, (int)response.StatusCode);
+                    return; // success
+                }
+
+                // Non-success HTTP status — treat as a retryable failure.
+                lastException = new HttpRequestException(
+                    $"Peer returned HTTP {(int)response.StatusCode}");
                 _log.LogWarning(
-                    "Switchboard: peer TDA returned {Status} for outbound message to {Endpoint}.",
-                    (int)response.StatusCode, endpoint);
+                    "Switchboard: peer returned {Status} (attempt {Attempt}/{Max}) for {Endpoint}.",
+                    (int)response.StatusCode, attempt, OutboundMaxAttempts, endpoint);
             }
-        }
-        catch (Exception ex) when (!ct.IsCancellationRequested)
-        {
-            // Dead-letter: persist the failed message to the outbox for operator inspection.
-            _log.LogError(ex,
-                "Switchboard: outbound delivery failed to {Endpoint} after retries. "
-                "Persisting to dead-letter outbox.", endpoint);
-
-            var networkId = Svrn7.Core.TdaResourceId.NetworkIdFromDid(_opts.SocietyDid);
-            var outboxId  = Svrn7.Core.TdaResourceId.Build(
-                networkId, "inbox", "outbox", LiteDB.ObjectId.NewObjectId().ToString());
-
-            await _outbox.EnqueueAsync(new Svrn7.Core.Models.OutboxRecord
+            catch (Exception ex) when (!ct.IsCancellationRequested)
             {
-                Id           = outboxId,
-                PeerEndpoint = msg.PeerEndpoint,
-                PackedMessage= msg.PackedMessage,
-                MessageType  = "outbound",
-                AttemptCount = 3,
-                LastError    = ex.Message
-            }, ct);
+                lastException = ex;
+                _log.LogWarning(ex,
+                    "Switchboard: outbound delivery failed (attempt {Attempt}/{Max}) to {Endpoint}.",
+                    attempt, OutboundMaxAttempts, endpoint);
+            }
+
+            // Exponential backoff: 500 ms, 1 000 ms, 2 000 ms, …
+            if (attempt < OutboundMaxAttempts)
+                await Task.Delay(TimeSpan.FromMilliseconds(500 * (1 << (attempt - 1))), ct);
         }
+
+        // All attempts exhausted — dead-letter for operator inspection.
+        _log.LogError(lastException,
+            "Switchboard: outbound delivery to {Endpoint} failed after {Max} attempt(s). " +
+            "Persisting to dead-letter outbox.", endpoint, OutboundMaxAttempts);
+
+        var networkId = Svrn7.Core.TdaResourceId.NetworkIdFromDid(_opts.SocietyDid);
+        var outboxId  = Svrn7.Core.TdaResourceId.Build(
+            networkId, "inbox", "outbox", LiteDB.ObjectId.NewObjectId().ToString());
+
+        await _outbox.EnqueueAsync(new Svrn7.Core.Models.OutboxRecord
+        {
+            Id            = outboxId,
+            PeerEndpoint  = msg.PeerEndpoint,
+            PackedMessage = msg.PackedMessage,
+            MessageType   = "outbound",
+            AttemptCount  = OutboundMaxAttempts,
+            LastError     = lastException?.Message
+        }, ct);
     }
 }
 

@@ -5,10 +5,12 @@ namespace Svrn7.TDA;
 // Derived from: draft-herman-drn-resource-addressing-00.
 //
 // Builds and parses DID URL locators for records in TDA Data Storage databases.
-// Form: did:drn:{networkId}/{db}/{type}/{key}
+// General form: did:drn:{networkId}/{db}/{type}/{key}
+// Citizen form:  did:drn:{networkId}/citizen/{citizenKey}  (2-segment; db = "main" implied)
 //
 // Key type conventions (Epoch 0):
-//   Identity-bearing records : citizen/society DID suffix (e.g., alice.alpha.svrn7.net)
+//   Citizen records          : citizen local id (e.g., alice) — NOT the full DID suffix
+//   Society/federation records: DID suffix (e.g., alpha.svrn7.net)
 //   Content-addressed records: Blake3 hex hash (64 chars) — utxo, logentry, treehead
 //   Named records            : human-meaningful common name — schema
 //   VC UUID records          : VC UUID string — vc
@@ -114,13 +116,13 @@ public sealed class TdaResourceAddress
     public static string ProcessedOrder(string networkId, string objectIdHex)
         => Svrn7.Core.TdaResourceId.ProcessedOrder(networkId, objectIdHex);
 
-    /// <summary>Citizen record DID URL. Key = citizen DID suffix.</summary>
-    public static string Citizen(string networkId, string citizenDidSuffix)
-        => Svrn7.Core.TdaResourceId.Citizen(networkId, citizenDidSuffix);
+    /// <summary>Citizen record DID URL. Key = citizen local id (e.g., "alice").</summary>
+    public static string Citizen(string networkId, string citizenKey)
+        => Svrn7.Core.TdaResourceId.Citizen(networkId, citizenKey);
 
-    /// <summary>Wallet DID URL. Key = owner DID suffix.</summary>
-    public static string Wallet(string networkId, string ownerDidSuffix)
-        => Svrn7.Core.TdaResourceId.Wallet(networkId, ownerDidSuffix);
+    /// <summary>Wallet DID URL. Key = citizen local id or society DID suffix.</summary>
+    public static string Wallet(string networkId, string ownerKey)
+        => Svrn7.Core.TdaResourceId.Wallet(networkId, ownerKey);
 
     /// <summary>UTXO DID URL. Key = Blake3 hex hash (64 chars).</summary>
     public static string Utxo(string networkId, string blake3Hex)
@@ -130,9 +132,9 @@ public sealed class TdaResourceAddress
     public static string Society(string networkId, string societyDidSuffix)
         => Svrn7.Core.TdaResourceId.Society(networkId, societyDidSuffix);
 
-    /// <summary>Membership DID URL. Key = citizen DID suffix.</summary>
-    public static string Membership(string networkId, string citizenDidSuffix)
-        => Svrn7.Core.TdaResourceId.Membership(networkId, citizenDidSuffix);
+    /// <summary>Membership DID URL. Key = citizen local id (e.g., "alice").</summary>
+    public static string Membership(string networkId, string citizenKey)
+        => Svrn7.Core.TdaResourceId.Membership(networkId, citizenKey);
 
     /// <summary>Merkle log entry DID URL. Key = Blake3 hex hash of entry content.</summary>
     public static string LogEntry(string networkId, string blake3Hex)
@@ -176,13 +178,23 @@ public sealed class TdaResourceAddress
         var path      = didUrl[(slashIdx + 1)..];
         var parts     = path.Split('/');
 
-        if (parts.Length != 3) return null;  // must be exactly {db}/{type}/{key}
+        // 3-segment form: {db}/{type}/{key} — all internal resource DID URLs
+        if (parts.Length == 3)
+            return new TdaResourceAddress(
+                networkId: authority,
+                db:        parts[0],
+                type:      parts[1],
+                key:       parts[2]);
 
-        return new TdaResourceAddress(
-            networkId: authority,
-            db:        parts[0],
-            type:      parts[1],
-            key:       parts[2]);
+        // 2-segment form: {type}/{key} — citizen Locator DID URLs (db is inferred as "main")
+        if (parts.Length == 2 && parts[0] == Type.Citizen)
+            return new TdaResourceAddress(
+                networkId: authority,
+                db:        Db.Main,
+                type:      parts[0],
+                key:       parts[1]);
+
+        return null;
     }
 
     /// <summary>
@@ -202,15 +214,16 @@ public sealed class TdaResourceAddress
     /// </summary>
     public LiteDB.ObjectId ToObjectId()
     {
-        if (!LiteDB.ObjectId.TryParse(Key, out var oid))
-            throw new InvalidOperationException(
-                $"DID URL key '{Key}' is not a valid LiteDB ObjectId hex string.");
-        return oid;
+        try { return new LiteDB.ObjectId(Key); }
+        catch { throw new InvalidOperationException(
+            $"DID URL key '{Key}' is not a valid LiteDB ObjectId hex string."); }
     }
 
     /// <summary>
-    /// Returns the DID suffix key as a full did:drn DID string.
-    /// Used for identity-bearing records (citizen, wallet, membership, society, doc).
+    /// Returns the key as a full did:drn Identity DID string. Use only for society and
+    /// federation records where Key IS the DID suffix (e.g., "alpha.svrn7.net").
+    /// For citizen records, Key is a local id (e.g., "alice") — use ToString() to obtain
+    /// the citizen's Locator DID URL instead.
     /// </summary>
     public string ToDidString() => $"did:drn:{Key}";
 

@@ -5,17 +5,32 @@
 
 [![License: MIT](https://img.shields.io/badge/Code-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![License: CC BY-SA 4.0](https://img.shields.io/badge/Docs-CC--BY--SA--4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 
-The Web 7.0 Decentralized System Architecture (DSA) is a sovereign, DID-native, DIDComm-native
-runtime for digital participation. Every participant in the Web 7.0 ecosystem operates a
-**Trusted Digital Assistant (TDA)** — a personal or institutional software agent that holds
-identity, manages value, communicates exclusively over end-to-end encrypted DIDComm channels,
-and participates in **Verifiable Trust Circles (VTC7)** — federated peer meshes in which
-identity and trust are cryptographic properties, not institutional ones.
+The Web 7.0 Decentralized System Architecture (DSA) is a sovereign, DID-native, DIDComm-native runtime for digital participation. Every participant in the Web 7.0 ecosystem operates a **Trusted Digital Assistant (TDA)** — a personal or institutional software agent that holds identity, manages value, communicates exclusively over end-to-end encrypted DIDComm channels, and participates in **Verifiable Trust Circles (VTC7)** — federated peer meshes in which identity and trust are cryptographic properties, not institutional ones.
 
-This repository is the Epoch 0 (Endowment Phase) reference implementation of the Web 7.0 DSA,
-specified by the DSA 0.24 diagram using the Parchment Programming Modeling Language (PPML).
-It includes the TDA Host runtime, all eleven standard LOBE modules, the SOVRONA (SVRN7)
-Shared Reserve Currency (SRC) library, and fifteen IETF Internet-Drafts.
+This repository is the Epoch 0 (Endowment Phase) reference implementation of the Web 7.0 DSA, specified by the DSA 0.24 diagram using the Parchment Programming Modeling Language (PPML). It includes the TDA Host runtime, all eleven standard LOBE modules, the SOVRONA (SVRN7) Shared Reserve Currency (SRC) library, and fifteen IETF draft specifications.
+
+![Web 7.0 Societal Architecture](./docs/images/Web%207.0%20DSA-SocietyArch%200.26.png)
+
+![Web 7.0 DSA](./docs/images/Web%207.0%20DSA-TDA%200.25.png)
+
+---
+
+## Excerpt from April 17, 2026 memo: _Web 7.0: Killer Application for the Internet_ (_the Blue Memo_):
+
+> With every passing second, a new autonomous digital agent comes online. A new decentralized identity (DID) is generated every few minutes. In 2025, more than 300 books appeared on the topic of AI agents, sovereign identity, and decentralized trust — and over 14,000 technical articles flooded arXiv, GitHub, and the standards bodies. You cannot attend a technology conference without encountering the phrase “agent economy.” 
+>
+>J. [Allard], more than 32 years have passed since you wrote the _Windows: The Next Killer Application on the Internet memo (January 25, 1994)_. Now, the Internet is experiencing a revolutionary tidal wave: Web 7.0, a replacement for the World Wide Web (and Windows) that is open, sovereign, secure, and decentralized.
+
+>> _Rule Change 1: Web 7.0 is profoundly aligned with the oldest promise of the Internet: secure, trusted, universal access to information, services, and liquidity—for every human and digital agent on the planet—with no gatekeepers or overlords._
+
+> This memo summarizes the core technologies, identifies the strategic opportunity, and describes what it will take to make Web 7.0 the killer application for the Internet. The three fundamental building blocks of Web 7.0 include:
+> - sovereign identity, 
+> - cryptographically verifiable authenticity, and
+> - secure, trusted, autonomous communication.
+
+> Collectively, I refer to these pillars as Web 7.0 Decentralized Library Operating System (Web 7.0 DIDLibOS™) or simply, Web 7.0™.
+
+>> _Rule Change 2: Whoever succeeds in establishing the global Decentralized System Architecture (DSA) standards and reference implementations will occupy the same position Microsoft occupied in 1994 relative to the Internet — except this time, the platform is open, the identity is sovereign, and the shared reserve currency is governed by (non-blockchain) cryptographic proof._
 
 ---
 
@@ -63,7 +78,7 @@ The DSA has five structural layers:
 |  Federated peer TDAs; DIDComm-native; no central broker      |
 +--------------------------------------------------------------+
 |  TDA  — Trusted Digital Assistant                            |
-|  Sovereign agent runtime; LOBEs; Switchboard; Runspace Pool  |
+|  Sovereign agent runtime; LOBEs; Switchboard; IsolatedPipeline|
 +--------------------------------------------------------------+
 |  DIDComm V2  — Transport                                     |
 |  SignThenEncrypt; HTTP/2 + mTLS; did:drn Locator DID URLs    |
@@ -99,7 +114,7 @@ Internally, the TDA is structured around the PPML Legend 0.25 element types:
 | PPML Element      | TDA Component                           | Artefact                            |
 |-------------------|-----------------------------------------|-------------------------------------|
 | Host              | TDA process (Program.cs)                | .NET 8 Generic Host + DI            |
-| Runspace Pool     | RunspacePoolManager                     | PS RunspacePool + InitialSessionState |
+| Runspace Pool     | RunspacePoolManager + IsolatedPipeline  | Shared ISS + per-invocation runspace|
 | PowerShell Runspace | Agent scripts (Agent1, Agent2, AgentN) | .ps1 + Switchboard routing          |
 | Switchboard       | DIDCommMessageSwitchboard               | ConcurrentDictionary protocol registry |
 | LOBE              | PowerShell modules (.psm1)              | .psm1 + .psd1 + .lobe.json          |
@@ -176,8 +191,8 @@ Web7-DSA.sln
 |   +-- Svrn7.DIDComm/     DIDComm V2: 5 pack modes, RFC 3394, X25519
 |   +-- Svrn7.Federation/  ISvrn7Driver (44+ members), DI extensions
 |   +-- Svrn7.Society/     ISvrn7SocietyDriver, InboxStore, SchemaRegistry
-|   +-- Svrn7.TDA/         TDA Host: Kestrel, Switchboard, LobeManager, RunspacePool
-+-- lobes/                 11 LOBE modules (.psm1 + .psd1 + .lobe.json) + 3 agent scripts
+|   +-- Svrn7.TDA/         TDA Host: Kestrel, Switchboard, LobeManager, IsolatedPipeline
++-- lobes/                 11 LOBE modules in per-LOBE subfolders (.psm1 + .psd1 + .lobe.json) + 3 agent scripts
 +-- specs/                 15 IETF Internet-Drafts
 +-- docs/                  Design documents, whitepaper, principles of operations
 +-- tests/
@@ -206,15 +221,19 @@ Svrn7.Society
 
 Derived from: "Citizen/Society TDA (Host)" — element type Host — DSA 0.24 Epoch 0 (PPML).
 
-**Inbound**: `POST /didcomm` (Kestrel HTTP/2 + mTLS)
-→ `KestrelListenerService.UnpackAsync()`
-→ `LiteInboxStore.EnqueueAsync()` — persists to `svrn7-inbox.db`
-→ `DIDCommMessageSwitchboard` — routes by `@type` Locator DID URL
-→ LOBE cmdlet pipeline (PowerShell Runspace)
+**Inbound**: `POST /didcomm` (Kestrel HTTP/2 + mTLS; body size limit 2 MB; rate-limited: 100 req/s default)
+→ `KestrelListenerService.UnpackAsync()` — extracts `Id`, `Type`, `From`, `Body` from plaintext; encrypted messages pass through undecrypted;
+  returns 503 + `Retry-After: 5` if EnqueueAsync throws; returns 429 when rate limit exceeded
+→ `LiteInboxStore.EnqueueAsync(type, body, fromDid?, wireId?)` — persists to `svrn7-inbox.db`; `wireId = unpacked.Id` (null for encrypted)
+→ `DIDCommMessageSwitchboard` — on startup: calls `ResetStuckMessagesAsync()` (recovery) and re-enqueues dead-lettered outbound messages;
+  TTL check: messages older than `MaxMessageAgeSeconds` (default 3600s) are dead-lettered before processing;
+  routes by `@type` Locator DID URL; **sequential dispatch** (one message at a time — financial correctness;
+  prevents read-modify-write races on shared financial state)
+→ LOBE cmdlet pipeline (`IsolatedPipeline` — fresh `Runspace` per dispatch, disposed after; invocation timeout: 30s default)
 
 **Outbound**: LOBE returns `OutboundMessage { PeerEndpoint, PackedMessage, MessageType }`
 → `DIDCommMessageSwitchboard.EnqueueOutbound()`
-→ `HttpClient` HTTP/2 POST to peer TDA endpoint
+→ `HttpClient` HTTP/2 POST to peer TDA endpoint; retries up to 3 times with exponential backoff (500ms, 1s, 2s)
 
 ### Message Identity — Pass-by-Reference
 
@@ -232,8 +251,9 @@ This is the pass-by-reference constraint derived from the Data Access arrow in D
 
 ### Dead-Letter Outbox
 
-Failed outbound messages (after Polly retry exhaustion) are persisted to `IOutboxStore`
+Failed outbound messages (after retry exhaustion — 3 attempts, exponential backoff) are persisted to `IOutboxStore`
 (`LiteOutboxStore` in `svrn7-inbox.db`) for operator inspection and replay.
+On startup, the Switchboard re-enqueues pending outbox records from the prior session.
 
 ---
 
@@ -281,8 +301,11 @@ becomes the MCP tool definition with no translation needed.
 
 ### Dynamic Registration
 
-`LobeManager` scans all `*.lobe.json` files at startup and watches for new files via
-`FileSystemWatcher`. Third-party LOBEs can be hot-loaded without TDA restart.
+`LobeManager` scans all `*.lobe.json` files at startup (using `SearchOption.AllDirectories`) and watches for
+new files via `FileSystemWatcher`. LOBEs live in per-LOBE subfolders under `lobes/` (e.g. `lobes/Svrn7.Common/`).
+Third-party LOBEs can be hot-loaded without TDA restart by dropping files into a new subfolder.
+If a hot-detected LOBE was configured as eager, it runs as JIT for the current session (a warning is logged;
+restart is required for eager loading).
 
 ### Pipeline Semantics
 
@@ -352,7 +375,7 @@ Federation wallet  (1,000,000,000 SVRN7 at genesis)
     |
     +-- RegisterSocietyAsync()       --> Society wallet  (EndowmentPerSocietyGrana)
             |
-            +-- RegisterCitizenAsync() --> Citizen wallet (1,000 SVRN7)
+            +-- RegisterCitizenAsync() --> Citizen wallet (1,000 grana)
 ```
 
 Supply conservation is an invariant: total circulating supply always equals
@@ -402,10 +425,10 @@ Every participant has exactly one primary DID — the wallet key, immutable.
 
 Formalised in `draft-herman-did-w3c-drn-00` Section 5a (W3C DID Core Section 3.2):
 
-| Form               | Delimiter | Example                                      | DID Document? |
-|--------------------|-----------|----------------------------------------------|---------------|
-| Identity DID       | `:`       | `did:drn:alice.alpha.svrn7.net`              | Yes           |
-| Locator DID URL    | `/`       | `did:drn:alpha.svrn7.net/inbox/msg/5f43a2...`| No            |
+| Form               | Delimiter | Example                                              | DID Document? |
+|--------------------|-----------|------------------------------------------------------|---------------|
+| Identity DID       | `:`       | `did:drn:alpha.svrn7.net` (society/federation only)  | Yes           |
+| Locator DID URL    | `/`       | `did:drn:alpha.svrn7.net/citizen/alice`         | No            |
 
 Identity DIDs identify subjects. Locator DID URLs address resources. The `:` vs `/` choice
 reflects W3C DID Core structural semantics, made explicit as a design principle.
@@ -546,13 +569,14 @@ await driver.InitialiseFederationAsync(new InitialiseFederationRequest
 ```csharp
 builder.Services.AddSvrn7Society(opts =>
 {
-    opts.SocietyDid    = "did:socalpha:my-society";
-    opts.FederationDid = "did:web7:foundation";
+    opts.SocietyDid    = "did:drn:sovronia";
+    opts.FederationDid = "did:drn:foundation";
+    opts.DidMethodName  = "sovronia";
     opts.DrawAmountGrana         = 100_000 * Svrn7Constants.GranaPerSvrn7;
     opts.OverdraftCeilingGrana   = 1_000_000 * Svrn7Constants.GranaPerSvrn7;
     opts.SocietyMessagingPrivateKeyEd25519   = societyEd25519PrivKey;
     opts.FederationMessagingPublicKeyEd25519 = federationEd25519PubKey;
-    opts.FederationEndpoint = "https://federation.svrn7.net/didcomm";
+    opts.FederationEndpointUrl = "https://federation.svrn7.net/didcomm";
 });
 
 // Register a citizen
@@ -561,12 +585,12 @@ var citizenKey = driver.GenerateSecp256k1KeyPair();
 
 await driver.RegisterCitizenInSocietyAsync(new RegisterCitizenInSocietyRequest
 {
-    Did             = "did:socalpha:citizen-alice",
+    Did             = "did:drn:sovronia.svrn7.net/citizen/alice",
     PublicKeyHex    = citizenKey.PublicKeyHex,
     PrivateKeyBytes = citizenKey.PrivateKeyBytes,
-    SocietyDid      = "did:socalpha:my-society",
+    SocietyDid      = "did:drn:sovronia.svrn7.net",
 });
-// Alice's wallet now contains 1,000 SVRN7 (CitizenEndowmentGrana)
+// Alice's wallet now contains 1,000 grana (CitizenEndowmentGrana)
 ```
 
 ---
@@ -575,14 +599,17 @@ await driver.RegisterCitizenInSocietyAsync(new RegisterCitizenInSocietyRequest
 
 ### TdaOptions
 
-| Property          | Default                     | Description                        |
-|-------------------|-----------------------------|------------------------------------|
-| `SocietyDid`      | *(required)*                | This TDA's Society DID             |
-| `NetworkId`       | *(required)*                | Network identifier                 |
-| `LobesConfigPath` | `lobes/lobes.config.json`   | LOBE loading manifest path         |
-| `LobeDirectory`   | `lobes/`                    | Watched for new .lobe.json files   |
-| `InboxDbPath`     | `data/svrn7-inbox.db`       | LiteDB inbox + schema + outbox     |
-| `HttpPort`        | `8080`                      | Kestrel listen port                |
+| Property                        | Default                     | Description                                              |
+|---------------------------------|-----------------------------|----------------------------------------------------------|
+| `SocietyDid`                    | *(required)*                | This TDA's Society DID                                   |
+| `NetworkId`                     | *(required)*                | Network identifier                                       |
+| `LobesConfigPath`               | `lobes/lobes.config.json`   | LOBE loading manifest path                               |
+| `LobeDirectory`                 | `lobes/`                    | Watched for new .lobe.json files (all subdirectories)    |
+| `InboxDbPath`                   | `data/svrn7-inbox.db`       | LiteDB inbox + schema + outbox                           |
+| `HttpPort`                      | `8080`                      | Kestrel listen port                                      |
+| `LobeInvocationTimeoutSeconds`  | `30`                        | Max seconds for a LOBE cmdlet; exceeded → `ps.Stop()`   |
+| `MaxMessageAgeSeconds`          | `3600`                      | Message TTL before dead-letter (0 = disabled)            |
+| `RateLimitRequestsPerSecond`    | `100`                       | POST /didcomm rate limit (0 = disabled); 429 on breach   |
 
 ### Svrn7Options (Federation / Society)
 
@@ -677,7 +704,8 @@ src/Svrn7.TDA/
     DIDCommMessageSwitchboard.cs  Descriptor-driven routing + Option A transfer idempotency
     LobeManager.cs                RegisterFromDescriptor, EnsureLoadedAsync, FileSystemWatcher
     LobeRegistration.cs           C# model for .lobe.json (MCP-aligned)
-    RunspacePoolManager.cs        PS RunspacePool + InitialSessionState
+    RunspacePoolManager.cs        Builds shared ISS; vends per-invocation IsolatedPipeline
+    IsolatedPipeline.cs           PS instance + dedicated Runspace (crash-isolated per dispatch)
     Svrn7RunspaceContext.cs       $SVRN7 session variable
     TdaResourceAddress.cs         DID URL parser for TDA resource addresses
 ```
@@ -738,7 +766,18 @@ dotnet test --collect:"XPlat Code Coverage"
 ## 23. Roadmap
 
 ### v0.8.0 — TDA + LOBE Registry + Architectural Coherence (April 2026) <- *current*
-- TDA Host: Kestrel, Switchboard, LobeManager, RunspacePool fully implemented
+- TDA Host: Kestrel, Switchboard, LobeManager, IsolatedPipeline fully implemented
+- **IsolatedPipeline** replaces RunspacePool: per-invocation crash-isolated runspace; shared ISS template
+- **Sequential dispatch**: Switchboard processes one inbound message at a time (financial correctness)
+- **Startup recovery**: `ResetStuckMessagesAsync()` + outbox re-enqueue on every startup
+- **Message TTL**: `MaxMessageAgeSeconds` (default 3600s) dead-letters stale messages before processing
+- **Per-message-type retry**: transactional protocols maxAttempts=1 (no retry); non-transactional maxAttempts=3
+- **Rate limiting**: `RateLimitRequestsPerSecond` (default 100) on POST /didcomm; HTTP 429 on breach
+- **Invocation timeout**: `LobeInvocationTimeoutSeconds` (default 30s); exceeded → `ps.Stop()`
+- **Outbound retry**: 3 attempts, exponential backoff (500ms/1s/2s); dead-letter outbox on exhaustion
+- **LOBE subdirectory structure**: LOBEs in per-LOBE subfolders; FSW uses `SearchOption.AllDirectories`
+- **Graceful shutdown**: `HostOptions.ShutdownTimeout = LobeInvocationTimeoutSeconds + 10s`
+- **SwitchboardHostedService restart loop**: 5s backoff on unexpected fault
 - Dynamic LOBE registry: `.lobe.json` descriptors + `FileSystemWatcher` hot-reload
 - DIDComm protocol URIs: `did:drn:svrn7.net/protocols/...` (Locator DID URLs)
 - PPML Legend 0.25 + PP-9 Consistent Code Generation formalised

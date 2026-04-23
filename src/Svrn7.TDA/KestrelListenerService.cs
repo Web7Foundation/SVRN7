@@ -1,8 +1,10 @@
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -68,6 +70,9 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         // ── Kestrel: HTTP/2 + mTLS ────────────────────────────────────────────
         builder.WebHost.ConfigureKestrel(kestrel =>
         {
+            // Guard against oversized bodies — 2 MB is generous for any DIDComm message.
+            kestrel.Limits.MaxRequestBodySize = 2 * 1024 * 1024;
+
             kestrel.ListenAnyIP(_opts.ListenPort, listenOpts =>
             {
                 listenOpts.Protocols = HttpProtocols.Http2;
@@ -99,10 +104,34 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
             });
         });
 
+        // ── Rate limiting ─────────────────────────────────────────────────────
+        // Fixed-window per-IP: protects against a misbehaving or compromised peer
+        // flooding the inbox. Disabled when RateLimitRequestsPerSecond == 0.
+        const string rateLimitPolicy = "didcomm";
+        if (_opts.RateLimitRequestsPerSecond > 0)
+        {
+            builder.Services.AddRateLimiter(rl =>
+            {
+                rl.AddFixedWindowLimiter(rateLimitPolicy, options =>
+                {
+                    options.PermitLimit         = _opts.RateLimitRequestsPerSecond;
+                    options.Window              = TimeSpan.FromSeconds(1);
+                    options.QueueLimit          = 0;
+                    options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                });
+                rl.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            });
+        }
+
         _app = builder.Build();
 
+        if (_opts.RateLimitRequestsPerSecond > 0)
+            _app.UseRateLimiter();
+
         // ── Single route: POST /didcomm ───────────────────────────────────────
-        _app.MapPost("/didcomm", HandleInboundAsync);
+        var route = _app.MapPost("/didcomm", HandleInboundAsync);
+        if (_opts.RateLimitRequestsPerSecond > 0)
+            route.RequireRateLimiting(rateLimitPolicy);
 
         await _app.StartAsync(ct);
         _log.LogInformation(
@@ -161,10 +190,27 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
 
         // ── Write-ahead log (Long-Term Message Memory — DSA 0.24) ─────────────
         // Persist the unpacked payload (not the JWE — agents work with plaintext).
-        await _inbox.EnqueueAsync(
-            unpacked.Type,
-            unpacked.Body,
-            http.RequestAborted);
+        // FromDid is threaded through so LOBE cmdlets can route reply messages back
+        // to the sender without requiring the sender to repeat their DID in the body.
+        try
+        {
+            await _inbox.EnqueueAsync(
+                unpacked.Type,
+                unpacked.Body,
+                unpacked.From,
+                unpacked.Id,
+                http.RequestAborted);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "KestrelListenerService: inbox store unavailable — returning 503.");
+            http.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            http.Response.Headers["Retry-After"] = "5";
+            await http.Response.WriteAsync(
+                "Inbox store temporarily unavailable. Retry after 5 seconds.",
+                http.RequestAborted);
+            return;
+        }
 
         _log.LogInformation(
             "KestrelListenerService: enqueued message type='{Type}'.", unpacked.Type);

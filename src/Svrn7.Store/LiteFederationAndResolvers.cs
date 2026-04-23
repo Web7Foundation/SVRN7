@@ -15,14 +15,36 @@ namespace Svrn7.Store;
 public sealed class FederationLiteContext : IDisposable
 {
     private readonly LiteDatabase _db;
+    private readonly bool _ownsDatabase;
     private bool _disposed;
 
     public const string ColFederation  = "FederationRecords";
     public const string ColMethodReg   = "DidMethodRegistry";
 
+    /// <summary>
+    /// Opens a new exclusive LiteDB connection. Use only when no other context has the file open.
+    /// </summary>
     public FederationLiteContext(string connectionString)
     {
-        _db = new LiteDatabase(connectionString);
+        var mapper = new BsonMapper();
+        mapper.Entity<FederationRecord>().Id(f => f.Did);
+        // SocietyDidMethodRecord has a synthetic Id property — LiteDB auto-maps it to _id.
+        _db = new LiteDatabase(connectionString, mapper);
+        _ownsDatabase = true;
+        _db.GetCollection<SocietyDidMethodRecord>(ColMethodReg)
+           .EnsureIndex(r => r.MethodName, unique: false);  // historical records — not unique
+    }
+
+    /// <summary>
+    /// Shares an already-open LiteDatabase (e.g. from Svrn7LiteContext).
+    /// Does NOT dispose the database — the owner is responsible for its lifetime.
+    /// The caller must ensure FederationRecord is mapped in the shared database's BsonMapper
+    /// (Svrn7LiteContext.BuildMapper() does this).
+    /// </summary>
+    public FederationLiteContext(LiteDatabase sharedDb)
+    {
+        _db = sharedDb;
+        _ownsDatabase = false;
         _db.GetCollection<SocietyDidMethodRecord>(ColMethodReg)
            .EnsureIndex(r => r.MethodName, unique: false);  // historical records — not unique
     }
@@ -40,7 +62,7 @@ public sealed class FederationLiteContext : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _db.Dispose();
+        if (_ownsDatabase) _db.Dispose();
     }
 }
 
