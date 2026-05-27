@@ -24,7 +24,7 @@ This repository is the Epoch 0 (Endowment Phase) reference implementation of the
 >> _Rule Change 1: Web 7.0 is profoundly aligned with the oldest promise of the Internet: secure, trusted, universal access to information, services, and liquidity—for every human and digital agent on the planet—with no gatekeepers or overlords._
 
 > This memo summarizes the core technologies, identifies the strategic opportunity, and describes what it will take to make Web 7.0 the killer application for the Internet. The three fundamental building blocks of Web 7.0 include:
-> - sovereign identity, 
+> - sovereign identity,
 > - cryptographically verifiable authenticity, and
 > - secure, trusted, autonomous communication.
 
