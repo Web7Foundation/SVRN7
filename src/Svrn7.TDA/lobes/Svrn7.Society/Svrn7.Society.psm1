@@ -40,11 +40,21 @@
                     draft-herman-did-method-governance-00
 #>
 
+# Locate Svrn7.Common without module dependencies.
+# TDA mode: $SVRN7_LOBES_DIR is injected AllScope by LobeManager (guaranteed absolute).
+# Standalone mode: derive from $PSScriptRoot (parent dir = lobes base).
+# Set-StrictMode and $ErrorActionPreference are applied AFTER the dot-source so a path
+# failure does not abort loading — in TDA mode Common is already an eager module anyway.
+$_svrn7LobesBase = if ($SVRN7_LOBES_DIR) {
+    $SVRN7_LOBES_DIR
+} elseif ($PSScriptRoot) {
+    [System.IO.Path]::GetDirectoryName($PSScriptRoot)
+}
+if ($_svrn7LobesBase) {
+    . ([System.IO.Path]::Combine($_svrn7LobesBase, 'Svrn7.Common', 'Svrn7.Common.psm1'))
+}
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-
-# Dot-source shared helpers (driver singletons, type names, helpers)
-. (Join-Path $PSScriptRoot 'Svrn7.Common.psm1')
 
 # $Script:SocietyDriver is declared in Svrn7.Common.psm1
 
@@ -534,20 +544,32 @@ function Invoke-Svrn7IncomingTransfer {
         C# API: ISvrn7SocietyDriver.HandleIncomingTransferMessageAsync(string)
         Spec:   draft-herman-didcomm-svrn7-transfer-00 §8.3, §12
     #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'ByMessageDid')]
     [OutputType([PSCustomObject])]
     param(
-        [Parameter(Mandatory, ValueFromPipeline)]
+        # TDA dispatch path: Switchboard passes the inbox message DID URL.
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName, ParameterSetName = 'ByMessageDid')]
+        [ValidateNotNullOrEmpty()]
+        [string] $MessageDid,
+
+        # Standalone path: packed DIDComm JWE piped directly (e.g. cross-Society order).
+        [Parameter(Mandatory, ValueFromPipeline, ParameterSetName = 'ByPackedMessage')]
         [ValidateNotNullOrEmpty()]
         [string] $PackedMessage
     )
 
     process {
-        Assert-SocietyDriver
+        $drv = Get-ActiveSocietyDriver
 
-        Write-Verbose "Processing incoming DIDComm transfer message ($($PackedMessage.Length) chars)..."
+        if ($PSCmdlet.ParameterSetName -eq 'ByMessageDid') {
+            $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+            if (-not $msg) { throw "Invoke-Svrn7IncomingTransfer: message '$MessageDid' not found." }
+            $PackedMessage = $msg.PackedPayload
+        }
 
-        $receipt = $Script:SocietyDriver.HandleIncomingTransferMessageAsync(
+        Write-Verbose "Invoke-Svrn7IncomingTransfer: processing transfer ($($PackedMessage.Length) chars)..."
+
+        $receipt = $drv.HandleIncomingTransferMessageAsync(
             $PackedMessage).GetAwaiter().GetResult()
 
         Write-Verbose 'Incoming transfer processed. Receipt packed.'

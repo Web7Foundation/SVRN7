@@ -15,8 +15,8 @@ namespace Svrn7.TDA;
 /// </summary>
 public sealed class LobeConfig
 {
-    public string[] Eager { get; init; } = Array.Empty<string>();
-    public string[] Jit   { get; init; } = Array.Empty<string>();
+    public string[] Eager { get; init; } = [];
+    public string[] Jit   { get; init; } = [];
 }
 
 // ── LobeManager ───────────────────────────────────────────────────────────────
@@ -99,6 +99,11 @@ public sealed class LobeManager : IDisposable
             "SVRN7_JIT_LOBES",
             _config.Jit.Select(ResolveLobePath).ToArray(),
             "Array of JIT LOBE module paths for on-demand Import-Module.",
+            ScopedItemOptions.ReadOnly | ScopedItemOptions.AllScope));
+
+        iss.Variables.Add(new SessionStateVariableEntry(
+            "SVRN7_LOBES_DIR", LobeBaseDir,
+            "Absolute path to the lobes directory — use instead of $PSScriptRoot in hosted runspaces.",
             ScopedItemOptions.ReadOnly | ScopedItemOptions.AllScope));
 
         foreach (var modulePath in _config.Eager)
@@ -351,8 +356,7 @@ public sealed class LobeManager : IDisposable
             return new LobeConfig();
         }
         var json = File.ReadAllText(path);
-        return JsonSerializer.Deserialize<LobeConfig>(json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+        return JsonSerializer.Deserialize<LobeConfig>(json, LobeDescriptor.JsonOpts)
             ?? new LobeConfig();
     }
 

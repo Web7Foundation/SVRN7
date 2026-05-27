@@ -83,22 +83,51 @@ function Assert-SocietyDriver {
     }
 }
 
+# ── TDA inbox message accessor ───────────────────────────────────────────────
+
+function Get-Web7Message {
+    <#
+    .SYNOPSIS
+        Retrieves an InboxMessageView from the TDA inbox by its DID URL.
+        Requires a TDA runspace ($SVRN7 must be set).
+    .PARAMETER Did
+        The inbox message DID URL (e.g. did:drn:alpha.svrn7.net/inbox/msg/<id>).
+    #>
+    [CmdletBinding()]
+    [OutputType([object])]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Did
+    )
+    process {
+        if ($null -eq $SVRN7) {
+            throw [System.InvalidOperationException]::new(
+                'Get-Web7Message requires a TDA runspace ($SVRN7 not set).')
+        }
+        $view = $SVRN7.GetMessageAsync($Did).GetAwaiter().GetResult()
+        if (-not $view) {
+            throw [System.InvalidOperationException]::new(
+                "Get-Web7Message: no inbox message found for '$Did'.")
+        }
+        $view
+    }
+}
+
 # ── TDA-aware driver accessors ────────────────────────────────────────────────
 # In TDA runspace context $SVRN7 is set and $Script:SocietyDriver / $Script:FederationDriver
 # are null. These helpers return the appropriate driver for whichever context is active.
 
 function Get-ActiveSocietyDriver {
-    $tdaCtx = Get-Variable -Name 'SVRN7' -Scope Global -ErrorAction SilentlyContinue
-    if ($tdaCtx -and $tdaCtx.Value) { return $tdaCtx.Value.Driver }
-    if ($Script:SocietyDriver)       { return $Script:SocietyDriver }
+    if ($null -ne $SVRN7)          { return $SVRN7.Driver }
+    if ($Script:SocietyDriver)     { return $Script:SocietyDriver }
     throw [System.InvalidOperationException]::new(
         'No active society driver. In standalone mode call Connect-Svrn7Society; ' +
         'in TDA context ensure the runspace is initialised.')
 }
 
 function Get-ActiveFederationDriver {
-    $tdaCtx = Get-Variable -Name 'SVRN7' -Scope Global -ErrorAction SilentlyContinue
-    if ($tdaCtx -and $tdaCtx.Value) { return $tdaCtx.Value.Driver }
+    if ($null -ne $SVRN7)            { return $SVRN7.Driver }
     if ($Script:FederationDriver)    { return $Script:FederationDriver }
     throw [System.InvalidOperationException]::new(
         'No active federation driver. In standalone mode call Initialize-Svrn7Federation; ' +

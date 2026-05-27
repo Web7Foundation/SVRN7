@@ -346,8 +346,7 @@ public sealed class DIDCommMessageSwitchboard
                 try { await invokeTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None); }
                 catch { /* best-effort wind-down; runspace disposed by IsolatedPipeline */ }
                 throw new TimeoutException(
-                    $"LOBE cmdlet '{cmdletOrScript}' timed out after " +
-                    $"{_opts.LobeInvocationTimeoutSeconds}s for message {didUrl}.");
+                    $"LOBE cmdlet '{cmdletOrScript}' timed out after {_opts.LobeInvocationTimeoutSeconds}s for message {didUrl}.");
             }
         }
         else

@@ -28,7 +28,7 @@ var host = Host.CreateDefaultBuilder(args)
     .UseConsoleLifetime()
     .ConfigureLogging(logging =>
     {
-        logging.SetMinimumLevel(LogLevel.Trace);
+        logging.SetMinimumLevel(LogLevel.Debug); // MWH
         logging.AddConsole();
     })
     .ConfigureServices((ctx, services) =>
@@ -53,7 +53,7 @@ var host = Host.CreateDefaultBuilder(args)
                                                    ?? "svrn7-inbox.db";
             opts.SchemasDbPath                   = ctx.Configuration["Svrn7:SchemasDbPath"]
                                                    ?? "svrn7-schemas.db";
-            opts.SocietyMessagingPrivateKeyEd25519 = Array.Empty<byte>(); // supplied at runtime
+            opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
         });
 
         // Background services from Svrn7.Society (VC expiry, Merkle auto-sign).
@@ -64,7 +64,7 @@ var host = Host.CreateDefaultBuilder(args)
         {
             opts.SocietyDid                        = ctx.Configuration["Tda:SocietyDid"]
                                                      ?? "did:drn:alpha.svrn7.net";
-            opts.SocietyMessagingPrivateKeyEd25519 = Array.Empty<byte>(); // supplied at runtime
+            opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
             opts.ListenPort                        = int.Parse(
                                                      ctx.Configuration["Tda:ListenPort"] ?? "8443");
             opts.TlsCertificatePath                = ctx.Configuration["Tda:TlsCertPath"];
@@ -101,7 +101,7 @@ var host = Host.CreateDefaultBuilder(args)
     var lobeConfig      = File.Exists(lobesConfigPath)
         ? JsonSerializer.Deserialize<LobeConfig>(
               File.ReadAllText(lobesConfigPath),
-              new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+              LobeDescriptor.JsonOpts)
           ?? new LobeConfig()
         : new LobeConfig();
     var descriptors = Directory.Exists(lobeDir)
@@ -110,7 +110,7 @@ var host = Host.CreateDefaultBuilder(args)
               .Where(d => d is not null)
               .Cast<LobeDescriptor>()
               .ToList()
-        : new List<LobeDescriptor>();
+        : [];
     var totalProtocols = descriptors.Sum(d => d.Protocols.Count);
     var totalCmdlets   = descriptors.Sum(d => d.Cmdlets.Count);
 

@@ -19,9 +19,19 @@
     RELATED
         Svrn7.Society — ISvrn7SocietyDriver cmdlets. Requires Svrn7.Federation first.
 #>
+# Locate Svrn7.Common without module dependencies.
+# TDA mode: $SVRN7_LOBES_DIR is injected AllScope by LobeManager (guaranteed absolute).
+# Standalone mode: derive from $PSScriptRoot (parent dir = lobes base).
+$_svrn7LobesBase = if ($SVRN7_LOBES_DIR) {
+    $SVRN7_LOBES_DIR
+} elseif ($PSScriptRoot) {
+    [System.IO.Path]::GetDirectoryName($PSScriptRoot)
+}
+if ($_svrn7LobesBase) {
+    . ([System.IO.Path]::Combine($_svrn7LobesBase, 'Svrn7.Common', 'Svrn7.Common.psm1'))
+}
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot 'Svrn7.Common.psm1')
 
 ###############################################################################
 #region INITIALISATION

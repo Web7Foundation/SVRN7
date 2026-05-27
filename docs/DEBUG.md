@@ -15,6 +15,50 @@
 
 ---
 
+## Resetting the Environment
+
+All state lives in five LiteDB files. LiteDB holds an **exclusive write lock** for the
+lifetime of any process that has them open — **stop the TDA before deleting any database file**.
+
+### Full reset (start from scratch)
+
+```powershell
+# 1. Stop the TDA (Ctrl+C in the TDA terminal window)
+
+# 2. Delete all five LiteDB files — paths match appsettings.json defaults
+Remove-Item -Path "./data/svrn7.db",
+                  "./data/svrn7-dids.db",
+                  "./data/svrn7-vcs.db",
+                  "./data/svrn7-inbox.db",
+                  "./data/svrn7-schemas.db" `
+            -ErrorAction SilentlyContinue
+
+# Or blow away the whole data directory:
+Remove-Item -Recurse -Force ./data -ErrorAction SilentlyContinue
+
+# 3. Restart the TDA — it recreates all databases on first run
+dotnet run --project src/Svrn7.TDA
+```
+
+After a full reset, run Scenario E in order: E.0 (federation init) → E.2 (society register) → E.4 (citizen onboard).
+
+### Partial reset — inbox only
+
+Clears accumulated test messages and dead-lettered messages from the Switchboard queue
+without disturbing federation, society, or citizen state.
+
+```powershell
+# Stop the TDA, then:
+Remove-Item -Path "./data/svrn7-inbox.db" -ErrorAction SilentlyContinue
+# Restart the TDA
+dotnet run --project src/Svrn7.TDA
+```
+
+> If you changed `Svrn7:InboxDbPath` in `appsettings.json` (or `$env:Svrn7__InboxDbPath`),
+> substitute your configured path above.
+
+---
+
 ## Log Level
 
 Set in `Program.cs` `ConfigureLogging`:
@@ -36,9 +80,32 @@ Test-NetConnection localhost -Port 8443
 
 ---
 
-### Step 2 — Send a plaintext DIDComm message (PowerShell 7.3+)
+### Step 2 — Define the h2c send helper
 
-`-HttpVersion 2.0` is required — the server rejects HTTP/1.1.
+`Invoke-RestMethod -HttpVersion 2.0` does **not** work with cleartext HTTP/2 (h2c): PowerShell uses `HttpVersionPolicy.RequestVersionOrLower`, which falls back to HTTP/1.1 framing — rejected by the server. Use `HttpClient` with `RequestVersionExact` instead.
+
+Paste this function once into your session; all scenarios below call it.
+
+```powershell
+function Send-DIDCommMessage {
+    param(
+        [string]$Uri  = "http://localhost:8443/didcomm",
+        [string]$Body
+    )
+    $client = [System.Net.Http.HttpClient]::new()
+    $client.DefaultRequestVersion = [System.Version]::new(2, 0)
+    $client.DefaultVersionPolicy  = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
+    $content  = [System.Net.Http.StringContent]::new(
+        $Body, [System.Text.Encoding]::UTF8, "application/didcomm-plain+json")
+    $response = $client.PostAsync($Uri, $content).GetAwaiter().GetResult()
+    "Status: $($response.StatusCode)"
+    $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+}
+```
+
+---
+
+### Step 3 — Send a plaintext DIDComm message
 
 ```powershell
 $msg = @{
@@ -50,43 +117,10 @@ $msg = @{
     body = "{}"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
-Expected: `202 Accepted`
-
----
-
-### Step 3 — PowerShell 7.2 or earlier (no `-HttpVersion`): use `HttpClient` directly
-
-```powershell
-$client = [System.Net.Http.HttpClient]::new()
-$client.DefaultRequestVersion = [System.Version]::new(2, 0)
-$client.DefaultVersionPolicy  = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
-
-$body = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/transfer/1.0/request"
-    from = "did:test:sender"
-    to   = @("did:drn:alpha.svrn7.net")
-    body = "{}"
-} | ConvertTo-Json
-
-$content = [System.Net.Http.StringContent]::new(
-    $body,
-    [System.Text.Encoding]::UTF8,
-    "application/didcomm-plain+json"
-)
-
-$response = $client.PostAsync("http://localhost:8443/didcomm", $content).GetAwaiter().GetResult()
-"Status: $($response.StatusCode)"
-$response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-```
+Expected: `Status: Accepted`
 
 ---
 
@@ -279,7 +313,7 @@ Public key  : 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
 Private key : <32-byte hex — keep secret>
 ```
 
-### B.2 — Send the onboarding request via DIDComm (PowerShell 7.3+)
+### B.2 — Send the onboarding request via DIDComm
 
 Replace `$citizenDid` and `$publicKeyHex` with the values from step B.1.
 
@@ -306,50 +340,10 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
-Expected: `202 Accepted`
-
-### B.3 — PowerShell 7.2 or earlier (no `-HttpVersion`): use `HttpClient` directly
-
-```powershell
-$citizenDid   = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-$publicKeyHex = "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
-
-$body = @{
-    citizenDid   = $citizenDid
-    publicKeyHex = $publicKeyHex
-    displayName  = "mwherman"
-} | ConvertTo-Json -Compress
-
-$msgJson = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/onboard/1.0/request"
-    from = $citizenDid
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = $body
-} | ConvertTo-Json
-
-$client = [System.Net.Http.HttpClient]::new()
-$client.DefaultRequestVersion = [System.Version]::new(2, 0)
-$client.DefaultVersionPolicy  = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
-
-$content = [System.Net.Http.StringContent]::new(
-    $msgJson,
-    [System.Text.Encoding]::UTF8,
-    "application/didcomm-plain+json"
-)
-
-$response = $client.PostAsync("http://localhost:8443/didcomm", $content).GetAwaiter().GetResult()
-"Status: $($response.StatusCode)"
-$response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-```
+Expected: `Status: Accepted`
 
 ### B.4 — Verify registration in the TDA log
 
@@ -726,11 +720,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
 Expected TDA log:
@@ -768,11 +758,7 @@ $msg = @{
     body = "{}"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
 Expected TDA log:
@@ -824,11 +810,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
 Expected TDA log:
@@ -882,11 +864,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
 Expected TDA log:
@@ -914,11 +892,7 @@ $msg = @{
     body = "{}"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
 Expected TDA log (LogLevel.Trace):
@@ -956,11 +930,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
 Reply body:
@@ -983,11 +953,7 @@ $msg = @{
     body = "{}"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
 Reply body:
@@ -1008,11 +974,7 @@ $msg = @{
     body = "{}"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
 Reply body (after first citizen registration, overdraft drawn):
@@ -1042,11 +1004,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
 Reply body:
@@ -1067,11 +1025,7 @@ $msg = @{
     body = "{}"
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
 Reply body:
@@ -1103,11 +1057,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Invoke-RestMethod -Method Post `
-    -Uri "http://localhost:8443/didcomm" `
-    -Body $msg `
-    -ContentType "application/didcomm-plain+json" `
-    -HttpVersion 2.0
+Send-DIDCommMessage -Body $msg
 ```
 
 Reply body:
@@ -1132,7 +1082,8 @@ Reply body:
 | `202` but log shows `CitizenAlreadyRegisteredException` | Citizen DID already registered | Expected — use a new key pair and DID |
 | `202` but log shows `SocietyEndowmentDepletedException` | Society overdraft ceiling reached | Check `Get-Svrn7OverdraftStatus`; await Federation top-up |
 | Agent 2 log: `No DIDComm service endpoint for <DID>` | Citizen DID document has no `DIDComm` service entry | Register the citizen's DID document before sending the receipt |
-| Switchboard epoch gate log warning | `type` URI requires a higher epoch than `CurrentEpoch` | Only transfer/order URIs are epoch-gated (require Epoch 1+) |
+| Switchboard epoch gate log warning | `type` URI requires a higher epoch than `CurrentEpoch` | Only `transfer/1.0/order` and `transfer/1.0/order-receipt` are epoch-gated (require Epoch 1). `transfer/1.0/request` is not epoch-gated. |
+| `202` but Switchboard log shows `HandleIncomingTransferMessageAsync` error on `transfer/1.0/request` | `Invoke-Svrn7IncomingTransfer` passes the stored body to `HandleIncomingTransferMessageAsync`, which expects a packed transfer credential, not a plaintext JSON body | Dev testing of transfer routing only — use a properly signed `TransferOrderCredential` body for production transfers |
 | `202` but log shows `unknown message type 'application/didcomm-encrypted+json'` | Encrypted JWE was sent — `UnpackAsync` does not decrypt JWE; stores raw ciphertext with wrong type | Use plaintext messages for dev/test (`typ = "application/didcomm-plain+json"`, no `protected_` wrapper) |
 
 ---

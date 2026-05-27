@@ -22,6 +22,14 @@
     </Description>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Copy lobes to build output so the binary can run from bin/ without a source tree.
+         Update (not Include) for .json — the SDK's default Content glob already covers them;
+         Update only sets CopyToOutputDirectory without re-adding (avoids duplicate warning).
+         Include for .psm1 — not part of the SDK's default Content glob. -->
+    <Content Update="lobes/**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="lobes/**/*.psm1" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Svrn7.Core\Svrn7.Core.csproj" />
     <ProjectReference Include="..\Svrn7.DIDComm\Svrn7.DIDComm.csproj" />
     <ProjectReference Include="..\Svrn7.Society\Svrn7.Society.csproj" />

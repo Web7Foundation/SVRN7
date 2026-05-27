@@ -32,7 +32,7 @@ public sealed class TdaOptions
     /// Used by KestrelListenerService for UnpackAsync (DIDComm V2 Messaging boundary).
     /// </summary>
     [Required]
-    public byte[] SocietyMessagingPrivateKeyEd25519 { get; set; } = Array.Empty<byte>();
+    public byte[] SocietyMessagingPrivateKeyEd25519 { get; set; } = [];
 
     // ── Network ───────────────────────────────────────────────────────────────
 
