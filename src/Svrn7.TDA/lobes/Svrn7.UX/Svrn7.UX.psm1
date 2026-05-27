@@ -72,7 +72,7 @@ function Render-Web7BalanceUpdate {
         $record = @{
             CitizenDid    = $body.citizenDid
             BalanceGrana  = $body.balanceGrana
-            BalanceSvrn7  = [decimal]$body.balanceGrana / 1000000M
+            BalanceSvrn7  = [decimal]$body.balanceGrana / 1000000
             UpdatedAt     = [datetimeoffset]::UtcNow.ToString('o')
         }
 
@@ -184,7 +184,7 @@ function Render-Web7RegistrationComplete {
             return $null
         }
 
-        $svrn7 = [decimal]$body.endowmentGrana / 1000000M
+        $svrn7 = [decimal]$body.endowmentGrana / 1000000
         $record = @{
             CitizenDid     = $body.citizenDid
             SocietyDid     = $body.societyDid

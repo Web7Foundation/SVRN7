@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -88,7 +89,12 @@ public sealed class LobeManager : IDisposable
         _log.LogInformation("LobeManager: {Eager} eager LOBE(s), {Jit} JIT LOBE(s).",
             _config.Eager.Length, _config.Jit.Length);
 
+        // CreateDefault2() is minimal — built-in cmdlets like Write-Verbose are registered
+        // but deferred to auto-import from $PSHOME, which doesn't exist in a NuGet-hosted
+        // runspace. AddBuiltInCmdlets() pre-populates the ISS from SMA.dll via reflection
+        // so no filesystem lookup is ever needed for built-in cmdlets.
         var iss = InitialSessionState.CreateDefault2();
+        AddBuiltInCmdlets(iss);
 
         iss.Variables.Add(new SessionStateVariableEntry(
             "SVRN7", _ctx,
@@ -200,26 +206,27 @@ public sealed class LobeManager : IDisposable
     // ── 3. EnsureLoadedAsync ──────────────────────────────────────────────────
 
     /// <summary>
-    /// Imports a JIT LOBE module into the dedicated runspace bound to <paramref name="ps"/>.
-    /// Skipped automatically for eager LOBEs — they are already present in the
-    /// <see cref="InitialSessionState"/> and therefore in every new runspace.
-    /// Each call operates on a fresh isolated runspace, so JIT modules are always
-    /// imported (no process-level cache applies here).
+    /// Ensures a LOBE module is loaded in the dedicated runspace bound to <paramref name="ps"/>.
+    /// Eager LOBEs are pre-registered in the <see cref="InitialSessionState"/> but ISS load
+    /// failures are silently swallowed by <see cref="Runspace.Open"/>. This method therefore
+    /// calls Import-Module for ALL LOBEs (eager and JIT alike) — Import-Module is idempotent
+    /// when the module is already present, and recovers a silently-failed ISS load.
     /// </summary>
     public async Task EnsureLoadedAsync(
         PowerShell ps, string modulePath, CancellationToken ct = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Eager modules are baked into the InitialSessionState — every fresh runspace
-        // already has them. No import needed.
-        if (_importedModules.ContainsKey(modulePath)) return;
+        bool isEager = _importedModules.ContainsKey(modulePath);
+        _log.LogDebug("LobeManager: EnsureLoadedAsync — {Kind} '{Path}'.",
+            isEager ? "eager" : "JIT", modulePath);
 
         if (!File.Exists(modulePath))
             throw new FileNotFoundException(
-                $"LobeManager: JIT module not found — '{modulePath}'.", modulePath);
+                $"LobeManager: module not found — '{modulePath}'.", modulePath);
 
-        _log.LogInformation("LobeManager: JIT importing into isolated runspace — {Path}", modulePath);
+        _log.LogInformation("LobeManager: importing into isolated runspace ({Kind}) — {Path}",
+            isEager ? "eager/verify" : "JIT", modulePath);
 
         ps.Commands.Clear();
         ps.AddCommand("Import-Module")
@@ -236,9 +243,7 @@ public sealed class LobeManager : IDisposable
                 $"LobeManager: Import-Module failed for '{modulePath}': {errors}");
         }
 
-        // Do NOT add to _importedModules — that tracks modules baked into the ISS.
-        // Each isolated runspace is ephemeral; the next invocation will import again.
-        _log.LogInformation("LobeManager: JIT import complete — {Path}", modulePath);
+        _log.LogInformation("LobeManager: import complete — {Path}", modulePath);
     }
 
     // ── Protocol registry lookup ──────────────────────────────────────────────
@@ -378,6 +383,59 @@ public sealed class LobeManager : IDisposable
 
     public IReadOnlyList<string> JitLobePaths =>
         _config?.Jit.Select(ResolveLobePath).ToArray() ?? Array.Empty<string>();
+
+    // ── Built-in cmdlet loader ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Reflects over <c>System.Management.Automation.dll</c> (Core) and
+    /// <c>Microsoft.PowerShell.Commands.Utility.dll</c> and adds every
+    /// <see cref="Cmdlet"/> subclass directly to the ISS as a
+    /// <see cref="SessionStateCmdletEntry"/>.
+    /// This bypasses PowerShell's auto-import mechanism, which requires module
+    /// manifests under <c>$PSHOME</c> — a path that does not exist when PS is
+    /// hosted via NuGet. Direct entries are found before CreateDefault2()'s
+    /// deferred module catalog entries, so no filesystem lookup ever occurs.
+    /// </summary>
+    private static void AddBuiltInCmdlets(InitialSessionState iss)
+    {
+        // Prevent PowerShell from auto-importing modules from $PSHOME when a cmdlet is
+        // first called — that path doesn't exist in NuGet-hosted runspaces and causes
+        // "Microsoft.PowerShell.Utility could not be loaded" at runtime.
+        // All built-in cmdlets are pre-registered below, so auto-loading is never needed.
+        iss.Variables.Add(new SessionStateVariableEntry(
+            "PSModuleAutoLoadingPreference",
+            PSModuleAutoLoadingPreference.None,
+            "Disable module auto-loading in TDA hosted runspace.",
+            ScopedItemOptions.AllScope));
+
+        // Scan SMA.dll (Core) for ForEach-Object, Where-Object, Import-Module, etc.
+        // Also scan Microsoft.PowerShell.Commands.Utility.dll for Write-Verbose,
+        // Write-Host, ConvertFrom-Json, ConvertTo-Json, Select-Object, Sort-Object, etc.
+        // Must use GetTypes() (not GetExportedTypes()) — many cmdlet classes are internal.
+        var assemblies = new List<Assembly> { typeof(PowerShell).Assembly };
+
+        // Load Microsoft.PowerShell.Commands.Utility (direct PackageReference — 7.4.1).
+        // Assembly.Load resolves via the deps.json manifest; no filesystem path required.
+        try   { assemblies.Add(Assembly.Load("Microsoft.PowerShell.Commands.Utility")); }
+        catch { /* Utility not resolvable — Write-Verbose etc. remain deferred */ }
+
+        foreach (var asm in assemblies)
+        {
+            foreach (var type in asm.GetTypes())
+            {
+                try
+                {
+                    if (type.IsAbstract || type.IsGenericType) continue;
+                    if (!typeof(Cmdlet).IsAssignableFrom(type)) continue;
+                    var attr = type.GetCustomAttribute<CmdletAttribute>();
+                    if (attr is null) continue;
+                    iss.Commands.Add(new SessionStateCmdletEntry(
+                        $"{attr.VerbName}-{attr.NounName}", type, null));
+                }
+                catch { /* skip types that throw on reflection (e.g. TypeLoadException) */ }
+            }
+        }
+    }
 
     public void Dispose()
     {

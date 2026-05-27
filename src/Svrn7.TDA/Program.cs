@@ -125,6 +125,7 @@ var host = Host.CreateDefaultBuilder(args)
     Console.WriteLine(hr);
     Console.WriteLine($"  Started     : {DateTimeOffset.Now.ToString("F")}");
     Console.WriteLine($"  Executable  : {Environment.ProcessPath ?? "(unknown)"}");
+    Console.WriteLine($"  CWD         : {Environment.CurrentDirectory}");
     Console.WriteLine($"  Runtime     : {RuntimeInformation.FrameworkDescription}");
     Console.WriteLine($"  OS          : {RuntimeInformation.OSDescription}");
     Console.WriteLine(hr);

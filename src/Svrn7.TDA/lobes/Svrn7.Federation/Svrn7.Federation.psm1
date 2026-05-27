@@ -19,16 +19,40 @@
     RELATED
         Svrn7.Society — ISvrn7SocietyDriver cmdlets. Requires Svrn7.Federation first.
 #>
-# Locate Svrn7.Common without module dependencies.
-# TDA mode: $SVRN7_LOBES_DIR is injected AllScope by LobeManager (guaranteed absolute).
-# Standalone mode: derive from $PSScriptRoot (parent dir = lobes base).
-$_svrn7LobesBase = if ($SVRN7_LOBES_DIR) {
-    $SVRN7_LOBES_DIR
-} elseif ($PSScriptRoot) {
-    [System.IO.Path]::GetDirectoryName($PSScriptRoot)
-}
-if ($_svrn7LobesBase) {
-    . ([System.IO.Path]::Combine($_svrn7LobesBase, 'Svrn7.Common', 'Svrn7.Common.psm1'))
+# Pre-initialise all $Script: singletons and type constants that Svrn7.Common.psm1
+# would normally inject via dot-source. This ensures Federation.psm1 loads cleanly
+# under Set-StrictMode regardless of whether the dot-source below succeeds.
+# The dot-source overwrites these with identical values when it runs.
+$Script:FederationDriver    = $null
+$Script:SocietyDriver       = $null
+$Script:AssembliesLoaded    = $false
+$Script:TypeKeyPair         = 'Svrn7.KeyPair'
+$Script:TypeDid             = 'Svrn7.Did'
+$Script:TypeBalance         = 'Svrn7.Balance'
+$Script:TypeTransfer        = 'Svrn7.TransferResult'
+$Script:TypeBatchItem       = 'Svrn7.BatchTransferResult'
+$Script:TypeSocietyReg      = 'Svrn7.SocietyRegistration'
+$Script:TypeCitizenReg      = 'Svrn7.CitizenRegistration'
+$Script:TypeDidMethodReg    = 'Svrn7.DidMethodRegistration'
+$Script:TypeDidMethodDereg  = 'Svrn7.DidMethodDeregistration'
+$Script:TypeCitizenDid      = 'Svrn7.CitizenDid'
+$Script:TypeOverdraftStatus = 'Svrn7.OverdraftStatus'
+$Script:TypeOverdraftRecord = 'Svrn7.OverdraftRecord'
+$Script:TypeVcQueryResult   = 'Svrn7.CrossSocietyVcQueryResult'
+$Script:TypeGdprErasure     = 'Svrn7.GdprErasure'
+$Script:TypeMerkleHead      = 'Svrn7.MerkleTreeHead'
+$Script:TypeFederation      = 'Svrn7.FederationRecord'
+
+# In TDA mode ($SVRN7_LOBES_DIR set), Common is already an eager ISS module — skip
+# dot-source. Dot-sourcing a module that the ISS already loaded causes a terminating
+# error that silently kills this module's load. The $Script: defaults above and the
+# session-visible Common cmdlets are sufficient.
+# In standalone mode (no ISS), dot-source Common to load helpers and shared state.
+if (-not $SVRN7_LOBES_DIR -and $PSScriptRoot) {
+    $_commonPath = [System.IO.Path]::Combine(
+        [System.IO.Path]::GetDirectoryName($PSScriptRoot),
+        'Svrn7.Common', 'Svrn7.Common.psm1')
+    if ([System.IO.File]::Exists($_commonPath)) { . $_commonPath }
 }
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -478,8 +502,8 @@ function Register-Svrn7Society {
         [Parameter(Mandatory)] [PSCustomObject] $KeyPair,
         [Parameter(Mandatory)] [string]        $Name,
         [Parameter(Mandatory)] [ValidatePattern('^[a-z0-9]+$')] [string] $MethodName,
-        [Parameter()] [ValidateRange(1L,[long]::MaxValue)] [long] $DrawAmountGrana       = 1_000_000_000_000L,
-        [Parameter()] [ValidateRange(1L,[long]::MaxValue)] [long] $OverdraftCeilingGrana = 10_000_000_000_000L
+        [Parameter()] [ValidateRange(1L,[long]::MaxValue)] [long] $DrawAmountGrana       = 1000000000000L,
+        [Parameter()] [ValidateRange(1L,[long]::MaxValue)] [long] $OverdraftCeilingGrana = 10000000000000L
     )
     Assert-FederationDriver
     if ($PSCmdlet.ShouldProcess($Did, "Register Society '$Name' (method: $MethodName)")) {
@@ -755,7 +779,7 @@ function Invoke-Svrn7Transfer {
         -PayeeDid $societyDid -AmountSvrn7 100
 .EXAMPLE
     Invoke-Svrn7Transfer -PayerDid $d1 -PayerKeyPair $kp -PayeeDid $d2 `
-        -AmountGrana 500_000_000 -Memo 'Monthly dues'
+        -AmountGrana 500000000 -Memo 'Monthly dues'
 .EXAMPLE
     Invoke-Svrn7Transfer -PayerDid $d1 -PayerKeyPair $kp `
         -PayeeDid $d2 -AmountSvrn7 50 -WhatIf
@@ -782,8 +806,8 @@ function Invoke-Svrn7Transfer {
         [Parameter()]                         [string] $Nonce = ''
     )
     Assert-FederationDriver
-    $grana = if ($PSCmdlet.ParameterSetName -eq 'BySvrn7') { [long][Math]::Round($AmountSvrn7 * 1_000_000) } else { $AmountGrana }
-    $svrn7 = [decimal]$grana / 1_000_000M
+    $grana = if ($PSCmdlet.ParameterSetName -eq 'BySvrn7') { [long][Math]::Round($AmountSvrn7 * 1000000) } else { $AmountGrana }
+    $svrn7 = [decimal]$grana / 1000000
     $nonce = if ($Nonce) { $Nonce } else { [Guid]::NewGuid().ToString('N') }
     $ts    = [DateTimeOffset]::UtcNow.ToString('O')
     $memo  = if ($Memo) { $Memo } else { $null }
@@ -821,8 +845,8 @@ function Invoke-Svrn7BatchTransfer {
         Memo [string] Optional; Nonce [string] Optional
 .EXAMPLE
     $batch = @(
-        @{ PayerDid=$d1; PayerKeyPair=$kp; PayeeDid=$d2; AmountGrana=100_000_000L },
-        @{ PayerDid=$d1; PayerKeyPair=$kp; PayeeDid=$d3; AmountGrana=50_000_000L  }
+        @{ PayerDid=$d1; PayerKeyPair=$kp; PayeeDid=$d2; AmountGrana=100000000L },
+        @{ PayerDid=$d1; PayerKeyPair=$kp; PayeeDid=$d3; AmountGrana=50000000L  }
     )
     Invoke-Svrn7BatchTransfer -Transfers $batch
 .OUTPUTS
@@ -900,7 +924,7 @@ function Update-Svrn7FederationSupply {
     URI referencing the governance decision authorising this update.
 .EXAMPLE
     Update-Svrn7FederationSupply `
-        -NewTotalSupplyGrana  2_000_000_000_000_000L `
+        -NewTotalSupplyGrana  2000000000000000L `
         -FoundationSignature  $sig `
         -GovernanceRef        'https://gov.sovronia.net/2026-001'
 .OUTPUTS
