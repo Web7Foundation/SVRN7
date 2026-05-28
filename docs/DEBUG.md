@@ -55,6 +55,39 @@ Set-Location src/Svrn7.TDA/bin/Debug/net8.0
 
 ---
 
+## Running Automated Tests
+
+### C# unit / integration tests (xUnit)
+
+```powershell
+# From repo root
+dotnet test .\tests\Svrn7.Tests\Svrn7.Tests.csproj
+dotnet test .\tests\Svrn7.TDA.Tests\Svrn7.TDA.Tests.csproj
+dotnet test .\tests\Svrn7.Society.Tests\Svrn7.Society.Tests.csproj
+```
+
+### PowerShell LOBE tests (Pester)
+
+Tests the LOBE PowerShell layer — function availability after module import, `Build-CanonicalTransferJson` field ordering, `Send-DIDCommMessage` parameter contract, and `Initialize-Svrn7Assemblies` path resolution. No TDA or compiled assemblies required.
+
+Install Pester 5 once if needed:
+
+```powershell
+Install-Module Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+```
+
+Run from repo root:
+
+```powershell
+Import-Module Pester -MinimumVersion 5.0 -Force
+Set-Location C:\SVRN7\repos\SVRN7
+Invoke-Pester .\tests\Svrn7.Lobes.Tests.ps1 -Output Detailed
+```
+
+> `Import-Module Pester -MinimumVersion 5.0 -Force` is required because Windows ships Pester 3.4.0 and PowerShell would otherwise load the older version.
+
+---
+
 ## Resetting the Environment
 
 All state lives in five LiteDB files. LiteDB holds an **exclusive write lock** for the

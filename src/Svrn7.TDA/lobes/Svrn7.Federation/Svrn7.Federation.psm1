@@ -1558,4 +1558,5 @@ Export-ModuleMember -Function @(
     'Test-Svrn7SocietyActive'
     'Unregister-Svrn7DidMethod'
     'Update-Svrn7FederationSupply'
+    'Send-DIDCommMessage'
 )

@@ -1812,4 +1812,5 @@ Export-ModuleMember -Function @(
     'Invoke-Web7DidMethodsQuery'
     'Invoke-Web7DidMethodRegister'
     'Invoke-Web7CitizenDidAdd'
+    'Send-DIDCommMessage'
 )

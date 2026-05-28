@@ -204,7 +204,7 @@ function Build-CanonicalTransferJson {
     $d['Timestamp']   = $Timestamp
     $d['Memo']        = if ($Memo) { $Memo } else { $null }
     [System.Text.Json.JsonSerializer]::Serialize(
-        [hashtable]$d,
+        $d,
         [System.Text.Json.JsonSerializerOptions]@{ WriteIndented = $false })
 }
 
