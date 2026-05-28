@@ -212,8 +212,8 @@ public sealed class DIDCommMessageProcessorService : BackgroundService
     /// Returns immediately; processing happens asynchronously on the next sweep.
     /// </summary>
     public Task EnqueueAsync(string messageType, string packedMessage,
-        string? fromDid = null, string? wireId = null, CancellationToken ct = default)
-        => _inbox.EnqueueAsync(messageType, packedMessage, fromDid, wireId, ct);
+        string? fromDid = null, string? wireId = null, string? jweEnvelope = null, CancellationToken ct = default)
+        => _inbox.EnqueueAsync(messageType, packedMessage, fromDid, wireId, jweEnvelope, ct);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

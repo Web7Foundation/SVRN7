@@ -24,7 +24,7 @@ This repository is the Epoch 0 (Endowment Phase) reference implementation of the
 >> _Rule Change 1: Web 7.0 is profoundly aligned with the oldest promise of the Internet: secure, trusted, universal access to information, services, and liquidity—for every human and digital agent on the planet—with no gatekeepers or overlords._
 
 > This memo summarizes the core technologies, identifies the strategic opportunity, and describes what it will take to make Web 7.0 the killer application for the Internet. The three fundamental building blocks of Web 7.0 include:
-> - sovereign identity, 
+> - sovereign identity,
 > - cryptographically verifiable authenticity, and
 > - secure, trusted, autonomous communication.
 
@@ -99,15 +99,15 @@ between sovereign agents.
 
 ## 2. The Trusted Digital Assistant (TDA)
 
-A TDA is a sovereign runtime — a .NET 8 console application (Generic Host + Kestrel HTTP/2
-+ mTLS) that acts on behalf of a citizen or a Society. It has exactly one inbound surface:
+A TDA is a sovereign runtime — a .NET 8 console application (Generic Host + Kestrel HTTP/2 + mTLS) that acts on behalf of a citizen or a Society. It has exactly one inbound surface:
 
 ```
 POST /didcomm   (HTTP/2 + mTLS, DIDComm V2 SignThenEncrypt)
 ```
 
-All TDA-to-TDA communication is DIDComm. No SMTP, no CalDAV, no gRPC, no public REST API.
+All TDA-to-TDA communication is DIDComm. 
 The TDA is the boundary of trust: only packed, authenticated DIDComm messages enter or leave.
+No SMTP, no CalDAV, no gRPC, no public REST API.
 
 Internally, the TDA is structured around the PPML Legend 0.25 element types:
 

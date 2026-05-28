@@ -28,7 +28,7 @@ var host = Host.CreateDefaultBuilder(args)
     .UseConsoleLifetime()
     .ConfigureLogging(logging =>
     {
-        logging.SetMinimumLevel(LogLevel.Trace);
+        logging.SetMinimumLevel(LogLevel.Debug); // MWH
         logging.AddConsole();
     })
     .ConfigureServices((ctx, services) =>
@@ -44,16 +44,16 @@ var host = Host.CreateDefaultBuilder(args)
             opts.FederationDid                   = ctx.Configuration["Svrn7:FederationDid"]
                                                    ?? "did:drn:foundation.svrn7.net";
             opts.Svrn7DbPath                     = ctx.Configuration["Svrn7:DbPath"]
-                                                   ?? "svrn7.db";
+                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7.db");
             opts.DidsDbPath                      = ctx.Configuration["Svrn7:DidsDbPath"]
-                                                   ?? "svrn7-dids.db";
+                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-dids.db");
             opts.VcsDbPath                       = ctx.Configuration["Svrn7:VcsDbPath"]
-                                                   ?? "svrn7-vcs.db";
+                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-vcs.db");
             opts.InboxDbPath                     = ctx.Configuration["Svrn7:InboxDbPath"]
-                                                   ?? "svrn7-inbox.db";
+                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-inbox.db");
             opts.SchemasDbPath                   = ctx.Configuration["Svrn7:SchemasDbPath"]
-                                                   ?? "svrn7-schemas.db";
-            opts.SocietyMessagingPrivateKeyEd25519 = Array.Empty<byte>(); // supplied at runtime
+                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-schemas.db");
+            opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
         });
 
         // Background services from Svrn7.Society (VC expiry, Merkle auto-sign).
@@ -64,7 +64,7 @@ var host = Host.CreateDefaultBuilder(args)
         {
             opts.SocietyDid                        = ctx.Configuration["Tda:SocietyDid"]
                                                      ?? "did:drn:alpha.svrn7.net";
-            opts.SocietyMessagingPrivateKeyEd25519 = Array.Empty<byte>(); // supplied at runtime
+            opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
             opts.ListenPort                        = int.Parse(
                                                      ctx.Configuration["Tda:ListenPort"] ?? "8443");
             opts.TlsCertificatePath                = ctx.Configuration["Tda:TlsCertPath"];
@@ -101,7 +101,7 @@ var host = Host.CreateDefaultBuilder(args)
     var lobeConfig      = File.Exists(lobesConfigPath)
         ? JsonSerializer.Deserialize<LobeConfig>(
               File.ReadAllText(lobesConfigPath),
-              new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+              LobeDescriptor.JsonOpts)
           ?? new LobeConfig()
         : new LobeConfig();
     var descriptors = Directory.Exists(lobeDir)
@@ -110,7 +110,7 @@ var host = Host.CreateDefaultBuilder(args)
               .Where(d => d is not null)
               .Cast<LobeDescriptor>()
               .ToList()
-        : new List<LobeDescriptor>();
+        : [];
     var totalProtocols = descriptors.Sum(d => d.Protocols.Count);
     var totalCmdlets   = descriptors.Sum(d => d.Cmdlets.Count);
 
@@ -125,6 +125,7 @@ var host = Host.CreateDefaultBuilder(args)
     Console.WriteLine(hr);
     Console.WriteLine($"  Started     : {DateTimeOffset.Now.ToString("F")}");
     Console.WriteLine($"  Executable  : {Environment.ProcessPath ?? "(unknown)"}");
+    Console.WriteLine($"  CWD         : {Environment.CurrentDirectory}");
     Console.WriteLine($"  Runtime     : {RuntimeInformation.FrameworkDescription}");
     Console.WriteLine($"  OS          : {RuntimeInformation.OSDescription}");
     Console.WriteLine(hr);

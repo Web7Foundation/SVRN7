@@ -75,7 +75,7 @@ public sealed class RunspacePoolManager : IDisposable
         if (_iss is null)
             throw new InvalidOperationException(
                 "RunspacePoolManager has not been started. Call Start() first.");
-        return new IsolatedPipeline(_iss);
+        return new IsolatedPipeline(_iss, _log);
     }
 
     // ── Epoch refresh ─────────────────────────────────────────────────────────
@@ -117,12 +117,30 @@ public sealed class IsolatedPipeline : IDisposable
     private readonly Runspace _runspace;
     private bool              _disposed;
 
-    internal IsolatedPipeline(InitialSessionState iss)
+    internal IsolatedPipeline(InitialSessionState iss, ILogger? log = null)
     {
         _runspace = RunspaceFactory.CreateRunspace(iss);
         _runspace.Open();
         Ps = PowerShell.Create();
         Ps.Runspace = _runspace;
+        if (log is not null)
+            log.LogDebug("IsolatedPipeline: {Probe}", ProbeRunspace());
+    }
+
+    private string ProbeRunspace()
+    {
+        using var p = PowerShell.Create();
+        p.Runspace = _runspace;
+        p.AddScript(
+            "$mods = (Get-Module).Name -join ', '; " +
+            "$dir  = if ($SVRN7_LOBES_DIR) { $SVRN7_LOBES_DIR } else { '<empty>' }; " +
+            "$cmd  = [bool](Get-Command Invoke-Svrn7IncomingTransfer -ErrorAction SilentlyContinue); " +
+            "\"modules=[$mods]  LOBES_DIR=[$dir]  hasInvokeTransfer=$cmd\"");
+        var result = p.Invoke().FirstOrDefault()?.ToString() ?? "(probe failed — no output)";
+        if (p.HadErrors)
+            result += "  PROBE_ERRORS=[" +
+                      string.Join("; ", p.Streams.Error.Select(e => e.ToString())) + "]";
+        return result;
     }
 
     public void Dispose()

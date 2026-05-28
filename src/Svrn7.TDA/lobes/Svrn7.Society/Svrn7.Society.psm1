@@ -40,13 +40,43 @@
                     draft-herman-did-method-governance-00
 #>
 
+# Pre-initialise all $Script: singletons and type constants that Svrn7.Common.psm1
+# would normally inject via dot-source. This ensures Society.psm1 loads cleanly
+# under Set-StrictMode regardless of whether the dot-source below succeeds.
+# The dot-source overwrites these with identical values when it runs.
+$Script:FederationDriver    = $null
+$Script:SocietyDriver       = $null
+$Script:AssembliesLoaded    = $false
+$Script:TypeKeyPair         = 'Svrn7.KeyPair'
+$Script:TypeDid             = 'Svrn7.Did'
+$Script:TypeBalance         = 'Svrn7.Balance'
+$Script:TypeTransfer        = 'Svrn7.TransferResult'
+$Script:TypeBatchItem       = 'Svrn7.BatchTransferResult'
+$Script:TypeSocietyReg      = 'Svrn7.SocietyRegistration'
+$Script:TypeCitizenReg      = 'Svrn7.CitizenRegistration'
+$Script:TypeDidMethodReg    = 'Svrn7.DidMethodRegistration'
+$Script:TypeDidMethodDereg  = 'Svrn7.DidMethodDeregistration'
+$Script:TypeCitizenDid      = 'Svrn7.CitizenDid'
+$Script:TypeOverdraftStatus = 'Svrn7.OverdraftStatus'
+$Script:TypeOverdraftRecord = 'Svrn7.OverdraftRecord'
+$Script:TypeVcQueryResult   = 'Svrn7.CrossSocietyVcQueryResult'
+$Script:TypeGdprErasure     = 'Svrn7.GdprErasure'
+$Script:TypeMerkleHead      = 'Svrn7.MerkleTreeHead'
+$Script:TypeFederation      = 'Svrn7.FederationRecord'
+
+# In TDA mode ($SVRN7_LOBES_DIR set), Common is already an eager ISS module — skip
+# dot-source. Dot-sourcing a module that the ISS already loaded causes a terminating
+# error that silently kills this module's load. The $Script: defaults above and the
+# session-visible Common cmdlets are sufficient.
+# In standalone mode (no ISS), dot-source Common to load helpers and shared state.
+if (-not $SVRN7_LOBES_DIR -and $PSScriptRoot) {
+    $_commonPath = [System.IO.Path]::Combine(
+        [System.IO.Path]::GetDirectoryName($PSScriptRoot),
+        'Svrn7.Common', 'Svrn7.Common.psm1')
+    if ([System.IO.File]::Exists($_commonPath)) { . $_commonPath }
+}
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-
-# Dot-source shared helpers (driver singletons, type names, helpers)
-. (Join-Path $PSScriptRoot 'Svrn7.Common.psm1')
-
-# $Script:SocietyDriver is declared in Svrn7.Common.psm1
 
 ###############################################################################
 #region INITIALISATION
@@ -159,11 +189,11 @@ function Connect-Svrn7Society {
 
         [Parameter()]
         [ValidateRange(1L, [long]::MaxValue)]
-        [long] $DrawAmountGrana = 1_000_000_000_000L,
+        [long] $DrawAmountGrana = 1000000000000L,
 
         [Parameter()]
         [ValidateRange(1L, [long]::MaxValue)]
-        [long] $OverdraftCeilingGrana = 10_000_000_000_000L,
+        [long] $OverdraftCeilingGrana = 10000000000000L,
 
         [Parameter()]
         [string] $DbPath = '',
@@ -374,8 +404,8 @@ function Register-Svrn7CitizenInSociety {
         PSTypeName     = $Script:TypeCitizenReg
         CitizenDid     = $CitizenDid
         SocietyDid     = $societyDid
-        EndowmentSvrn7 = 0.001M
-        EndowmentGrana = 1_000L
+        EndowmentSvrn7 = [decimal]0.001
+        EndowmentGrana = 1000L
         MethodName     = $PreferredMethodName
         Success        = $true
     }
@@ -534,20 +564,41 @@ function Invoke-Svrn7IncomingTransfer {
         C# API: ISvrn7SocietyDriver.HandleIncomingTransferMessageAsync(string)
         Spec:   draft-herman-didcomm-svrn7-transfer-00 §8.3, §12
     #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'ByMessageDid')]
     [OutputType([PSCustomObject])]
     param(
-        [Parameter(Mandatory, ValueFromPipeline)]
+        # TDA dispatch path: Switchboard passes the inbox message DID URL.
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName, ParameterSetName = 'ByMessageDid')]
+        [ValidateNotNullOrEmpty()]
+        [string] $MessageDid,
+
+        # Standalone path: packed DIDComm JWE piped directly (e.g. cross-Society order).
+        [Parameter(Mandatory, ValueFromPipeline, ParameterSetName = 'ByPackedMessage')]
         [ValidateNotNullOrEmpty()]
         [string] $PackedMessage
     )
 
     process {
-        Assert-SocietyDriver
+        $drv = Get-ActiveSocietyDriver
 
-        Write-Verbose "Processing incoming DIDComm transfer message ($($PackedMessage.Length) chars)..."
+        if ($PSCmdlet.ParameterSetName -eq 'ByMessageDid') {
+            $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+            if (-not $msg) { throw "Invoke-Svrn7IncomingTransfer: message '$MessageDid' not found." }
 
-        $receipt = $Script:SocietyDriver.HandleIncomingTransferMessageAsync(
+            # PackedPayload holds the body extracted at the KestrelListener boundary — it is
+            # NOT a full DIDComm message. HandleIncomingTransferMessageAsync calls UnpackAsync
+            # internally, which requires a "type" field at root. Reconstruct a minimal envelope
+            # so UnpackAsync routes correctly instead of falling to the encrypted-message path.
+            $PackedMessage = [Newtonsoft.Json.JsonConvert]::SerializeObject(@{
+                type = $msg.MessageType
+                body = $msg.PackedPayload
+                from = if ($msg.FromDid) { $msg.FromDid } else { '' }
+            })
+        }
+
+        Write-Verbose "Invoke-Svrn7IncomingTransfer: processing transfer ($($PackedMessage.Length) chars)..."
+
+        $receipt = $drv.HandleIncomingTransferMessageAsync(
             $PackedMessage).GetAwaiter().GetResult()
 
         Write-Verbose 'Incoming transfer processed. Receipt packed.'
@@ -642,7 +693,7 @@ function Invoke-Svrn7ExternalTransfer {
     .EXAMPLE
         PS> Invoke-Svrn7ExternalTransfer `
                 -PayerDid $d -PayerKeyPair $kp -PayeeDid $p `
-                -TargetSocietyDid $t -AmountGrana 50_000_000 `
+                -TargetSocietyDid $t -AmountGrana 50000000 `
                 -Memo 'Q1 contribution' -WhatIf
 
     .NOTES
@@ -678,9 +729,9 @@ function Invoke-Svrn7ExternalTransfer {
     Assert-SocietyDriver
 
     $grana = if ($PSCmdlet.ParameterSetName -eq 'BySvrn7') {
-        [long][Math]::Round($AmountSvrn7 * 1_000_000)
+        [long][Math]::Round($AmountSvrn7 * 1000000)
     } else { $AmountGrana }
-    $svrn7          = [decimal]$grana / 1_000_000M
+    $svrn7          = [decimal]$grana / 1000000
     $effectiveNonce = if ($Nonce) { $Nonce } else { [Guid]::NewGuid().ToString('N') }
     $timestamp      = [DateTimeOffset]::UtcNow.ToString('O')
     $memo           = if ($Memo) { $Memo } else { $null }
@@ -811,8 +862,8 @@ function Invoke-Svrn7FederationTransfer {
     Assert-SocietyDriver
 
     $grana          = if ($PSCmdlet.ParameterSetName -eq 'BySvrn7') {
-        [long][Math]::Round($AmountSvrn7 * 1_000_000) } else { $AmountGrana }
-    $svrn7          = [decimal]$grana / 1_000_000M
+        [long][Math]::Round($AmountSvrn7 * 1000000) } else { $AmountGrana }
+    $svrn7          = [decimal]$grana / 1000000
     $effectiveNonce = if ($Nonce) { $Nonce } else { [Guid]::NewGuid().ToString('N') }
     $timestamp      = [DateTimeOffset]::UtcNow.ToString('O')
     $memo           = if ($Memo) { $Memo } else { $null }

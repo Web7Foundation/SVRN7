@@ -199,6 +199,7 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
                 unpacked.Body,
                 unpacked.From,
                 unpacked.Id,
+                packedBody,
                 http.RequestAborted);
         }
         catch (Exception ex)
@@ -214,6 +215,7 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
 
         _log.LogInformation(
             "KestrelListenerService: enqueued message type='{Type}'.", unpacked.Type);
+        _log.LogDebug("KestrelListenerService: accepted message:\n{Json}", unpacked.ToFormattedJson());
 
         http.Response.StatusCode = StatusCodes.Status202Accepted;
     }

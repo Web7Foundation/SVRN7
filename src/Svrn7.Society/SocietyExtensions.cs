@@ -90,16 +90,22 @@ public static class SocietyServiceCollectionExtensions
         services.TryAddSingleton<Svrn7LiteContext>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>().Value;
+            var log  = sp.GetRequiredService<ILoggerFactory>().CreateLogger<Svrn7LiteContext>();
+            log.LogDebug("LiteDB: svrn7.db        → {Path}", Path.GetFullPath(opts.Svrn7DbPath));
             return new Svrn7LiteContext(opts.Svrn7DbPath);
         });
         services.TryAddSingleton<DidRegistryLiteContext>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>().Value;
+            var log  = sp.GetRequiredService<ILoggerFactory>().CreateLogger<DidRegistryLiteContext>();
+            log.LogDebug("LiteDB: svrn7-dids.db   → {Path}", Path.GetFullPath(opts.DidsDbPath));
             return new DidRegistryLiteContext(opts.DidsDbPath);
         });
         services.TryAddSingleton<VcRegistryLiteContext>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>().Value;
+            var log  = sp.GetRequiredService<ILoggerFactory>().CreateLogger<VcRegistryLiteContext>();
+            log.LogDebug("LiteDB: svrn7-vcs.db    → {Path}", Path.GetFullPath(opts.VcsDbPath));
             return new VcRegistryLiteContext(opts.VcsDbPath);
         });
         // Share Svrn7LiteContext's open LiteDatabase — avoids a second exclusive lock on svrn7.db.
@@ -108,6 +114,8 @@ public static class SocietyServiceCollectionExtensions
         services.TryAddSingleton<InboxLiteContext>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>().Value;
+            var log  = sp.GetRequiredService<ILoggerFactory>().CreateLogger<InboxLiteContext>();
+            log.LogDebug("LiteDB: svrn7-inbox.db  → {Path}", Path.GetFullPath(opts.InboxDbPath));
             return new InboxLiteContext(opts.InboxDbPath);
         });
 
@@ -233,6 +241,8 @@ public static class SocietyServiceCollectionExtensions
         services.TryAddSingleton<SchemaLiteContext>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>().Value;
+            var log  = sp.GetRequiredService<ILoggerFactory>().CreateLogger<SchemaLiteContext>();
+            log.LogDebug("LiteDB: svrn7-schemas.db → {Path}", Path.GetFullPath(opts.SchemasDbPath));
             return new SchemaLiteContext(opts.SchemasDbPath);
         });
         services.TryAddSingleton<ISchemaRegistry>(sp =>

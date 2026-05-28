@@ -42,6 +42,11 @@ public sealed class LobeDescriptor
     [JsonPropertyName("ai")]
     public LobeAiMetadata     Ai          { get; init; } = new();
 
+    // ── Shared JsonSerializerOptions ─────────────────────────────────────────
+
+    internal static readonly JsonSerializerOptions JsonOpts =
+        new() { PropertyNameCaseInsensitive = true };
+
     // ── Factory ───────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -52,8 +57,7 @@ public sealed class LobeDescriptor
     {
         if (!File.Exists(path)) return null;
         var json = File.ReadAllText(path);
-        return JsonSerializer.Deserialize<LobeDescriptor>(json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        return JsonSerializer.Deserialize<LobeDescriptor>(json, JsonOpts);
     }
 }
 
