@@ -64,16 +64,19 @@ $Script:TypeGdprErasure     = 'Svrn7.GdprErasure'
 $Script:TypeMerkleHead      = 'Svrn7.MerkleTreeHead'
 $Script:TypeFederation      = 'Svrn7.FederationRecord'
 
-# In TDA mode ($SVRN7_LOBES_DIR set), Common is already an eager ISS module — skip
-# dot-source. Dot-sourcing a module that the ISS already loaded causes a terminating
-# error that silently kills this module's load. The $Script: defaults above and the
-# session-visible Common cmdlets are sufficient.
-# In standalone mode (no ISS), dot-source Common to load helpers and shared state.
-if (-not $SVRN7_LOBES_DIR -and $PSScriptRoot) {
-    $_commonPath = [System.IO.Path]::Combine(
-        [System.IO.Path]::GetDirectoryName($PSScriptRoot),
-        'Svrn7.Common', 'Svrn7.Common.psm1')
-    if ([System.IO.File]::Exists($_commonPath)) { . $_commonPath }
+# In TDA mode ($SVRN7_LOBES_DIR set), Common is already an eager ISS module — skip.
+# In standalone mode (no ISS), load Common helpers into this module's scope.
+# NOTE: We read Common.psm1 as text and invoke it as a [scriptblock] rather than
+# using the dot-source operator (. file.psm1). PowerShell 7 applies module-context
+# scoping to dot-sourced .psm1 files, which hides the defined functions from the
+# calling module's scope. Invoking a scriptblock is always plain-script execution.
+if (-not $SVRN7_LOBES_DIR) {
+    $_commonPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'Svrn7.Common\Svrn7.Common.psm1'
+    if (Test-Path -LiteralPath $_commonPath) {
+        . ([scriptblock]::Create([System.IO.File]::ReadAllText($_commonPath)))
+    } else {
+        Write-Warning "Svrn7.Society: Svrn7.Common.psm1 not found at '$_commonPath' — standalone cmdlets will fail."
+    }
 }
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'

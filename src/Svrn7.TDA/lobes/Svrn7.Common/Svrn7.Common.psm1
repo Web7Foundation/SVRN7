@@ -1,9 +1,11 @@
-#Requires -Version 7.2
-#Requires -PSEdition Core
 #
 # Svrn7.Common.psm1
 # Private shared helpers — dot-sourced by Svrn7.Federation.psm1 and Svrn7.Society.psm1.
 # Not imported directly by end users.
+# Note: #Requires is intentionally absent. This file is dot-sourced by parent modules
+# (Federation, Society) that already enforce #Requires -Version 7.2 -PSEdition Core.
+# Adding #Requires to a dot-sourced .psm1 causes PowerShell 7 to treat the dot-source
+# as a module-context load, scoping functions to a private scope instead of the caller's.
 #
 
 Set-StrictMode -Version Latest
@@ -42,8 +44,17 @@ function Initialize-Svrn7Assemblies {
 
     if ($Script:AssembliesLoaded) { return }
 
-    $binPath = if ($env:SVRN7_BIN_PATH) { $env:SVRN7_BIN_PATH }
-               else { Join-Path $ModuleRoot 'bin' }
+    $binPath = if ($env:SVRN7_BIN_PATH) {
+                   $env:SVRN7_BIN_PATH
+               } else {
+                   # Production layout: bin/ folder adjacent to the module (.psm1).
+                   $localBin = Join-Path $ModuleRoot 'bin'
+                   if (Test-Path $localBin) { $localBin }
+                   else {
+                       # Debug/TDA output layout: net8.0/lobes/<Module>/ → DLLs are in net8.0/ (2 levels up).
+                       [System.IO.Path]::GetFullPath((Join-Path $ModuleRoot '../..'))
+                   }
+               }
 
     if (-not (Test-Path $binPath)) {
         throw [System.IO.DirectoryNotFoundException]::new(
@@ -195,4 +206,49 @@ function Build-CanonicalTransferJson {
     [System.Text.Json.JsonSerializer]::Serialize(
         [hashtable]$d,
         [System.Text.Json.JsonSerializerOptions]@{ WriteIndented = $false })
+}
+
+# ── DIDComm HTTP/2 sender ─────────────────────────────────────────────────────
+
+function Send-DIDCommMessage {
+    <#
+    .SYNOPSIS
+        Posts a DIDComm message to a TDA endpoint over cleartext HTTP/2 (h2c).
+    .DESCRIPTION
+        Invoke-RestMethod cannot be used for h2c: PowerShell sets HttpVersionPolicy.RequestVersionOrLower
+        which falls back to HTTP/1.1 framing — rejected by the TDA server. This function uses
+        HttpClient with RequestVersionExact so HTTP/2 is enforced end-to-end.
+    .PARAMETER Uri
+        Target DIDComm endpoint. Defaults to http://localhost:8443/didcomm.
+    .PARAMETER Body
+        The raw JSON string to POST. Must be a valid DIDComm message envelope.
+    .PARAMETER ContentType
+        MIME content-type header. Defaults to application/didcomm-plain+json.
+    .OUTPUTS
+        [string] — status line followed by response body, both as plain strings.
+    .EXAMPLE
+        Send-DIDCommMessage -Body ($msg | ConvertTo-Json)
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [string] $Uri         = 'http://localhost:8443/didcomm',
+        [Parameter(Mandatory)]
+        [string] $Body,
+        [string] $ContentType = 'application/didcomm-plain+json'
+    )
+    process {
+        $client = [System.Net.Http.HttpClient]::new()
+        try {
+            $client.DefaultRequestVersion = [System.Version]::new(2, 0)
+            $client.DefaultVersionPolicy  = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
+            $content  = [System.Net.Http.StringContent]::new(
+                $Body, [System.Text.Encoding]::UTF8, $ContentType)
+            $response = $client.PostAsync($Uri, $content).GetAwaiter().GetResult()
+            "Status: $($response.StatusCode)"
+            $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        } finally {
+            $client.Dispose()
+        }
+    }
 }

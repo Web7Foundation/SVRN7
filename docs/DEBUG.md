@@ -35,7 +35,12 @@ Verify you are on PowerShell 7 before running any scenario:
 ```powershell
 $PSVersionTable.PSVersion   # Major should be 7
 ```
-
+To start an external copy of PowerShell from VS 2022:
+```
+Start-Process pwsh -ArgumentList "-NoExit",
+  "-Command", "Set-Location 'C:/SVRN7/repos/SVRN7/s
+  rc/Svrn7.TDA/bin/Debug/net8.0'"
+```
 ---
 
 ## Working Directory
@@ -539,28 +544,19 @@ Test-NetConnection localhost -Port 8443
 
 ---
 
-### Step 2 — Define the h2c send helper
+### Step 2 — Load the h2c send helper
 
-`Invoke-RestMethod -HttpVersion 2.0` does **not** work with cleartext HTTP/2 (h2c): PowerShell uses `HttpVersionPolicy.RequestVersionOrLower`, which falls back to HTTP/1.1 framing — rejected by the server. Use `HttpClient` with `RequestVersionExact` instead.
+`Invoke-RestMethod -HttpVersion 2.0` does **not** work with cleartext HTTP/2 (h2c): PowerShell uses `HttpVersionPolicy.RequestVersionOrLower`, which falls back to HTTP/1.1 framing — rejected by the server. `Send-DIDCommMessage` in `Svrn7.Common` uses `HttpClient` with `RequestVersionExact` to enforce HTTP/2 end-to-end.
 
-Paste this function once into your session; all scenarios below call it.
+`Send-DIDCommMessage` is available automatically after importing either LOBE:
 
 ```powershell
-function Send-DIDCommMessage {
-    param(
-        [string]$Uri  = "http://localhost:8443/didcomm",
-        [string]$Body
-    )
-    $client = [System.Net.Http.HttpClient]::new()
-    $client.DefaultRequestVersion = [System.Version]::new(2, 0)
-    $client.DefaultVersionPolicy  = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
-    $content  = [System.Net.Http.StringContent]::new(
-        $Body, [System.Text.Encoding]::UTF8, "application/didcomm-plain+json")
-    $response = $client.PostAsync($Uri, $content).GetAwaiter().GetResult()
-    "Status: $($response.StatusCode)"
-    $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-}
+Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
+# — or —
+Import-Module .\lobes\Svrn7.Society\Svrn7.Society.psm1
 ```
+
+All scenarios below call `Send-DIDCommMessage -Body <json>` directly.
 
 ---
 
