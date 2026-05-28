@@ -804,7 +804,7 @@ public class LobeManagerRegistryTests : IDisposable
 
 internal sealed class NullInboxStore : Svrn7.Core.Interfaces.IInboxStore
 {
-    public Task EnqueueAsync(string t, string p, string? fromDid = null, string? wireId = null, CancellationToken ct = default) => Task.CompletedTask;
+    public Task EnqueueAsync(string t, string p, string? fromDid = null, string? wireId = null, string? jweEnvelope = null, CancellationToken ct = default) => Task.CompletedTask;
     public Task<Svrn7.Core.Models.InboxMessage?> GetByIdAsync(string id, CancellationToken ct = default) => Task.FromResult<Svrn7.Core.Models.InboxMessage?>(null);
     public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboxMessage>> DequeueBatchAsync(int b = 20, CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboxMessage>>(Array.Empty<Svrn7.Core.Models.InboxMessage>());
     public Task MarkProcessedAsync(string id, CancellationToken ct = default) => Task.CompletedTask;
@@ -1051,7 +1051,7 @@ internal sealed class RecordingInboxStore : IInboxStore
 {
     public List<(string Type, string Payload)> Messages { get; } = new();
 
-    public Task EnqueueAsync(string messageType, string packedPayload, string? fromDid = null, string? wireId = null, CancellationToken ct = default)
+    public Task EnqueueAsync(string messageType, string packedPayload, string? fromDid = null, string? wireId = null, string? jweEnvelope = null, CancellationToken ct = default)
     {
         Messages.Add((messageType, packedPayload));
         return Task.CompletedTask;
@@ -1505,7 +1505,7 @@ internal sealed class TrackingInboxStore : IInboxStore
 {
     public bool ResetStuckCalled { get; private set; }
 
-    public Task EnqueueAsync(string t, string p, string? fromDid = null, string? wireId = null, CancellationToken ct = default) => Task.CompletedTask;
+    public Task EnqueueAsync(string t, string p, string? fromDid = null, string? wireId = null, string? jweEnvelope = null, CancellationToken ct = default) => Task.CompletedTask;
     public Task<InboxMessage?> GetByIdAsync(string id, CancellationToken ct = default) => Task.FromResult<InboxMessage?>(null);
     public Task<IReadOnlyList<InboxMessage>> DequeueBatchAsync(int b = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
     public Task MarkProcessedAsync(string id, CancellationToken ct = default) => Task.CompletedTask;
@@ -1543,7 +1543,7 @@ internal sealed class TrackingOutboxStore : Svrn7.Core.Interfaces.IOutboxStore
 /// <summary>IInboxStore stub: ResetStuckMessagesAsync throws to simulate a failed store.</summary>
 internal sealed class ThrowingResetInboxStore : IInboxStore
 {
-    public Task EnqueueAsync(string t, string p, string? fromDid = null, string? wireId = null, CancellationToken ct = default) => Task.CompletedTask;
+    public Task EnqueueAsync(string t, string p, string? fromDid = null, string? wireId = null, string? jweEnvelope = null, CancellationToken ct = default) => Task.CompletedTask;
     public Task<InboxMessage?> GetByIdAsync(string id, CancellationToken ct = default) => Task.FromResult<InboxMessage?>(null);
     public Task<IReadOnlyList<InboxMessage>> DequeueBatchAsync(int b = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
     public Task MarkProcessedAsync(string id, CancellationToken ct = default) => Task.CompletedTask;

@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Svrn7.Core.Models;
 
 // ── Enumerations ──────────────────────────────────────────────────────────────
@@ -47,6 +49,7 @@ public record InboxMessage
                                                                       // e.g. did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678
     public required string             MessageType   { get; set; }  // Protocol URI
     public required string             PackedPayload { get; set; }  // Unpacked DIDComm body (plaintext)
+    public string?                     JweEnvelope   { get; set; }  // Original JWE wire payload — preserved for auditability and non-repudiation
     public string?                     FromDid       { get; set; }  // Sender DID from DIDComm envelope
     public string?                     WireId        { get; set; }  // DIDComm wire 'id' from the sender's envelope (null for encrypted/opaque messages)
     public required DateTimeOffset     ReceivedAt    { get; set; }
@@ -54,6 +57,30 @@ public record InboxMessage
     public DateTimeOffset?             ProcessedAt   { get; set; }
     public string?                     LastError     { get; set; }
     public int                         AttemptCount  { get; set; }
+
+    static readonly JsonSerializerOptions _prettyOpts = new() { WriteIndented = true };
+
+    public string ToFormattedJson()
+    {
+        JsonElement bodyElement;
+        try   { bodyElement = JsonSerializer.Deserialize<JsonElement>(PackedPayload); }
+        catch { bodyElement = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(PackedPayload)); }
+
+        return JsonSerializer.Serialize(new
+        {
+            id            = Id,
+            messageType   = MessageType,
+            fromDid       = FromDid,
+            wireId        = WireId,
+            receivedAt    = ReceivedAt,
+            status        = Status.ToString(),
+            attemptCount  = AttemptCount,
+            processedAt   = ProcessedAt,
+            lastError     = LastError,
+            jweEnvelope   = JweEnvelope,
+            body          = bodyElement
+        }, _prettyOpts);
+    }
 }
 
 

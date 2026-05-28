@@ -1,4 +1,4 @@
-# Svrn7.TDA — Debug & Testing Guide
+# Pando.TDA — Debug & Testing Guide
 
 ![](../../docs/images/Web%207.0%20DSA-SocietyArch%200.26.png)
 
@@ -12,6 +12,29 @@
 - `UnpackAsync` has a **plaintext branch**: if the JSON body has a `"type"` property at the root, it passes through without decryption — no keys needed for dev testing. It also extracts the `"id"` field as `DIDCommUnpackedMessage.Id` (the DIDComm wire id), which is stored in `InboxMessage.WireId`.
 - **Encrypted messages are not yet decrypted**: `UnpackAsync` does not implement JWE decryption — `recipientPrivateKey` is accepted but currently ignored. Encrypted inbound messages will be stored with `MessageType = "application/didcomm-encrypted+json"` and immediately dead-lettered by the Switchboard (`MarkFailedAsync`, no retry). Only plaintext messages are routed end-to-end in the current implementation.
 - A valid message returns **202 Accepted** and is enqueued; the Switchboard routes it asynchronously
+
+---
+
+## PowerShell Requirement — VS 2022 / VS 2026
+
+The send helpers in this guide use `curl.exe` and require **PowerShell 7 (`pwsh.exe`)**.
+The VS Developer PowerShell defaults to Windows PowerShell 5.1 (.NET Framework), which is missing
+required .NET 5+ types. Configure VS to use PowerShell 7 once:
+
+1. **Tools → Options → Environment → Terminal**
+2. Click **Add**
+3. Set **Name** `PowerShell 7`, **Shell location** `C:\Program Files\PowerShell\7\pwsh.exe`, **Arguments** `-NoExit`
+4. Check **Make default**, click **OK**
+
+To find `pwsh.exe` if it is not at the path above:
+```powershell
+(Get-Command pwsh -ErrorAction SilentlyContinue).Source
+```
+
+Verify you are on PowerShell 7 before running any scenario:
+```powershell
+$PSVersionTable.PSVersion   # Major should be 7
+```
 
 ---
 

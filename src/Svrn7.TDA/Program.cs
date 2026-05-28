@@ -44,15 +44,15 @@ var host = Host.CreateDefaultBuilder(args)
             opts.FederationDid                   = ctx.Configuration["Svrn7:FederationDid"]
                                                    ?? "did:drn:foundation.svrn7.net";
             opts.Svrn7DbPath                     = ctx.Configuration["Svrn7:DbPath"]
-                                                   ?? "svrn7.db";
+                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7.db");
             opts.DidsDbPath                      = ctx.Configuration["Svrn7:DidsDbPath"]
-                                                   ?? "svrn7-dids.db";
+                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-dids.db");
             opts.VcsDbPath                       = ctx.Configuration["Svrn7:VcsDbPath"]
-                                                   ?? "svrn7-vcs.db";
+                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-vcs.db");
             opts.InboxDbPath                     = ctx.Configuration["Svrn7:InboxDbPath"]
-                                                   ?? "svrn7-inbox.db";
+                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-inbox.db");
             opts.SchemasDbPath                   = ctx.Configuration["Svrn7:SchemasDbPath"]
-                                                   ?? "svrn7-schemas.db";
+                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-schemas.db");
             opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
         });
 

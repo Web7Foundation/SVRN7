@@ -32,6 +32,28 @@ public record DIDCommUnpackedMessage
     public string? From    { get; init; }
     public string  Body    { get; init; } = "{}";
     public DIDCommPackMode Mode { get; init; }
+
+    static readonly JsonSerializerOptions _prettyOpts = new() { WriteIndented = true };
+
+    /// <summary>
+    /// Returns a human-readable, indented JSON representation of this message.
+    /// Body is inlined as a nested object rather than an escaped string.
+    /// </summary>
+    public string ToFormattedJson()
+    {
+        JsonElement bodyElement;
+        try   { bodyElement = JsonSerializer.Deserialize<JsonElement>(Body); }
+        catch { bodyElement = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(Body)); }
+
+        return JsonSerializer.Serialize(new
+        {
+            id   = Id,
+            type = Type,
+            from = From,
+            mode = Mode.ToString(),
+            body = bodyElement
+        }, _prettyOpts);
+    }
 }
 
 // ── IDIDCommService ───────────────────────────────────────────────────────────
