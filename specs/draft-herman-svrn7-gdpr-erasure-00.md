@@ -411,10 +411,10 @@ This document has no IANA actions.
 - [GDPR-17] GDPR Article 17 — Right to erasure ('right to be forgotten').
 
 ### Informative
-- [DRAFT-MONETARY] Herman, M. SOVRONA (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
+- [DRAFT-MONETARY] Herman, M. SOVRON (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
 - [WEB70-ARCH] Herman, M. Web 7.0 Digital Society Architecture. draft-herman-web7-society-architecture-00.
 - [DRAFT-MERKLE] Herman, M. RFC 6962 Merkle Audit Log Profile for Web 7.0. draft-herman-web7-merkle-audit-log-00.
-- [WEB70-IMPL] Herman, M. SOVRONA (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
+- [WEB70-IMPL] Herman, M. SOVRON (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
 
 ---
 

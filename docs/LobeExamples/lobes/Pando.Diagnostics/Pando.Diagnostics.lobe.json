@@ -1,0 +1,36 @@
+{
+  "lobe": {
+    "id":            "pando.diagnostics",
+    "name":          "Pando.Diagnostics",
+    "title":         "Pando Diagnostics LOBE",
+    "description":   "Wraps the pre-existing Pando.Diagnostics module as a DIDComm LOBE. Exposes server date/time retrieval via diagnostics/1.0/date-query for clock-skew detection and round-trip latency measurement.",
+    "version":       "0.1.0",
+    "author":        "Michael Herman",
+    "organization":  "Web 7.0 Foundation",
+    "website":       "https://svrn7.net",
+    "license":       "MIT",
+    "epochRequired": 0,
+    "module":        "Pando.Diagnostics.psm1"
+  },
+  "protocols": [
+    {
+      "uri":           "did:drn:svrn7.net/protocols/diagnostics/1.0/date-query",
+      "title":         "Diagnostics Date Query",
+      "description":   "Requests the current server UTC date/time from the target TDA. Delegates to Get-TDADate from Pando.Diagnostics.Impl.psm1. Body: no required fields. Optional: { replyEndpoint }.",
+      "direction":     "inbound",
+      "match":         "exact",
+      "entrypoint":    "Invoke-PandoDiagnosticsDateQuery",
+      "epochRequired": 0
+    }
+  ],
+  "cmdlets": [
+    {
+      "name":        "Get-TDADate",
+      "description": "Returns the TDA server's current date and time as a DateTimeOffset (UTC). Defined in Pando.Diagnostics.Impl.psm1; re-exported for use by other LOBEs."
+    }
+  ],
+  "dependencies": {
+    "lobes":    [],
+    "packages": []
+  }
+}

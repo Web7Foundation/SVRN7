@@ -408,7 +408,7 @@ This document has no IANA actions.
 
 ### Informative
 - [WEB70-ARCH] Herman, M. Web 7.0 Digital Society Architecture. draft-herman-web7-society-architecture-00.
-- [DRAFT-MONETARY] Herman, M. SOVRONA (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
+- [DRAFT-MONETARY] Herman, M. SOVRON (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
 - [DRAFT-DID-DRN] Herman, M. Decentralized Resource Name (DRN) DID Method. draft-herman-did-w3c-drn-00.
 - [W3C.DID-SPEC-REGISTRIES] Sporny, M. and O. Steele. DID Specification Registries. W3C Working Group Note, 2023.
 

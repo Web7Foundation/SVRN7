@@ -148,7 +148,8 @@ public sealed class LiteInboxStore : IInboxStore
         };
 
         _ctx.InboxMessages.Insert(message);
-        _log.LogDebug("Inbox: enqueued message {Id} of type {Type}", message.Id, messageType);
+        _log.LogDebug("Inbox: enqueued message{NL}{Body}",
+            Environment.NewLine, message.ToFormattedJson());
         return Task.CompletedTask;
     }
 

@@ -13,7 +13,7 @@ using Svrn7.Store;
 namespace Svrn7.Federation;
 
 /// <summary>
-/// Federation-level ISvrn7Driver implementation for SOVRONA (SVRN7) —
+/// Federation-level ISvrn7Driver implementation for SOVRON (SVRN7) —
 /// the Shared Reserve Currency (SRC) for the Web 7.0 digital ecosystem.
 /// 44 ThrowIfDisposed() guards protect every public method.
 /// Implements IAsyncDisposable — dispose via DI or using statement.

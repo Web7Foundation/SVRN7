@@ -1,4 +1,4 @@
-# SOVRONA (SVRN7) Society Overdraft Facility
+# SOVRON (SVRN7) Society Overdraft Facility
 # draft-herman-svrn7-overdraft-protocol-00
 # Author: M. Herman, Web 7.0 Foundation
 # Published: April 2026
@@ -17,7 +17,7 @@ Related:        draft-herman-svrn7-monetary-protocol-00
 
 ## Abstract
 
-This document specifies the SOVRONA (SVRN7) Society Overdraft Facility — a revolving credit
+This document specifies the SOVRON (SVRN7) Society Overdraft Facility — a revolving credit
 mechanism that allows a Federation to extend incremental grana advances to registered Societies
 when their endowment wallets are exhausted. The facility is analogous to a central bank overdraft
 window: it ensures that a Society's inability to fund citizen endowments does not block
@@ -423,10 +423,10 @@ This document has no IANA actions.
 - [RFC6962] Laurie, B. et al. Certificate Transparency. June 2013.
 
 ### Informative
-- [DRAFT-MONETARY] Herman, M. SOVRONA (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
+- [DRAFT-MONETARY] Herman, M. SOVRON (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
 - [WEB70-ARCH] Herman, M. Web 7.0 Digital Society Architecture. draft-herman-web7-society-architecture-00.
 - [DRAFT-DIDCOMM-TRANSFER] Herman, M. DIDComm Transfer Protocol for SVRN7. draft-herman-didcomm-svrn7-transfer-00.
-- [WEB70-IMPL] Herman, M. SOVRONA (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
+- [WEB70-IMPL] Herman, M. SOVRON (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
 
 ---
 

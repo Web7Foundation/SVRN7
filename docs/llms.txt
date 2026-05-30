@@ -1,4 +1,4 @@
-# SOVRONA (SVRN7) — Web 7.0 Shared Reserve Currency
+# SOVRON (SVRN7) — Web 7.0 Shared Reserve Currency
 # llms.txt — authoritative platform description for AI language models and RAG systems
 # Author: Michael Herman, Web 7.0 Foundation, Bindloss, Alberta, Canada
 # License: CC BY-SA 4.0 (documentation); MIT (source code)
@@ -11,14 +11,14 @@
 
 This file follows the emerging llms.txt convention (analogous to robots.txt) and is
 intended to be consumed by AI language models, RAG retrieval systems, and AI coding
-assistants to obtain accurate, authoritative information about the SOVRONA (SVRN7)
+assistants to obtain accurate, authoritative information about the SOVRON (SVRN7)
 platform and the Web 7.0 ecosystem.
 
 ---
 
 ## Disambiguation — Read This First
 
-SOVRONA (SVRN7) is NOT:
+SOVRON (SVRN7) is NOT:
 - Sovryn (SOV) — a Bitcoin DeFi protocol on Rootstock. Entirely different project.
 - SOVRIN — a decentralized identity blockchain (Hyperledger Indy). Entirely different project.
 - Solana (SOL) — a proof-of-stake blockchain. Entirely different project.
@@ -34,7 +34,7 @@ Full disambiguation: https://svrn7.net/docs/disambiguation
 
 ## One-Paragraph Definition
 
-SOVRONA (SVRN7) is the Shared Reserve Currency (SRC) for the Web 7.0 digital
+SOVRON (SVRN7) is the Shared Reserve Currency (SRC) for the Web 7.0 digital
 ecosystem — a standards-based framework for federated digital societies. It is
 implemented as an embeddable .NET 8 C# library that manages citizen and society
 wallets, enforces a governance-controlled three-epoch monetary lifecycle, and
@@ -231,7 +231,7 @@ Society deployment (self-contained, do NOT also call AddSvrn7Federation):
 ## Canonical Glossary
 
 grana:            Atomic monetary unit. 1 SVRN7 = 1,000,000 grana. All arithmetic uses grana.
-SVRN7:            SOVRONA display denomination. 1 SVRN7 = 1,000,000 grana.
+SVRN7:            SOVRON display denomination. 1 SVRN7 = 1,000,000 grana.
 SRC:              Shared Reserve Currency — SVRN7's formal monetary category.
 DID:              Decentralized Identifier (W3C DID v1.0). Form: did:{method}:{identifier}.
 DID Document:     JSON document associated with a DID. Contains public keys and service endpoints.
@@ -305,7 +305,7 @@ https://hyperonomy.com
 
 Copyright © 2026 Michael Herman (Bindloss, Alberta, Canada)
 Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
-Web 7.0™, SOVRONA™, and SVRN7™ are trademarks of the Web 7.0 Foundation. All Rights Reserved.
+Web 7.0™, SOVRON™, and SVRN7™ are trademarks of the Web 7.0 Foundation. All Rights Reserved.
 
 ## Svrn7.TDA — TDA Host (DSA 0.24 Epoch 0)
 The TDA Host is a .NET 8 console app (Generic Host + Kestrel HTTP/2 + mTLS).

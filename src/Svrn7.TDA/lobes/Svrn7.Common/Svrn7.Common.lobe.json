@@ -13,7 +13,18 @@
     "module": "Svrn7.Common.psm1"
   },
   "protocols": [],
-  "cmdlets": [],
+  "cmdlets": [
+    {
+      "name": "Send-DIDCommMessage",
+      "synopsis": "Posts a DIDComm message to a TDA endpoint over cleartext HTTP/2 (h2c).",
+      "parameters": [
+        { "name": "Uri",         "type": "string",  "mandatory": false, "description": "Target DIDComm endpoint. Defaults to http://localhost:8443/didcomm." },
+        { "name": "Body",        "type": "string",  "mandatory": true,  "description": "Raw JSON DIDComm message envelope to POST." },
+        { "name": "ContentType", "type": "string",  "mandatory": false, "description": "MIME content-type. Defaults to application/didcomm-plain+json." }
+      ],
+      "outputType": "string"
+    }
+  ],
   "dependencies": {
     "lobes": [],
     "packages": []

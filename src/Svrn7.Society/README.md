@@ -1,10 +1,10 @@
 # Svrn7.Society
 
-**SOVRONA (SVRN7) Society-level driver** — the Shared Reserve Currency (SRC) for the Web 7.0 digital ecosystem.
+**SOVRON (SVRN7) Society-level driver** — the Shared Reserve Currency (SRC) for the Web 7.0 digital ecosystem.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **Disambiguation**: SVRN7 / SOVRONA is **not** Sovryn (Bitcoin DeFi), **not** SOVRIN (Hyperledger Indy), and **not** Solana. It is a standalone .NET 8 embedded library — not a blockchain, not a token.
+> **Disambiguation**: SVRN7 / SOVRON is **not** Sovryn (Bitcoin DeFi), **not** SOVRIN (Hyperledger Indy), and **not** Solana. It is a standalone .NET 8 embedded library — not a blockchain, not a token.
 
 ---
 

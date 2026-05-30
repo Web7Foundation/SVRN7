@@ -1,6 +1,6 @@
 # Contributing to SVRN7
 
-Thank you for your interest in the SOVRONA (SVRN7) Shared Reserve Currency project.
+Thank you for your interest in the SOVRON (SVRN7) Shared Reserve Currency project.
 
 ## Methodology
 

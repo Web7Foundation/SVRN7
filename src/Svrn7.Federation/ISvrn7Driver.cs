@@ -43,7 +43,7 @@ public class Svrn7Options
 
 /// <summary>
 /// Primary facade for the SVRN7 Federation-level library.
-/// SVRN7 (SOVRONA) is the Shared Reserve Currency (SRC) for the Web 7.0 digital ecosystem.
+/// SVRN7 (SOVRON) is the Shared Reserve Currency (SRC) for the Web 7.0 digital ecosystem.
 /// All 44 members are implemented by Svrn7Driver.
 /// Implement IAsyncDisposable — dispose when host shuts down.
 /// </summary>

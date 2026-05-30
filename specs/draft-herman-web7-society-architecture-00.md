@@ -104,7 +104,7 @@ NOT RECOMMENDED, MAY, and OPTIONAL are to be interpreted as described in BCP 14 
 - **Foundation Key**: The secp256k1 key pair whose public key is embedded in the Federation
   deployment configuration. Used to sign governance operations.
 
-- **SRC (Shared Reserve Currency)**: SVRN7 (SOVRONA) — the sole monetary unit of the Web 7.0
+- **SRC (Shared Reserve Currency)**: SVRN7 (SOVRON) — the sole monetary unit of the Web 7.0
   ecosystem. Digital Societies do not issue local currencies.
 
 - **DID Method Name**: The second component of a W3C DID (e.g., `drn` in `did:drn:abc`).
@@ -457,7 +457,7 @@ conform to:
 - The DID Document structure [W3C.DID-CORE].
 - The VC encoding [W3C.VC-DATA-MODEL].
 
-The reference implementation is the SOVRONA (SVRN7) .NET 8 C# library [WEB70-IMPL].
+The reference implementation is the SOVRON (SVRN7) .NET 8 C# library [WEB70-IMPL].
 
 ---
 
@@ -515,11 +515,11 @@ This document has no IANA actions.
 - [W3C.VC-DATA-MODEL] Sporny, M. et al. VC Data Model v2.0. W3C Recommendation, 2024.
 
 ### Informative
-- [DRAFT-MONETARY] Herman, M. SOVRONA (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
+- [DRAFT-MONETARY] Herman, M. SOVRON (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
 - [DRAFT-DIDCOMM-TRANSFER] Herman, M. DIDComm Transfer Protocol for SVRN7. draft-herman-didcomm-svrn7-transfer-00.
 - [DRAFT-DID-DRN] Herman, M. Decentralized Resource Name (DRN) DID Method. draft-herman-did-w3c-drn-00.
 - [DRAFT-VTC] Herman, M. Verifiable Trust Circles using VC Proof Sets. draft-herman-vtc-proof-sets-01.
-- [WEB70-IMPL] Herman, M. SOVRONA (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
+- [WEB70-IMPL] Herman, M. SOVRON (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
 
 ---
 

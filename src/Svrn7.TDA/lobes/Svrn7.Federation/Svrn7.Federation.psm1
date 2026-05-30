@@ -5,7 +5,7 @@
     Svrn7.Federation — PowerShell cmdlets wrapping ISvrn7Driver.
 
 .DESCRIPTION
-    Complete script module exposing every operation of the SOVRONA (SVRN7) Federation-level
+    Complete script module exposing every operation of the SOVRON (SVRN7) Federation-level
     driver as idiomatic PowerShell cmdlets.  All cmdlets have full comment-based help,
     typed [PSCustomObject] output, pipeline support, and -WhatIf/-Confirm on mutations.
 
@@ -43,16 +43,19 @@ $Script:TypeGdprErasure     = 'Svrn7.GdprErasure'
 $Script:TypeMerkleHead      = 'Svrn7.MerkleTreeHead'
 $Script:TypeFederation      = 'Svrn7.FederationRecord'
 
-# In TDA mode ($SVRN7_LOBES_DIR set), Common is already an eager ISS module — skip
-# dot-source. Dot-sourcing a module that the ISS already loaded causes a terminating
-# error that silently kills this module's load. The $Script: defaults above and the
-# session-visible Common cmdlets are sufficient.
-# In standalone mode (no ISS), dot-source Common to load helpers and shared state.
-if (-not $SVRN7_LOBES_DIR -and $PSScriptRoot) {
-    $_commonPath = [System.IO.Path]::Combine(
-        [System.IO.Path]::GetDirectoryName($PSScriptRoot),
-        'Svrn7.Common', 'Svrn7.Common.psm1')
-    if ([System.IO.File]::Exists($_commonPath)) { . $_commonPath }
+# In TDA mode ($SVRN7_LOBES_DIR set), Common is already an eager ISS module — skip.
+# In standalone mode (no ISS), load Common helpers into this module's scope.
+# NOTE: We read Common.psm1 as text and invoke it as a [scriptblock] rather than
+# using the dot-source operator (. file.psm1). PowerShell 7 applies module-context
+# scoping to dot-sourced .psm1 files, which hides the defined functions from the
+# calling module's scope. Invoking a scriptblock is always plain-script execution.
+if (-not $SVRN7_LOBES_DIR) {
+    $_commonPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'Svrn7.Common\Svrn7.Common.psm1'
+    if (Test-Path -LiteralPath $_commonPath) {
+        . ([scriptblock]::Create([System.IO.File]::ReadAllText($_commonPath)))
+    } else {
+        Write-Warning "Svrn7.Federation: Svrn7.Common.psm1 not found at '$_commonPath' — standalone cmdlets will fail."
+    }
 }
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -539,6 +542,7 @@ function Get-Svrn7Society {
     param([Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)] [string] $Did)
     process { Assert-FederationDriver; $Script:FederationDriver.GetSocietyAsync($Did).GetAwaiter().GetResult() }
 }
+
 
 function Test-Svrn7SocietyActive {
 <#
@@ -1254,13 +1258,76 @@ function Invoke-Web7FederationQuery {
 
         $json     = $payload | ConvertTo-Json -Compress
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
-        Write-Verbose "Invoke-Web7FederationQuery: replying to $($msg.FromDid)"
-
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $json
-            MessageType   = 'did:drn:svrn7.net/protocols/federation/1.0/federation-query-result'
+        if (-not $endpoint) {
+            Write-Warning "Invoke-Web7FederationQuery: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
+            return
         }
+        Write-Information "Invoke-Web7FederationQuery: replying to $($msg.FromDid)"
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $json)
+    }
+}
+
+function Invoke-Web7SocietyList {
+    <#
+    .SYNOPSIS
+        Handles federation/1.0/society-list — returns all registered societies.
+    .DESCRIPTION
+        No body fields required.  Include replyEndpoint in the body to receive a
+        federation/1.0/society-list-result reply; omit it to use the sender's DID
+        Document endpoint.  Replies with an array of society objects.
+    .PARAMETER MessageDid
+        TDA resource DID URL for the inbox message.
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+    process {
+        $drv = Get-ActiveFederationDriver
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { throw "Invoke-Web7SocietyList: message '$MessageDid' not found." }
+        if (-not $msg.FromDid) { throw "Invoke-Web7SocietyList: FromDid not set — cannot route reply." }
+
+        $body      = $msg.PackedPayload | ConvertFrom-Json
+        $societies   = @($drv.GetAllSocietiesAsync().GetAwaiter().GetResult())
+        $activeSocs  = @($societies | Where-Object { $_.IsActive })
+
+        $societyList = @($societies | ForEach-Object {
+            @{
+                societyDid           = $_.Did
+                societyName          = $_.SocietyName
+                primaryDidMethodName = $_.PrimaryDidMethodName
+                isActive             = $_.IsActive
+                registeredAt         = $_.RegisteredAt.ToString('o')
+            }
+        })
+
+        $payload = @{
+            count       = $societies.Count
+            activeCount = $activeSocs.Count
+            societies   = $societyList
+            queriedAt   = [datetimeoffset]::UtcNow.ToString('o')
+        } | ConvertTo-Json -Compress -Depth 5
+
+        Write-Information $payload
+
+        $replyEndpoint = if ($body.PSObject.Properties['replyEndpoint']) { $body.replyEndpoint } else { $null }
+        $endpoint = if ($replyEndpoint) {
+            $replyEndpoint
+        } else {
+            Resolve-SocietySenderEndpoint -Did $msg.FromDid
+        }
+
+        if (-not $endpoint) {
+            Write-Warning "Invoke-Web7SocietyList: no reply endpoint for '$($msg.FromDid)' — result not delivered."
+            return
+        }
+        Write-Information "Invoke-Web7SocietyList: $($societies.Count) society/societies, replying to $endpoint"
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $payload)
     }
 }
 
@@ -1269,10 +1336,21 @@ function Invoke-Web7FederationInit {
     .SYNOPSIS
         Handles federation/1.0/init — initialises the Federation record (idempotent).
     .DESCRIPTION
-        Body: { "federationDid": "<DID>", "federationName": "<name>",
-                "publicKeyHex": "<hex>", "primaryDidMethodName": "<method>" }
-        If the federation is already initialised the call is a no-op and returns
-        the existing record DID.  Replies with federation/1.0/init-result.
+        Body: { "federationDid":        "<DID>",
+                "federationName":       "<name>",
+                "publicKeyHex":         "<hex>",
+                "primaryDidMethodName": "<method>",
+                "replyEndpoint":        "<url>"   }   # optional
+
+        replyEndpoint is the DIDComm HTTP endpoint the sender wants the result
+        delivered to.  Include it when calling from a TDA (TDA-to-TDA).  Omit it
+        when calling from a script tool — no reply will be sent in that case.
+
+        If replyEndpoint is absent, the handler falls back to resolving the sender's
+        DID Document.  If neither source yields an endpoint the init still succeeds
+        and a warning is written to the PS stream; no error is raised.
+
+        Replies with federation/1.0/init-result.
     .PARAMETER MessageDid
         TDA resource DID URL for the inbox message.
     #>
@@ -1286,13 +1364,9 @@ function Invoke-Web7FederationInit {
         $drv = Get-ActiveFederationDriver
         $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
         if (-not $msg) { throw "Invoke-Web7FederationInit: message '$MessageDid' not found." }
-        if (-not $msg.FromDid) { throw "Invoke-Web7FederationInit: FromDid not set — cannot route reply." }
 
         $body = $msg.PackedPayload | ConvertFrom-Json
-        if (-not $body.federationDid)         { throw "Invoke-Web7FederationInit: body missing required field 'federationDid'." }
-        if (-not $body.federationName)        { throw "Invoke-Web7FederationInit: body missing required field 'federationName'." }
-        if (-not $body.publicKeyHex)          { throw "Invoke-Web7FederationInit: body missing required field 'publicKeyHex'." }
-        if (-not $body.primaryDidMethodName)  { throw "Invoke-Web7FederationInit: body missing required field 'primaryDidMethodName'." }
+        Assert-BodyFields $body @('federationDid','federationName','publicKeyHex','primaryDidMethodName') 'Invoke-Web7FederationInit'
 
         $result = $drv.InitialiseFederationAsync(
             $body.federationDid,
@@ -1305,23 +1379,34 @@ function Invoke-Web7FederationInit {
 
         $fed = $drv.GetFederationAsync().GetAwaiter().GetResult()
 
+        $alreadyInit = ($result.Payload -and $result.Payload.alreadyInitialised -eq $true)
         $payload = @{
             federationDid        = $fed.Did
             federationName       = $fed.FederationName
             primaryDidMethodName = $fed.PrimaryDidMethodName
             totalSupplyGrana     = $fed.TotalSupplyGrana
-            alreadyInitialised   = $result.Payload?.alreadyInitialised -eq $true
+            alreadyInitialised   = $alreadyInit
             initialisedAt        = [datetimeoffset]::UtcNow.ToString('o')
         } | ConvertTo-Json -Compress
 
-        $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
-        Write-Verbose "Invoke-Web7FederationInit: federation '$($fed.Did)' initialised, replying to $($msg.FromDid)"
-
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/federation/1.0/init-result'
+        # Resolve reply endpoint: explicit body field wins (TDA-to-TDA), then DID
+        # Document lookup (peer TDA registered before calling), then no reply (script).
+        # PSObject.Properties probe is required — Set-StrictMode throws on missing properties.
+        $replyEndpoint = if ($body.PSObject.Properties['replyEndpoint']) { $body.replyEndpoint } else { $null }
+        $endpoint = if ($replyEndpoint) {
+            $replyEndpoint
+        } elseif ($msg.FromDid) {
+            Resolve-SocietySenderEndpoint -Did $msg.FromDid
         }
+
+        if (-not $endpoint) {
+            Write-Warning "Invoke-Web7FederationInit: no reply endpoint available — init succeeded but no init-result will be sent."
+            return
+        }
+
+        Write-Information "Invoke-Web7FederationInit: federation '$($fed.Did)' initialised, replying to $endpoint"
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $payload)
     }
 }
 
@@ -1350,10 +1435,7 @@ function Invoke-Web7RegisterSociety {
         if (-not $msg.FromDid) { throw "Invoke-Web7RegisterSociety: FromDid not set — cannot route reply." }
 
         $body = $msg.PackedPayload | ConvertFrom-Json
-        if (-not $body.societyDid)            { throw "Invoke-Web7RegisterSociety: body missing required field 'societyDid'." }
-        if (-not $body.publicKeyHex)          { throw "Invoke-Web7RegisterSociety: body missing required field 'publicKeyHex'." }
-        if (-not $body.societyName)           { throw "Invoke-Web7RegisterSociety: body missing required field 'societyName'." }
-        if (-not $body.primaryDidMethodName)  { throw "Invoke-Web7RegisterSociety: body missing required field 'primaryDidMethodName'." }
+        Assert-BodyFields $body @('societyDid','publicKeyHex','societyName','primaryDidMethodName') 'Invoke-Web7RegisterSociety'
 
         $request = [Svrn7.Core.Models.RegisterSocietyRequest]::new()
         $request.Did                  = $body.societyDid
@@ -1361,8 +1443,8 @@ function Invoke-Web7RegisterSociety {
         $request.PrivateKeyBytes      = [byte[]]@()
         $request.SocietyName          = $body.societyName
         $request.PrimaryDidMethodName = $body.primaryDidMethodName
-        $request.DrawAmountGrana      = if ($body.drawAmountGrana)      { [long]$body.drawAmountGrana }      else { 0L }
-        $request.OverdraftCeilingGrana= if ($body.overdraftCeilingGrana){ [long]$body.overdraftCeilingGrana } else { 0L }
+        $request.DrawAmountGrana      = if ($body.PSObject.Properties['drawAmountGrana'])       { [long]$body.drawAmountGrana }       else { 0L }
+        $request.OverdraftCeilingGrana= if ($body.PSObject.Properties['overdraftCeilingGrana']) { [long]$body.overdraftCeilingGrana } else { 0L }
 
         $result = $drv.RegisterSocietyAsync($request).GetAwaiter().GetResult()
         Resolve-OperationResult $result 'RegisterSociety' | Out-Null
@@ -1378,13 +1460,13 @@ function Invoke-Web7RegisterSociety {
         } | ConvertTo-Json -Compress
 
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
-        Write-Verbose "Invoke-Web7RegisterSociety: registered '$($body.societyDid)', replying to $($msg.FromDid)"
-
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/federation/1.0/register-society-result'
+        if (-not $endpoint) {
+            Write-Warning "Invoke-Web7RegisterSociety: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
+            return
         }
+        Write-Information "Invoke-Web7RegisterSociety: registered '$($body.societyDid)', replying to $($msg.FromDid)"
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $payload)
     }
 }
 
@@ -1534,6 +1616,7 @@ Export-ModuleMember -Function @(
     'Remove-Svrn7Databases'
     'Invoke-Svrn7BatchTransfer'
     'Invoke-Web7FederationQuery'
+    'Invoke-Web7SocietyList'
     'Invoke-Web7FederationInit'
     'Invoke-Web7RegisterSociety'
     'Invoke-Svrn7GdprErasure'
@@ -1555,4 +1638,5 @@ Export-ModuleMember -Function @(
     'Test-Svrn7SocietyActive'
     'Unregister-Svrn7DidMethod'
     'Update-Svrn7FederationSupply'
+    'Send-DIDCommMessage'
 )

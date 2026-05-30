@@ -186,13 +186,10 @@ function Send-Web7Message {
     [CmdletBinding()]
     param([Parameter(Mandatory, ValueFromPipeline)] [hashtable] $OutboundMessage)
     process {
-        # The Switchboard reads this from the pipeline output and enqueues it.
-        # Return as PSCustomObject so RunspacePool pipeline picks it up.
-        [PSCustomObject]@{
-            PeerEndpoint  = $OutboundMessage.PeerEndpoint
-            PackedMessage = $OutboundMessage.PackedMessage
-            MessageType   = $OutboundMessage.MessageType
-        }
+        # Return a C# OutboundMessage record so the Switchboard's BaseObject check matches.
+        [Svrn7.TDA.OutboundMessage]::new(
+            $OutboundMessage.PeerEndpoint,
+            $OutboundMessage.PackedMessage)
     }
 }
 

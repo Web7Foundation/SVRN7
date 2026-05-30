@@ -179,23 +179,29 @@ function Render-Web7RegistrationComplete {
 
         $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
 
-        if (-not $body.success) {
-            Write-Warning ("UX LOBE: registration failed — {0}" -f $body.error)
+        $success       = $body.PSObject.Properties['success'] -and $body.success
+        $citizenDid    = Get-BodyField $body 'citizenDid'    ''
+        $societyDid    = Get-BodyField $body 'societyDid'    ''
+        $endowmentGrana= Get-BodyField $body 'endowmentGrana' 0
+
+        if (-not $success) {
+            $errDetail = Get-BodyField $body 'error' '(no detail)'
+            Write-Warning ("UX LOBE: registration failed — {0}" -f $errDetail)
             return $null
         }
 
-        $svrn7 = [decimal]$body.endowmentGrana / 1000000
+        $svrn7 = [decimal]$endowmentGrana / 1000000
         $record = @{
-            CitizenDid     = $body.citizenDid
-            SocietyDid     = $body.societyDid
-            EndowmentGrana = $body.endowmentGrana
+            CitizenDid     = $citizenDid
+            SocietyDid     = $societyDid
+            EndowmentGrana = $endowmentGrana
             EndowmentSvrn7 = $svrn7
             RegisteredAt   = [datetimeoffset]::UtcNow.ToString('o')
         }
 
-        Write-Host "UX: Welcome to $($body.societyDid)!" -ForegroundColor Green
-        Write-Host "    DID:       $($body.citizenDid)" -ForegroundColor Green
-        Write-Host ("    Endowment: {0:F6} SRC ({1} grana)" -f $svrn7, $body.endowmentGrana) -ForegroundColor Green
+        Write-Host "UX: Welcome to $societyDid!" -ForegroundColor Green
+        Write-Host "    DID:       $citizenDid" -ForegroundColor Green
+        Write-Host ("    Endowment: {0:F6} SRC ({1} grana)" -f $svrn7, $endowmentGrana) -ForegroundColor Green
 
         return $record
     }

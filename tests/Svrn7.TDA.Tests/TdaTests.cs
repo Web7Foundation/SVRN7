@@ -503,6 +503,17 @@ public class LobeDescriptorTests
 
     // ── Real descriptor files ─────────────────────────────────────────────────
 
+    [Fact]
+    public void Common_Descriptor_Declares_SendDIDCommMessage_Cmdlet()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "lobes", "Svrn7.Common.lobe.json");
+        if (!File.Exists(path)) return;
+
+        var d = LobeDescriptor.LoadFromFile(path)!;
+        d.Cmdlets.Should().Contain(c => c.Name == "Send-DIDCommMessage",
+            because: "Send-DIDCommMessage was added to Common and must appear in the LOBE descriptor");
+    }
+
     [Theory]
     [InlineData("Svrn7.Email.lobe.json")]
     [InlineData("Svrn7.Calendar.lobe.json")]

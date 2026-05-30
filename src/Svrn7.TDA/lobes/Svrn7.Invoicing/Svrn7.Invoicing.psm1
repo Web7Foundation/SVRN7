@@ -57,10 +57,8 @@ function ConvertFrom-Web7InvoiceRequest {
 
         $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
 
-        if (-not $body.payerDid -or -not $body.payeeDid) {
-            throw "Invoicing LOBE: invoice/1.0/request missing payerDid or payeeDid."
-        }
-        if (-not $body.lineItems -or $body.lineItems.Count -eq 0) {
+        Assert-BodyFields $body @('payerDid','payeeDid','lineItems') 'Invoicing LOBE: invoice/1.0/request'
+        if ($body.lineItems.Count -eq 0) {
             throw "Invoicing LOBE: invoice/1.0/request has no lineItems."
         }
 

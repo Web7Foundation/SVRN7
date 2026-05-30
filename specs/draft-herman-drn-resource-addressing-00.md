@@ -30,7 +30,7 @@ records, or a LiteDB ObjectId hex string for surrogate-keyed records.
 This scheme makes TDA data records addressable as first-class locators within the
 `did:drn` ecosystem, enables cross-TDA record resolution via DIDComm proxy, and
 aligns the Merkle audit log's content-addressing model with the DID URL path convention.
-The scheme is specific to the Web 7.0 / SOVRONA (SVRN7) TDA architecture and is not
+The scheme is specific to the Web 7.0 / SOVRON (SVRN7) TDA architecture and is not
 intended as a general extension to the `did:drn` method.
 
 ---
@@ -771,7 +771,7 @@ This document has no IANA actions.
                     draft-herman-web7-merkle-audit-log-00. Web 7.0 Foundation, 2026.
 - [DRAFT-PPML]      Herman, M. Parchment Programming Modeling Language (PPML).
                     draft-herman-parchment-programming-00. Web 7.0 Foundation, 2026.
-- [SVRN7-PROTOCOLS] Herman, M. SOVRONA (SVRN7) DIDComm Protocol URIs.
+- [SVRN7-PROTOCOLS] Herman, M. SOVRON (SVRN7) DIDComm Protocol URIs.
                     draft-herman-didcomm-svrn7-transfer-00. Web 7.0 Foundation, 2026.
 - [DSA-024]         Herman, M. Web 7.0 Decentralized System Architecture (DSA) 0.24
                     Epoch 0. Diagram. Web 7.0 Foundation, April 2026.
