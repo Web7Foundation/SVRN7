@@ -21,6 +21,13 @@
       "epochRequired": 0
     },
     {
+      "uri": "did:drn:svrn7.net/protocols/federation/1.0/society-list",
+      "title": "Society List",
+      "description": "Returns all societies registered in the federation. No body fields required. Include replyEndpoint in the body to override endpoint resolution.",
+      "entrypoint": "Invoke-Web7SocietyList",
+      "epochRequired": 0
+    },
+    {
       "uri": "did:drn:svrn7.net/protocols/federation/1.0/init",
       "title": "Federation Init",
       "description": "Initialises the Federation record (idempotent — no-op if already initialised). Body: federationDid, federationName, publicKeyHex, primaryDidMethodName.",

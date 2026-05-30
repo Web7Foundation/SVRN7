@@ -1004,7 +1004,7 @@ This document has no IANA actions.
                  draft-herman-web7-society-architecture-00. Web 7.0 Foundation, 2026.
 - [DRAFT-DID-DRN] Herman, M. Decentralized Resource Name (DRN) DID Method.
                   draft-herman-did-w3c-drn-00. Web 7.0 Foundation, 2026.
-- [DRAFT-DIDCOMM] Herman, M. SOVRONA (SVRN7) DIDComm Transfer Protocol.
+- [DRAFT-DIDCOMM] Herman, M. SOVRON (SVRN7) DIDComm Transfer Protocol.
                   draft-herman-didcomm-svrn7-transfer-00. Web 7.0 Foundation, 2026.
 - [DRAFT-RESOURCE] Herman, M. Web 7.0 TDA Resource Addressing using DID URL Paths.
                    draft-herman-drn-resource-addressing-00. Web 7.0 Foundation, 2026.

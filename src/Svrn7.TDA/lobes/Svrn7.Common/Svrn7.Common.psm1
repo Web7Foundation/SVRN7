@@ -145,23 +145,81 @@ function Get-ActiveFederationDriver {
         'in TDA context ensure the runspace is initialised.')
 }
 
+# ── Strict-mode-safe JSON body helpers ───────────────────────────────────────────
+#
+# ConvertFrom-Json returns a PSCustomObject. Under Set-StrictMode -Version Latest,
+# reading any property that is not present on the object throws immediately — before
+# any -not check or ternary can fire. Use these two helpers throughout LOBE handlers
+# instead of bare $body.fieldName access.
+
+function Assert-BodyFields {
+    <#
+    .SYNOPSIS
+        Validates that every named field is present and non-empty on a ConvertFrom-Json body.
+        Throws a clear per-field message rather than the opaque strict-mode property error.
+    .PARAMETER Body
+        The PSCustomObject returned by ConvertFrom-Json.
+    .PARAMETER Required
+        Array of field names that must be present and non-empty.
+    .PARAMETER Caller
+        Cmdlet name used as a prefix in the error message.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [pscustomobject] $Body,
+        [Parameter(Mandatory)] [string[]]       $Required,
+        [Parameter(Mandatory)] [string]         $Caller
+    )
+    foreach ($f in $Required) {
+        if (-not $Body.PSObject.Properties[$f] -or -not $Body.$f) {
+            throw "${Caller}: body missing required field '$f'."
+        }
+    }
+}
+
+function Get-BodyField {
+    <#
+    .SYNOPSIS
+        Returns the value of an optional JSON body field, or $Default when absent.
+        Safe under Set-StrictMode -Version Latest — never reads a missing property.
+    .PARAMETER Body
+        The PSCustomObject returned by ConvertFrom-Json.
+    .PARAMETER Field
+        Name of the optional field.
+    .PARAMETER Default
+        Value to return when the field is absent. Default: $null.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [pscustomobject] $Body,
+        [Parameter(Mandatory)] [string]         $Field,
+                                                $Default = $null
+    )
+    if ($Body.PSObject.Properties[$Field]) { return $Body.$Field }
+    return $Default
+}
+
 # ── DIDComm endpoint resolver (shared by Society and Federation LOBE handlers) ──
 
 function Resolve-SocietySenderEndpoint {
     <#
     .SYNOPSIS
         Resolves the DIDComm service endpoint for a sender DID.
-        Used by DIDComm protocol handlers to route reply messages.
+        Returns $null when no DIDComm service entry exists — callers decide whether
+        to throw, skip the reply, or fall back to a default endpoint.
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory)] [string] $Did)
     process {
         $drv = Get-ActiveFederationDriver
-        $doc = $drv.ResolveDidAsync($Did).GetAwaiter().GetResult()
-        $svc = $doc?.Document?.Service |
+        $res = $drv.ResolveDidAsync($Did).GetAwaiter().GetResult()
+        if (-not $res -or -not $res.Document -or -not $res.Document.Service) {
+            return $null
+        }
+        $svc = $res.Document.Service |
                Where-Object { $_.type -eq 'DIDComm' } |
                Select-Object -First 1
-        if (-not $svc) { throw "No DIDComm service endpoint found for '$Did'." }
+        if (-not $svc) { return $null }
         return $svc.serviceEndpoint
     }
 }

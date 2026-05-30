@@ -1,4 +1,4 @@
-# SVRN7 / SOVRONA — Comprehensive Project Prompt
+# SVRN7 / SOVRON — Comprehensive Project Prompt
 ## Parchment Programming Modeling Language (PPML)
 
 The PPML Legend is the formal visual grammar of the DSA Parchment Diagram. Starting with
@@ -24,7 +24,7 @@ Derives: SchemaLiteContext.cs, ISchemaRegistry, ISchemaResolver. Not yet impleme
 I am **Michael Herman**, affiliated with the **Web 7.0 Foundation**, based in
 **Bindloss, Alberta, Canada**. I work on decentralized identity and trusted digital web
 architecture, including the `did:drn` DID method, Verifiable Trust Circles (VTCs), and the
-SOVRONA (SVRN7) Web 7.0 Shared Reserve Currency (SRC) project. My work spans standards
+SOVRON (SVRN7) Web 7.0 Shared Reserve Currency (SRC) project. My work spans standards
 development (IETF Internet-Drafts, W3C-style specifications), C#/.NET software development,
 and blockchain infrastructure research.
 
@@ -43,7 +43,7 @@ certainty.
 
 ## WHAT SVRN7 IS
 
-**SVRN7 (SOVRONA)** is the proposed **Shared Reserve Currency (SRC)** for the **Web 7.0
+**SVRN7 (SOVRON)** is the proposed **Shared Reserve Currency (SRC)** for the **Web 7.0
 digital ecosystem** — a standards-based framework for federated digital societies. It is
 implemented as an embeddable **.NET 8 C# library** that manages citizen and society wallets,
 enforces a governance-controlled three-epoch monetary lifecycle, and maintains a cryptographically
@@ -572,7 +572,7 @@ zip -r svrn7-society-v0.7.0-final.zip svrn7-society/ \
 
 *Copyright © 2026 Michael Herman (Bindloss, Alberta, Canada)*
 *Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)*
-*Web 7.0™, SOVRONA™, and SVRN7™ are trademarks of the Web 7.0 Foundation. All Rights Reserved.*
+*Web 7.0™, SOVRON™, and SVRN7™ are trademarks of the Web 7.0 Foundation. All Rights Reserved.*
 
 ## Svrn7.TDA Project — TDA Host Components (DSA 0.24 Epoch 0)
 

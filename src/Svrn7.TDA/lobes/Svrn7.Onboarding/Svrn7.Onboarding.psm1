@@ -58,15 +58,13 @@ function ConvertFrom-Web7OnboardRequest {
 
         $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
 
-        if (-not $body.citizenDid) {
-            throw "Onboarding LOBE: onboard/1.0/request body missing required field 'citizenDid'."
-        }
+        Assert-BodyFields $body @('citizenDid') 'Onboarding LOBE: onboard/1.0/request'
 
         return @{
             MessageDid   = $MessageDid
             CitizenDid   = $body.citizenDid
-            PublicKeyHex = $body.publicKeyHex    # secp256k1 signing key (hex)
-            DisplayName  = $body.displayName
+            PublicKeyHex = Get-BodyField $body 'publicKeyHex' ''
+            DisplayName  = Get-BodyField $body 'displayName'  ''
             RequestedAt  = [datetimeoffset]::UtcNow.ToString('o')
         }
     }

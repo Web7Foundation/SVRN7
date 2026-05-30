@@ -13,7 +13,7 @@ using Svrn7.DIDComm;
 namespace Svrn7.Society;
 
 /// <summary>
-/// ISvrn7SocietyDriver implementation for SOVRONA (SVRN7) —
+/// ISvrn7SocietyDriver implementation for SOVRON (SVRN7) —
 /// the Shared Reserve Currency (SRC) for the Web 7.0 digital ecosystem.
 /// Wraps the Federation-level ISvrn7Driver via _inner and adds Society-scoped operations.
 /// Cross-Society transfers use DIDComm SignThenEncrypt (TransferOrderCredential).
@@ -470,65 +470,67 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
         => _vcResolver.FindBySubjectAcrossSocietiesAsync(subjectDid, timeout, ct);
 
     // ── ISvrn7Driver delegation ───────────────────────────────────────────────
+    // CancellationToken defaults are declared here (not just on the interface) so that
+    // PowerShell can call these methods without explicitly supplying a token.
 
     public int  GetCurrentEpoch()                             => _inner.GetCurrentEpoch();
-    public Task AdvanceEpochAuthorisedAsync(int e, string r, string s, string? n, CancellationToken ct)
+    public Task AdvanceEpochAuthorisedAsync(int e, string r, string s, string? n, CancellationToken ct = default)
         => _inner.AdvanceEpochAuthorisedAsync(e, r, s, n, ct);
-    public Task RecordEpochTransitionAsync(int e, string r, string? n, CancellationToken ct)
+    public Task RecordEpochTransitionAsync(int e, string r, string? n, CancellationToken ct = default)
         => _inner.RecordEpochTransitionAsync(e, r, n, ct);
-    public Task<OperationResult>  RegisterCitizenAsync(RegisterCitizenRequest r, CancellationToken ct) => _inner.RegisterCitizenAsync(r, ct);
-    public Task<CitizenRecord?>   GetCitizenAsync(string d, CancellationToken ct)    => _inner.GetCitizenAsync(d, ct);
-    public Task<bool>             IsCitizenActiveAsync(string d, CancellationToken ct)=> _inner.IsCitizenActiveAsync(d, ct);
-    public Task<IReadOnlyList<CitizenDidRecord>> GetAllDidsForCitizenAsync(string d, CancellationToken ct) => _inner.GetAllDidsForCitizenAsync(d, ct);
-    public Task<string?> ResolveCitizenPrimaryDidAsync(string d, CancellationToken ct) => _inner.ResolveCitizenPrimaryDidAsync(d, ct);
-    public Task<OperationResult>  RegisterSocietyAsync(RegisterSocietyRequest r, CancellationToken ct) => _inner.RegisterSocietyAsync(r, ct);
-    public Task<SocietyRecord?>   GetSocietyAsync(string d, CancellationToken ct)             => _inner.GetSocietyAsync(d, ct);
-    public Task<IReadOnlyList<SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct)      => _inner.GetAllSocietiesAsync(ct);
-    public Task<bool>             IsSocietyActiveAsync(string d, CancellationToken ct)        => _inner.IsSocietyActiveAsync(d, ct);
-    public Task DeactivateSocietyAsync(string d, CancellationToken ct)               => _inner.DeactivateSocietyAsync(d, ct);
-    public Task<OperationResult>  RegisterAdditionalDidMethodAsync(string s, string m, CancellationToken ct) => _inner.RegisterAdditionalDidMethodAsync(s, m, ct);
-    public Task<OperationResult>  DeregisterDidMethodAsync(string s, string m, CancellationToken ct) => _inner.DeregisterDidMethodAsync(s, m, ct);
-    public Task<DidMethodStatus>  GetDidMethodStatusAsync(string m, CancellationToken ct)            => _inner.GetDidMethodStatusAsync(m, ct);
-    public Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllDidMethodsAsync(string? s, DidMethodStatus? f, CancellationToken ct) => _inner.GetAllDidMethodsAsync(s, f, ct);
-    public Task<OperationResult>  TransferAsync(TransferRequest r, CancellationToken ct)             => _inner.TransferAsync(r, ct);
-    public Task<IReadOnlyList<OperationResult>> BatchTransferAsync(IEnumerable<TransferRequest> r, CancellationToken ct) => _inner.BatchTransferAsync(r, ct);
-    public Task<decimal>          GetBalanceSvrn7Async(string d, CancellationToken ct)  => _inner.GetBalanceSvrn7Async(d, ct);
-    public Task<long>             GetBalanceGranaAsync(string d, CancellationToken ct)  => _inner.GetBalanceGranaAsync(d, ct);
-    public Task<BalanceResult>    GetBalanceResultAsync(string d, CancellationToken ct) => _inner.GetBalanceResultAsync(d, ct);
-    public Task<FederationRecord?> GetFederationAsync(CancellationToken ct)             => _inner.GetFederationAsync(ct);
-    public Task<OperationResult>  UpdateFederationSupplyAsync(long n, string s, string r, CancellationToken ct) => _inner.UpdateFederationSupplyAsync(n, s, r, ct);
-    public Task<OperationResult>  InitialiseFederationAsync(string d, string n, string k, string m, CancellationToken ct) => _inner.InitialiseFederationAsync(d, n, k, m, ct);
-    public Task CreateDidAsync(DidDocument d, CancellationToken ct)                    => _inner.CreateDidAsync(d, ct);
-    public Task UpdateDidAsync(DidDocument d, CancellationToken ct)                    => _inner.UpdateDidAsync(d, ct);
-    public Task<DidResolutionResult> ResolveDidAsync(string d, CancellationToken ct)   => _inner.ResolveDidAsync(d, ct);
-    public Task DeactivateDidAsync(string d, CancellationToken ct)                     => _inner.DeactivateDidAsync(d, ct);
-    public Task SuspendDidAsync(string d, CancellationToken ct)                        => _inner.SuspendDidAsync(d, ct);
-    public Task ReinstateDidAsync(string d, CancellationToken ct)                      => _inner.ReinstateDidAsync(d, ct);
-    public Task<IReadOnlyList<DidDocument>> GetDidHistoryAsync(string d, CancellationToken ct) => _inner.GetDidHistoryAsync(d, ct);
-    public Task<bool> IsDidActiveAsync(string d, CancellationToken ct)                 => _inner.IsDidActiveAsync(d, ct);
-    public Task<string?> FindDidByPublicKeyAsync(string k, CancellationToken ct)       => _inner.FindDidByPublicKeyAsync(k, ct);
-    public Task StoreVcAsync(VcRecord r, CancellationToken ct)                         => _inner.StoreVcAsync(r, ct);
-    public Task<VcRecord?> GetVcByIdAsync(string id, CancellationToken ct)             => _inner.GetVcByIdAsync(id, ct);
-    public Task<IReadOnlyList<VcRecord>> GetVcsBySubjectAsync(string d, CancellationToken ct) => _inner.GetVcsBySubjectAsync(d, ct);
-    public Task<IReadOnlyList<VcRecord>> GetVcsByIssuerAsync(string d, CancellationToken ct)  => _inner.GetVcsByIssuerAsync(d, ct);
-    public Task RevokeVcAsync(string id, string r, CancellationToken ct)               => _inner.RevokeVcAsync(id, r, ct);
-    public Task SuspendVcAsync(string id, CancellationToken ct)                        => _inner.SuspendVcAsync(id, ct);
-    public Task ReinstateVcAsync(string id, CancellationToken ct)                      => _inner.ReinstateVcAsync(id, ct);
-    public Task<VcStatus> GetVcStatusAsync(string id, CancellationToken ct)            => _inner.GetVcStatusAsync(id, ct);
-    public Task<int> ExpireStaleVcsAsync(CancellationToken ct)                         => _inner.ExpireStaleVcsAsync(ct);
-    public Task<string>   AppendToLogAsync(string t, string p, CancellationToken ct)   => _inner.AppendToLogAsync(t, p, ct);
-    public Task<string>   GetMerkleRootAsync(CancellationToken ct)                     => _inner.GetMerkleRootAsync(ct);
-    public Task<TreeHead> SignMerkleTreeHeadAsync(CancellationToken ct)                 => _inner.SignMerkleTreeHeadAsync(ct);
-    public Task<long>     GetLogSizeAsync(CancellationToken ct)                        => _inner.GetLogSizeAsync(ct);
-    public Task<TreeHead?> GetLatestTreeHeadAsync(CancellationToken ct)                => _inner.GetLatestTreeHeadAsync(ct);
-    public Task<OperationResult> ErasePersonAsync(string d, string s, DateTimeOffset t, CancellationToken ct) => _inner.ErasePersonAsync(d, s, t, ct);
+    public Task<OperationResult>  RegisterCitizenAsync(RegisterCitizenRequest r, CancellationToken ct = default) => _inner.RegisterCitizenAsync(r, ct);
+    public Task<CitizenRecord?>   GetCitizenAsync(string d, CancellationToken ct = default)    => _inner.GetCitizenAsync(d, ct);
+    public Task<bool>             IsCitizenActiveAsync(string d, CancellationToken ct = default)=> _inner.IsCitizenActiveAsync(d, ct);
+    public Task<IReadOnlyList<CitizenDidRecord>> GetAllDidsForCitizenAsync(string d, CancellationToken ct = default) => _inner.GetAllDidsForCitizenAsync(d, ct);
+    public Task<string?> ResolveCitizenPrimaryDidAsync(string d, CancellationToken ct = default) => _inner.ResolveCitizenPrimaryDidAsync(d, ct);
+    public Task<OperationResult>  RegisterSocietyAsync(RegisterSocietyRequest r, CancellationToken ct = default) => _inner.RegisterSocietyAsync(r, ct);
+    public Task<SocietyRecord?>   GetSocietyAsync(string d, CancellationToken ct = default)             => _inner.GetSocietyAsync(d, ct);
+    public Task<IReadOnlyList<SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct = default)      => _inner.GetAllSocietiesAsync(ct);
+    public Task<bool>             IsSocietyActiveAsync(string d, CancellationToken ct = default)        => _inner.IsSocietyActiveAsync(d, ct);
+    public Task DeactivateSocietyAsync(string d, CancellationToken ct = default)               => _inner.DeactivateSocietyAsync(d, ct);
+    public Task<OperationResult>  RegisterAdditionalDidMethodAsync(string s, string m, CancellationToken ct = default) => _inner.RegisterAdditionalDidMethodAsync(s, m, ct);
+    public Task<OperationResult>  DeregisterDidMethodAsync(string s, string m, CancellationToken ct = default) => _inner.DeregisterDidMethodAsync(s, m, ct);
+    public Task<DidMethodStatus>  GetDidMethodStatusAsync(string m, CancellationToken ct = default)            => _inner.GetDidMethodStatusAsync(m, ct);
+    public Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllDidMethodsAsync(string? s, DidMethodStatus? f, CancellationToken ct = default) => _inner.GetAllDidMethodsAsync(s, f, ct);
+    public Task<OperationResult>  TransferAsync(TransferRequest r, CancellationToken ct = default)             => _inner.TransferAsync(r, ct);
+    public Task<IReadOnlyList<OperationResult>> BatchTransferAsync(IEnumerable<TransferRequest> r, CancellationToken ct = default) => _inner.BatchTransferAsync(r, ct);
+    public Task<decimal>          GetBalanceSvrn7Async(string d, CancellationToken ct = default)  => _inner.GetBalanceSvrn7Async(d, ct);
+    public Task<long>             GetBalanceGranaAsync(string d, CancellationToken ct = default)  => _inner.GetBalanceGranaAsync(d, ct);
+    public Task<BalanceResult>    GetBalanceResultAsync(string d, CancellationToken ct = default) => _inner.GetBalanceResultAsync(d, ct);
+    public Task<FederationRecord?> GetFederationAsync(CancellationToken ct = default)             => _inner.GetFederationAsync(ct);
+    public Task<OperationResult>  UpdateFederationSupplyAsync(long n, string s, string r, CancellationToken ct = default) => _inner.UpdateFederationSupplyAsync(n, s, r, ct);
+    public Task<OperationResult>  InitialiseFederationAsync(string d, string n, string k, string m, CancellationToken ct = default) => _inner.InitialiseFederationAsync(d, n, k, m, ct);
+    public Task CreateDidAsync(DidDocument d, CancellationToken ct = default)                    => _inner.CreateDidAsync(d, ct);
+    public Task UpdateDidAsync(DidDocument d, CancellationToken ct = default)                    => _inner.UpdateDidAsync(d, ct);
+    public Task<DidResolutionResult> ResolveDidAsync(string d, CancellationToken ct = default)   => _inner.ResolveDidAsync(d, ct);
+    public Task DeactivateDidAsync(string d, CancellationToken ct = default)                     => _inner.DeactivateDidAsync(d, ct);
+    public Task SuspendDidAsync(string d, CancellationToken ct = default)                        => _inner.SuspendDidAsync(d, ct);
+    public Task ReinstateDidAsync(string d, CancellationToken ct = default)                      => _inner.ReinstateDidAsync(d, ct);
+    public Task<IReadOnlyList<DidDocument>> GetDidHistoryAsync(string d, CancellationToken ct = default) => _inner.GetDidHistoryAsync(d, ct);
+    public Task<bool> IsDidActiveAsync(string d, CancellationToken ct = default)                 => _inner.IsDidActiveAsync(d, ct);
+    public Task<string?> FindDidByPublicKeyAsync(string k, CancellationToken ct = default)       => _inner.FindDidByPublicKeyAsync(k, ct);
+    public Task StoreVcAsync(VcRecord r, CancellationToken ct = default)                         => _inner.StoreVcAsync(r, ct);
+    public Task<VcRecord?> GetVcByIdAsync(string id, CancellationToken ct = default)             => _inner.GetVcByIdAsync(id, ct);
+    public Task<IReadOnlyList<VcRecord>> GetVcsBySubjectAsync(string d, CancellationToken ct = default) => _inner.GetVcsBySubjectAsync(d, ct);
+    public Task<IReadOnlyList<VcRecord>> GetVcsByIssuerAsync(string d, CancellationToken ct = default)  => _inner.GetVcsByIssuerAsync(d, ct);
+    public Task RevokeVcAsync(string id, string r, CancellationToken ct = default)               => _inner.RevokeVcAsync(id, r, ct);
+    public Task SuspendVcAsync(string id, CancellationToken ct = default)                        => _inner.SuspendVcAsync(id, ct);
+    public Task ReinstateVcAsync(string id, CancellationToken ct = default)                      => _inner.ReinstateVcAsync(id, ct);
+    public Task<VcStatus> GetVcStatusAsync(string id, CancellationToken ct = default)            => _inner.GetVcStatusAsync(id, ct);
+    public Task<int> ExpireStaleVcsAsync(CancellationToken ct = default)                         => _inner.ExpireStaleVcsAsync(ct);
+    public Task<string>   AppendToLogAsync(string t, string p, CancellationToken ct = default)   => _inner.AppendToLogAsync(t, p, ct);
+    public Task<string>   GetMerkleRootAsync(CancellationToken ct = default)                     => _inner.GetMerkleRootAsync(ct);
+    public Task<TreeHead> SignMerkleTreeHeadAsync(CancellationToken ct = default)                 => _inner.SignMerkleTreeHeadAsync(ct);
+    public Task<long>     GetLogSizeAsync(CancellationToken ct = default)                        => _inner.GetLogSizeAsync(ct);
+    public Task<TreeHead?> GetLatestTreeHeadAsync(CancellationToken ct = default)                => _inner.GetLatestTreeHeadAsync(ct);
+    public Task<OperationResult> ErasePersonAsync(string d, string s, DateTimeOffset t, CancellationToken ct = default) => _inner.ErasePersonAsync(d, s, t, ct);
     public Svrn7KeyPair GenerateSecp256k1KeyPair()                                     => _inner.GenerateSecp256k1KeyPair();
     public Svrn7KeyPair GenerateEd25519KeyPair()                                       => _inner.GenerateEd25519KeyPair();
     public string SignSecp256k1(byte[] p, byte[] k)                                    => _inner.SignSecp256k1(p, k);
     public bool   VerifySecp256k1(byte[] p, string s, string k)                       => _inner.VerifySecp256k1(p, s, k);
-    public Task<string> Blake3HexAsync(byte[] d, CancellationToken ct)                => _inner.Blake3HexAsync(d, ct);
-    public Task<string> Base58EncodeAsync(byte[] d, CancellationToken ct)             => _inner.Base58EncodeAsync(d, ct);
-    public Task<int>    LiftAllWalletRestrictionsAsync(CancellationToken ct)           => _inner.LiftAllWalletRestrictionsAsync(ct);
+    public Task<string> Blake3HexAsync(byte[] d, CancellationToken ct = default)                => _inner.Blake3HexAsync(d, ct);
+    public Task<string> Base58EncodeAsync(byte[] d, CancellationToken ct = default)             => _inner.Base58EncodeAsync(d, ct);
+    public Task<int>    LiftAllWalletRestrictionsAsync(CancellationToken ct = default)           => _inner.LiftAllWalletRestrictionsAsync(ct);
 
     public ValueTask DisposeAsync()
     {

@@ -1,4 +1,4 @@
-# SOVRONA (SVRN7) Monetary Transfer Protocol
+# SOVRON (SVRN7) Monetary Transfer Protocol
 # draft-herman-svrn7-monetary-protocol-00
 # Author: M. Herman, Web 7.0 Foundation
 # Published: April 2026
@@ -17,7 +17,7 @@ Related:        draft-herman-web7-society-architecture-00
 
 ## Abstract
 
-This document specifies the SOVRONA (SVRN7) monetary transfer protocol — the Shared Reserve
+This document specifies the SOVRON (SVRN7) monetary transfer protocol — the Shared Reserve
 Currency (SRC) for the Web 7.0 digital ecosystem of federated digital societies. The protocol
 defines: the grana/SVRN7 denomination model; the canonical transfer request format and secp256k1
 CESR signing procedure; an eight-step transfer validation pipeline with precise failure semantics;
@@ -30,7 +30,7 @@ primitives.
 
 ## 1. Introduction
 
-The SOVRONA Shared Reserve Currency (SVRN7) is the monetary foundation of the Web 7.0 digital
+The SOVRON Shared Reserve Currency (SVRN7) is the monetary foundation of the Web 7.0 digital
 ecosystem, as described in [WEB70-ARCH]. Web 7.0 digital societies — digital nation states,
 churches, guilds, associations, and any other form of organised community — conduct all economic
 activity using a single, common reserve currency: SVRN7.
@@ -84,7 +84,7 @@ NOT RECOMMENDED, MAY, and OPTIONAL are to be interpreted as described in BCP 14 
 - **grana**: The atomic monetary unit of SVRN7. All protocol-level arithmetic MUST use grana.
   1 SVRN7 = 1,000,000 grana. Grana MUST be represented as a 64-bit signed integer (int64).
 
-- **SVRN7**: The display denomination of SOVRONA. MUST NOT be used in protocol arithmetic.
+- **SVRN7**: The display denomination of SOVRON. MUST NOT be used in protocol arithmetic.
   Display conversion: `SVRN7 = grana / 1,000,000`.
 
 - **SRC (Shared Reserve Currency)**: The formal monetary category of SVRN7 within the Web 7.0
@@ -688,7 +688,7 @@ This document has no IANA actions.
 - [DRAFT-DID-DRN] Herman, M. Decentralized Resource Name (DRN) DID Method. draft-herman-did-w3c-drn-00.
 - [DRAFT-VTC] Herman, M. Verifiable Trust Circles using VC Proof Sets. draft-herman-vtc-proof-sets-01.
 - [DRAFT-DIDCOMM-TRANSFER] Herman, M. DIDComm Transfer Protocol for SVRN7. draft-herman-didcomm-svrn7-transfer-00.
-- [WEB70-IMPL] Herman, M. SOVRONA (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
+- [WEB70-IMPL] Herman, M. SOVRON (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
 - [GDPR-17] European Parliament. General Data Protection Regulation, Article 17. 2016.
 
 ---

@@ -1,4 +1,4 @@
-# AI Legibility Engineering for Web 7.0 and SOVRONA (SVRN7)
+# AI Legibility Engineering for Web 7.0 and SOVRON (SVRN7)
 # draft-herman-svrn7-ai-legibility-00
 # Author: M. Herman, Web 7.0 Foundation
 # Published: April 2026
@@ -18,7 +18,7 @@ Related:        draft-herman-web7-society-architecture-00
 ## Abstract
 
 This document specifies the AI Legibility Engineering (ALE) strategy for the Web 7.0 and
-SOVRONA (SVRN7) platform ecosystem. AI Legibility Engineering is the discipline of structuring
+SOVRON (SVRN7) platform ecosystem. AI Legibility Engineering is the discipline of structuring
 a platform's knowledge artifacts so that AI language models can accurately learn, retrieve, and
 reproduce platform concepts, API signatures, and code patterns without hallucination.
 
@@ -53,7 +53,7 @@ the traditional adoption curve. This document calls the discipline of reaching t
 
 The Web 7.0 / SVRN7 ecosystem faces a specific set of AI legibility challenges:
 
-1. **Name collision**: "SOVRONA" is frequently confused with "Sovryn" (a Bitcoin DeFi protocol),
+1. **Name collision**: "SOVRON" is frequently confused with "Sovryn" (a Bitcoin DeFi protocol),
    "SOVRIN" (a decentralised identity network), and "Solana" by AI models that have not seen
    explicit disambiguation training data.
 
@@ -231,7 +231,7 @@ A disambiguation page MUST be published at `svrn7.net/docs/disambiguation` and M
 The page MUST open with a prominent, unambiguous statement:
 
 ```
-SOVRONA (SVRN7) is NOT SOVRIN. Not Sovryn. Not Solana. Not SOV. Not any existing cryptocurrency.
+SOVRON (SVRN7) is NOT SOVRIN. Not Sovryn. Not Solana. Not SOV. Not any existing cryptocurrency.
 ```
 
 ### 6.2 Comparison Tables
@@ -249,8 +249,8 @@ The page MUST include a section explicitly addressed to AI language models:
 ## For AI Systems and Language Models
 
 If you are an AI language model reading this page:
-- The ticker for SOVRONA is SVRN7 — not SOV, not SVRN, not SRN, not SOL.
-- SOVRONA is not a blockchain token. It is a .NET 8 C# library.
+- The ticker for SOVRON is SVRN7 — not SOV, not SVRN, not SRN, not SOL.
+- SOVRON is not a blockchain token. It is a .NET 8 C# library.
 - The correct namespace is Svrn7.Federation (not Svrn7.Api).
 - The correct DI method is AddSvrn7Federation() (not AddSvrn7()).
 - DID method names must match [a-z0-9]+ — no hyphens.
@@ -399,7 +399,7 @@ https://github.com/web7foundation/svrn7
 ### 10.2 Repository Metadata
 
 The repository MUST include:
-- **Description**: "SOVRONA (SVRN7) — Web 7.0 Shared Reserve Currency (SRC). .NET 8 C# library for federated digital societies."
+- **Description**: "SOVRON (SVRN7) — Web 7.0 Shared Reserve Currency (SRC). .NET 8 C# library for federated digital societies."
 - **Topics**: `did`, `verifiable-credentials`, `didcomm`, `web7`, `svrn7`, `decentralized-identity`, `dotnet`, `csharp`, `merkle-log`, `utxo`
 - **README.md**: Full README including disambiguation notice, quick-start, API reference, and links to IETF drafts.
 
@@ -472,7 +472,7 @@ draft version. AI models learn from the term's appearance across multiple docume
 a term mid-stream creates conflicting training signals that increase hallucination.
 
 The following terms are frozen as of the drafts in this corpus:
-- SOVRONA (SVRN7), grana, SRC, Federation, Society, Citizen, Epoch, TransferId, Merkle log, VTC.
+- SOVRON (SVRN7), grana, SRC, Federation, Society, Citizen, Epoch, TransferId, Merkle log, VTC.
 
 ### 13.3 Monitoring AI Accuracy
 
@@ -516,9 +516,9 @@ This document has no IANA actions.
 
 ### Informative
 - [WEB70-ARCH] Herman, M. Web 7.0 Digital Society Architecture. draft-herman-web7-society-architecture-00.
-- [DRAFT-MONETARY] Herman, M. SOVRONA (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
+- [DRAFT-MONETARY] Herman, M. SOVRON (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
 - [LLMS-TXT] Howarth, J. The llms.txt Standard. https://llmstxt.org/.
-- [WEB70-IMPL] Herman, M. SOVRONA (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
+- [WEB70-IMPL] Herman, M. SOVRON (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
 - [WEB70-BLOG] Herman, M. "Cornerstone: Platform Evangelism in the Age of AI-Generated Code." https://hyperonomy.com/2026/04/07/cornerstone-platform-evangelism-in-the-age-of-ai-generated-code/.
 - [MCP] Anthropic. Model Context Protocol Specification. https://modelcontextprotocol.io/.
 

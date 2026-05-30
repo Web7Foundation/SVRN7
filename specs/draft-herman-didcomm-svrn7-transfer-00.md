@@ -19,7 +19,7 @@ Related:        draft-herman-svrn7-monetary-protocol-00
 
 This document specifies the DIDComm v2 messaging protocol used for monetary transfers,
 overdraft management, DID Document resolution, and Verifiable Credential queries in the
-Web 7.0 SOVRONA (SVRN7) ecosystem. It defines the protocol URI namespace, the message types
+Web 7.0 SOVRON (SVRN7) ecosystem. It defines the protocol URI namespace, the message types
 and their payload schemas, the required DIDComm pack mode (SignThenEncrypt), the idempotency
 model for cross-Society transfers, and the message processing requirements for conformant
 Federation and Society implementations. This specification enables cross-implementation
@@ -936,11 +936,11 @@ not defined in this document or future revisions thereof.
 - [W3C.VC-DATA-MODEL] Sporny, M. et al. VC Data Model v2.0. W3C Recommendation, 2024.
 
 ### Informative
-- [DRAFT-MONETARY] Herman, M. SOVRONA (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
+- [DRAFT-MONETARY] Herman, M. SOVRON (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
 - [WEB70-ARCH] Herman, M. Web 7.0 Digital Society Architecture. draft-herman-web7-society-architecture-00.
 - [DRAFT-DID-DRN] Herman, M. Decentralized Resource Name (DRN) DID Method. draft-herman-did-w3c-drn-00.
 - [DRAFT-VTC] Herman, M. Verifiable Trust Circles using VC Proof Sets. draft-herman-vtc-proof-sets-01.
-- [WEB70-IMPL] Herman, M. SOVRONA (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
+- [WEB70-IMPL] Herman, M. SOVRON (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
 
 ---
 

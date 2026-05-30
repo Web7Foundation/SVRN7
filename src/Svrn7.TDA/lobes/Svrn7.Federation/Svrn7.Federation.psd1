@@ -5,7 +5,7 @@
 # DID Document registry, VC registry, Merkle audit log, Federation supply,
 # and GDPR Article 17 erasure.
 #
-# SOVRONA (SVRN7) — Web 7.0 Shared Reserve Currency (SRC)
+# SOVRON (SVRN7) — Web 7.0 Shared Reserve Currency (SRC)
 # Web 7.0 Foundation | https://github.com/web7foundation/svrn7
 #
 
@@ -105,7 +105,7 @@ See also: Svrn7.Society — Society-level cmdlets (ISvrn7SocietyDriver).
 
     PrivateData = @{
         PSData = @{
-            Tags       = @('SVRN7','SOVRONA','Web7','DID','SRC','Federation',
+            Tags       = @('SVRN7','SOVRON','Web7','DID','SRC','Federation',
                            'DecentralisedIdentity','DigitalSociety','Merkle','GDPR','VC')
             ProjectUri = 'https://github.com/web7foundation/svrn7'
             LicenseUri = 'https://opensource.org/licenses/MIT'

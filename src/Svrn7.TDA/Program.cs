@@ -43,16 +43,11 @@ var host = Host.CreateDefaultBuilder(args)
                                                    ?? "did:drn:alpha.svrn7.net";
             opts.FederationDid                   = ctx.Configuration["Svrn7:FederationDid"]
                                                    ?? "did:drn:foundation.svrn7.net";
-            opts.Svrn7DbPath                     = ctx.Configuration["Svrn7:DbPath"]
-                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7.db");
-            opts.DidsDbPath                      = ctx.Configuration["Svrn7:DidsDbPath"]
-                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-dids.db");
-            opts.VcsDbPath                       = ctx.Configuration["Svrn7:VcsDbPath"]
-                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-vcs.db");
-            opts.InboxDbPath                     = ctx.Configuration["Svrn7:InboxDbPath"]
-                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-inbox.db");
-            opts.SchemasDbPath                   = ctx.Configuration["Svrn7:SchemasDbPath"]
-                                                   ?? Path.Combine(AppContext.BaseDirectory, "svrn7-schemas.db");
+            opts.Svrn7DbPath                     = ResolvePath(ctx.Configuration["Svrn7:DbPath"],      "svrn7.db");
+            opts.DidsDbPath                      = ResolvePath(ctx.Configuration["Svrn7:DidsDbPath"],  "svrn7-dids.db");
+            opts.VcsDbPath                       = ResolvePath(ctx.Configuration["Svrn7:VcsDbPath"],   "svrn7-vcs.db");
+            opts.InboxDbPath                     = ResolvePath(ctx.Configuration["Svrn7:InboxDbPath"], "svrn7-inbox.db");
+            opts.SchemasDbPath                   = ResolvePath(ctx.Configuration["Svrn7:SchemasDbPath"], "svrn7-schemas.db");
             opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
         });
 
@@ -166,3 +161,17 @@ var host = Host.CreateDefaultBuilder(args)
 }
 
 await host.RunAsync();
+
+// Resolves a configured DB path against AppContext.BaseDirectory so that relative
+// paths in appsettings.json work regardless of the process working directory.
+// Also creates the parent directory so LiteDB never fails on a missing folder.
+static string ResolvePath(string? configured, string defaultName)
+{
+    var path = configured is null
+        ? Path.Combine(AppContext.BaseDirectory, defaultName)
+        : Path.IsPathRooted(configured)
+            ? configured
+            : Path.Combine(AppContext.BaseDirectory, configured);
+    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+    return path;
+}

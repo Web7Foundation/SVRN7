@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Management.Automation;
 using System.Net.Http;
 using Microsoft.Extensions.Logging;
@@ -185,6 +186,17 @@ public sealed class DIDCommMessageSwitchboard
 
     private async Task DispatchAsync(InboxMessage msg, CancellationToken ct)
     {
+        using var activity = Svrn7Telemetry.Source.StartActivity(
+            Svrn7Telemetry.ActivityDispatch,
+            ActivityKind.Consumer);
+
+        activity?.SetTag(Svrn7Telemetry.TagMessageId,    msg.Id)
+                 .SetTag(Svrn7Telemetry.TagMessageType,  msg.MessageType)
+                 .SetTag(Svrn7Telemetry.TagAttemptCount, msg.AttemptCount);
+
+        _log.LogDebug("Switchboard: dequeued message{NL}{Body}",
+            Environment.NewLine, msg.ToFormattedJson());
+
         try
         {
             // ── Message TTL ───────────────────────────────────────────────────
@@ -202,6 +214,8 @@ public sealed class DIDCommMessageSwitchboard
                     msg.Id,
                     $"Message expired: age {ageSecs:F0}s exceeds limit of {_opts.MaxMessageAgeSeconds}s.",
                     retry: false, maxAttempts: TransactionalMaxAttempts, ct);
+                activity?.SetTag(Svrn7Telemetry.TagOutcome, "expired")
+                         .SetStatus(ActivityStatusCode.Error, "Message TTL exceeded");
                 return;
             }
 
@@ -215,6 +229,8 @@ public sealed class DIDCommMessageSwitchboard
                     msg.Id,
                     $"Epoch {_ctx.CurrentEpoch} does not permit {msg.MessageType}",
                     retry: false, maxAttempts: TransactionalMaxAttempts, ct);
+                activity?.SetTag(Svrn7Telemetry.TagOutcome, "epoch_rejected")
+                         .SetStatus(ActivityStatusCode.Error, $"Epoch {_ctx.CurrentEpoch} does not permit {msg.MessageType}");
                 return;
             }
 
@@ -227,6 +243,8 @@ public sealed class DIDCommMessageSwitchboard
                 {
                     _log.LogDebug("Switchboard: message {Id} already processed (idempotency hit).", msg.Id);
                     await _inbox.MarkProcessedAsync(msg.Id, ct);
+                    activity?.SetTag(Svrn7Telemetry.TagOutcome, "idempotency_hit")
+                             .SetStatus(ActivityStatusCode.Ok);
                     return;
                 }
             }
@@ -245,6 +263,8 @@ public sealed class DIDCommMessageSwitchboard
                     msg.Id,
                     $"No LOBE registered for @type: {msg.MessageType}",
                     retry: false, maxAttempts: TransactionalMaxAttempts, ct);
+                activity?.SetTag(Svrn7Telemetry.TagOutcome, "no_lobe")
+                         .SetStatus(ActivityStatusCode.Error, $"No LOBE registered for @type: {msg.MessageType}");
                 return;
             }
 
@@ -253,11 +273,26 @@ public sealed class DIDCommMessageSwitchboard
                 "Switchboard: routing {Did} (type={Type}) → {EP} [{LOBE}]",
                 msg.Id, msg.MessageType, reg.Entrypoint, reg.LobeName);
 
+            activity?.SetTag(Svrn7Telemetry.TagLobeName,       reg.LobeName)
+                     .SetTag(Svrn7Telemetry.TagLobeEntrypoint,  reg.Entrypoint);
+
             await InvokeCmdletPipelineAsync(reg.Entrypoint, reg.ModulePath, msg.Id, ct);
             await _inbox.MarkProcessedAsync(msg.Id, ct);
+
+            activity?.SetTag(Svrn7Telemetry.TagOutcome, "processed")
+                     .SetStatus(ActivityStatusCode.Ok);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
+            activity?.SetTag(Svrn7Telemetry.TagOutcome, "failed")
+                     .SetStatus(ActivityStatusCode.Error, ex.Message)
+                     .AddEvent(new ActivityEvent("dispatch.failed",
+                         tags: new ActivityTagsCollection
+                         {
+                             { "exception.type",    ex.GetType().FullName ?? ex.GetType().Name },
+                             { "exception.message", ex.Message }
+                         }));
+
             _log.LogError(ex,
                 "Switchboard: dispatch failed for message {Id} (attempt {Attempt}, transactional={T}).",
                 msg.Id, msg.AttemptCount + 1, IsTransactional(msg.MessageType));
@@ -324,6 +359,12 @@ public sealed class DIDCommMessageSwitchboard
               .AddParameter("MessageDid", didUrl);
         }
 
+        using var invokeActivity = Svrn7Telemetry.Source.StartActivity(
+            Svrn7Telemetry.ActivityInvoke,
+            ActivityKind.Internal);
+        invokeActivity?.SetTag(Svrn7Telemetry.TagMessageId,      didUrl)
+                       .SetTag(Svrn7Telemetry.TagLobeEntrypoint, cmdletOrScript);
+
         _log.LogTrace("PS invoke: {Cmdlet} -MessageDid {Did}", cmdletOrScript, didUrl);
 
         // ps.Invoke() is synchronous. Wrap in Task.Run so it doesn't block the thread pool.
@@ -371,9 +412,12 @@ public sealed class DIDCommMessageSwitchboard
         if (ps.HadErrors)
         {
             var errors = string.Join("; ", ps.Streams.Error.Select(e => e.ToString()));
+            invokeActivity?.SetStatus(ActivityStatusCode.Error, errors);
             throw new InvalidOperationException(
                 $"'{cmdletOrScript}' reported errors for message {didUrl}: {errors}");
         }
+
+        invokeActivity?.SetStatus(ActivityStatusCode.Ok);
 
         // Enqueue any outbound messages returned by the pipeline.
         foreach (var result in results)
@@ -432,6 +476,11 @@ public sealed class DIDCommMessageSwitchboard
 
     private async Task DeliverOutboundAsync(OutboundMessage msg, CancellationToken ct)
     {
+        using var deliverActivity = Svrn7Telemetry.Source.StartActivity(
+            Svrn7Telemetry.ActivityDeliver,
+            ActivityKind.Producer);
+        deliverActivity?.SetTag(Svrn7Telemetry.TagPeerEndpoint, msg.PeerEndpoint);
+
         var client   = _httpFactory.CreateClient("didcomm");
         var endpoint = msg.PeerEndpoint.TrimEnd('/') + "/didcomm";
 
@@ -453,6 +502,8 @@ public sealed class DIDCommMessageSwitchboard
                     _log.LogInformation(
                         "Switchboard: outbound delivered to {Endpoint} ({Status}).",
                         endpoint, (int)response.StatusCode);
+                    deliverActivity?.SetTag(Svrn7Telemetry.TagOutcome, "delivered")
+                                    .SetStatus(ActivityStatusCode.Ok);
                     return; // success
                 }
 
@@ -477,6 +528,8 @@ public sealed class DIDCommMessageSwitchboard
         }
 
         // All attempts exhausted — dead-letter for operator inspection.
+        deliverActivity?.SetTag(Svrn7Telemetry.TagOutcome, "dead_lettered")
+                        .SetStatus(ActivityStatusCode.Error, lastException?.Message);
         _log.LogError(lastException,
             "Switchboard: outbound delivery to {Endpoint} failed after {Max} attempt(s). " +
             "Persisting to dead-letter outbox.", endpoint, OutboundMaxAttempts);

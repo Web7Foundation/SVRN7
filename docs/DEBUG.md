@@ -82,6 +82,8 @@ Run from repo root:
 Import-Module Pester -MinimumVersion 5.0 -Force
 Set-Location C:\SVRN7\repos\SVRN7
 Invoke-Pester .\tests\Svrn7.Lobes.Tests.ps1 -Output Detailed
+Set-Location C:/SVRN7/repos/SVRN7
+Set-Location src/Svrn7.TDA/bin/Debug/net8.0
 ```
 
 > `Import-Module Pester -MinimumVersion 5.0 -Force` is required because Windows ships Pester 3.4.0 and PowerShell would otherwise load the older version.
@@ -90,20 +92,25 @@ Invoke-Pester .\tests\Svrn7.Lobes.Tests.ps1 -Output Detailed
 
 ## Resetting the Environment
 
-All state lives in five LiteDB files. LiteDB holds an **exclusive write lock** for the
-lifetime of any process that has them open — **stop the TDA before deleting any database file**.
+All state lives in five LiteDB files under the `mem/` subfolder of the TDA output directory.
+LiteDB holds an **exclusive write lock** for the lifetime of any process that has them open —
+**stop the TDA before deleting any database file**.
+
+Paths are configured in `appsettings.json` (`Svrn7:DbPath` etc.) and resolved relative to the
+TDA executable directory by `Program.cs`, so they always land in `mem/` regardless of the
+working directory.
 
 ### Full reset (start from scratch)
 
 ```powershell
 # 1. Stop the TDA (Ctrl+C in the TDA terminal window)
 
-# 2. Delete all five LiteDB files — paths match appsettings.json defaults
-Remove-Item -Path "svrn7.db",
-                  "svrn7-dids.db",
-                  "svrn7-vcs.db",
-                  "svrn7-inbox.db",
-                  "svrn7-schemas.db" `
+# 2. Delete all LiteDB files from the mem/ subfolder
+Remove-Item -Path "mem\svrn7.db",
+                  "mem\svrn7-dids.db",
+                  "mem\svrn7-vcs.db",
+                  "mem\svrn7-inbox.db",
+                  "mem\svrn7-schemas.db" `
             -ErrorAction SilentlyContinue
 
 # 3. Restart the TDA — it recreates all databases on first run
@@ -119,12 +126,12 @@ without disturbing federation, society, or citizen state.
 
 ```powershell
 # Stop the TDA, then:
-Remove-Item -Path "svrn7-inbox.db" -ErrorAction SilentlyContinue
+Remove-Item -Path "mem\svrn7-inbox.db" -ErrorAction SilentlyContinue
 # Restart the TDA
 dotnet .\Svrn7.TDA.dll
 ```
 
-> If you changed `Svrn7:InboxDbPath` in `appsettings.json` (or `$env:Svrn7__InboxDbPath`),
+> If you override `Svrn7:InboxDbPath` in `appsettings.json` (or via `$env:Svrn7__InboxDbPath`),
 > substitute your configured path above.
 
 ---
@@ -189,7 +196,7 @@ Replace `$federationKp.PublicKeyHex` with the value saved in E.0.1 on subsequent
 ```powershell
 $body = @{
     federationDid        = "did:drn:foundation.svrn7.net"
-    federationName       = "SOVRONA Web 7.0 Foundation"
+    federationName       = "Web 7.0 SOVRON Foundation"
     publicKeyHex         = $federationKp.PublicKeyHex
     primaryDidMethodName = "drn"
 } | ConvertTo-Json -Compress
@@ -211,7 +218,7 @@ Expected TDA log:
 ```
 [Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/federation/1.0/init)
         → Invoke-Web7FederationInit [Svrn7.Federation]
-[Info]  Federation initialised: did:drn:foundation.svrn7.net (SOVRONA Web 7.0 Foundation), supply 1000000000000000000 grana
+[Info]  Federation initialised: did:drn:foundation.svrn7.net (Web 7.0 SOVRON Foundation), supply 1000000000000000000 grana
 ```
 
 Reply body (`federation/1.0/init-result`):
@@ -219,7 +226,7 @@ Reply body (`federation/1.0/init-result`):
 ```json
 {
   "federationDid":        "did:drn:foundation.svrn7.net",
-  "federationName":       "SOVRONA Web 7.0 Foundation",
+  "federationName":       "Web 7.0 SOVRON Foundation",
   "primaryDidMethodName": "drn",
   "totalSupplyGrana":     1000000000000000000,
   "alreadyInitialised":   false,
@@ -258,7 +265,7 @@ Reply body (`federation/1.0/federation-query-result`):
 {
   "found":                    true,
   "federationDid":            "did:drn:foundation.svrn7.net",
-  "federationName":           "SOVRONA Web 7.0 Foundation",
+  "federationName":           "Web 7.0 SOVRON Foundation",
   "primaryDidMethodName":     "drn",
   "totalSupplyGrana":         1000000000000000000,
   "endowmentPerSocietyGrana": 0,

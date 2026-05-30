@@ -1,7 +1,7 @@
 namespace Svrn7.Core;
 
 /// <summary>
-/// Protocol-level constants for SOVRONA (SVRN7) — the Shared Reserve Currency (SRC)
+/// Protocol-level constants for SOVRON (SVRN7) — the Shared Reserve Currency (SRC)
 /// for the Web 7.0 digital ecosystem.
 /// All monetary arithmetic is performed in grana. 1 SVRN7 = GranaPerSvrn7 grana.
 /// </summary>

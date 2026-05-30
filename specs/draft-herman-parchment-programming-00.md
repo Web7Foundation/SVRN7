@@ -1087,7 +1087,7 @@ Applying the Legend produces the following element instance classification (sele
 |   (Conditional: Society TDA Only)  |                    | ISchemaRegistry implementation |
 | Schema Resolver [NEW]              | Data Access        | ISchemaResolver + impls        |
 |   (Conditional: Society TDA Only)  |                    |                                |
-| SOVRONA (SVRN7) SRC                | (line label)       | ISvrn7Driver.TransferAsync +   |
+| SOVRON (SVRN7) SRC                | (line label)       | ISvrn7Driver.TransferAsync +   |
 |                                    |                    | 8-step UTXO validator          |
 | Citizen TDA (x5, VTC7 mesh)        | Host               | Same software deployed N times |
 
@@ -1306,7 +1306,7 @@ This document has no IANA actions.
                      draft-herman-svrn7-ai-legibility-00.
 - [DRAFT-TDA-DESIGN] Herman, M. Web 7.0 TDA Consolidated Design Specification v0.24.
                      Web 7.0 Foundation Internal Document, April 2026.
-- [DRAFT-MONETARY]   Herman, M. SOVRONA (SVRN7) Monetary Transfer Protocol.
+- [DRAFT-MONETARY]   Herman, M. SOVRON (SVRN7) Monetary Transfer Protocol.
                      draft-herman-svrn7-monetary-protocol-00.
 - [DSA-024]          Herman, M. Web 7.0 Decentralized System Architecture (DSA) 0.24 Epoch 0.
                      Diagram. Web 7.0 Foundation, April 2026.
@@ -1316,7 +1316,7 @@ This document has no IANA actions.
 - [MDE-OVERVIEW]     Schmidt, D. Model-driven Engineering. IEEE Computer 39(2), 2006.
 - [ADR-NYGARD]       Nygard, M. Documenting Architecture Decisions. Cognitect Blog, 2011.
                      https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions.
-- [WEB70-IMPL]       Herman, M. SOVRONA (SVRN7) .NET 8 Reference Implementation.
+- [WEB70-IMPL]       Herman, M. SOVRON (SVRN7) .NET 8 Reference Implementation.
                      https://github.com/web7foundation/svrn7.
 - [LLMS-TXT]         Herman, M. SVRN7 llms.txt -- Authoritative Platform Description.
                      https://svrn7.net/llms.txt.

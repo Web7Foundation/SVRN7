@@ -6,7 +6,7 @@
     Svrn7.Society — PowerShell cmdlets for ISvrn7SocietyDriver.
 
 .DESCRIPTION
-    Script module exposing every Society-scoped operation of the SOVRONA (SVRN7)
+    Script module exposing every Society-scoped operation of the SOVRON (SVRN7)
     ISvrn7SocietyDriver as PowerShell-idiomatic cmdlets with full comment-based help,
     pipeline support, -WhatIf/-Confirm where state is mutated, and structured
     PSCustomObject output.
@@ -873,7 +873,7 @@ function Invoke-Svrn7FederationTransfer {
 
     # Derive Federation DID from the Society's own record
     $soc    = $Script:SocietyDriver.GetOwnSocietyAsync().GetAwaiter().GetResult()
-    $fedDid = if ($soc?.FederationDid) { $soc.FederationDid } else { 'did:drn:federation' }
+    $fedDid = if ($soc -and $soc.FederationDid) { $soc.FederationDid } else { 'did:drn:federation' }
 
     # Sign canonical JSON
     $json    = Build-CanonicalTransferJson $PayerDid $fedDid $grana $effectiveNonce $timestamp $memo
@@ -1472,7 +1472,7 @@ function Invoke-Web7SocietyQuery {
 
         $payload = @{
             societyDid    = $drv.SocietyDid
-            federationDid = $soc?.FederationDid
+            federationDid = if ($soc) { $soc.FederationDid } else { $null }
             currentEpoch  = $SVRN7.CurrentEpoch
             queriedAt     = [datetimeoffset]::UtcNow.ToString('o')
         } | ConvertTo-Json -Compress
@@ -1510,7 +1510,7 @@ function Invoke-Web7MemberQuery {
 
         $body = $msg.PackedPayload | ConvertFrom-Json
 
-        $result = if ($body.did) {
+        $result = if ($body.PSObject.Properties['did'] -and $body.did) {
             $isMember = $drv.IsMemberAsync($body.did).GetAwaiter().GetResult()
             @{
                 societyDid = $drv.SocietyDid
@@ -1567,7 +1567,7 @@ function Invoke-Web7OverdraftQuery {
             lifetimeDrawsGrana    = if ($rec) { $rec.LifetimeDrawsGrana }    else { 0 }
             drawCount             = if ($rec) { $rec.DrawCount }             else { 0 }
             drawAmountGrana       = if ($rec) { $rec.DrawAmountGrana }       else { 0 }
-            lastDrawAt            = if ($rec?.LastDrawAt?.HasValue) { $rec.LastDrawAt.Value.ToString('o') } else { $null }
+            lastDrawAt            = if ($rec -and $rec.LastDrawAt -and $rec.LastDrawAt.HasValue) { $rec.LastDrawAt.Value.ToString('o') } else { $null }
             queriedAt             = [datetimeoffset]::UtcNow.ToString('o')
         } | ConvertTo-Json -Compress
 
@@ -1650,7 +1650,7 @@ function Invoke-Web7DidMethodRegister {
         if (-not $msg.FromDid) { throw "Invoke-Web7DidMethodRegister: FromDid not set — cannot route reply." }
 
         $body = $msg.PackedPayload | ConvertFrom-Json
-        if (-not $body.methodName) { throw "Invoke-Web7DidMethodRegister: body missing required field 'methodName'." }
+        Assert-BodyFields $body @('methodName') 'Invoke-Web7DidMethodRegister'
 
         $result = $drv.RegisterSocietyDidMethodAsync($body.methodName).GetAwaiter().GetResult()
 
@@ -1693,8 +1693,7 @@ function Invoke-Web7CitizenDidAdd {
         if (-not $msg.FromDid) { throw "Invoke-Web7CitizenDidAdd: FromDid not set — cannot route reply." }
 
         $body = $msg.PackedPayload | ConvertFrom-Json
-        if (-not $body.citizenPrimaryDid) { throw "Invoke-Web7CitizenDidAdd: body missing required field 'citizenPrimaryDid'." }
-        if (-not $body.methodName)        { throw "Invoke-Web7CitizenDidAdd: body missing required field 'methodName'." }
+        Assert-BodyFields $body @('citizenPrimaryDid','methodName') 'Invoke-Web7CitizenDidAdd'
 
         $result = $drv.AddCitizenDidAsync(
             $body.citizenPrimaryDid, $body.methodName).GetAwaiter().GetResult()
@@ -1762,10 +1761,16 @@ function Confirm-Svrn7Settlement {
 
         $body = $msg.PackedPayload | ConvertFrom-Json
 
-        if ($body.success) {
-            Write-Verbose "Confirm-Svrn7Settlement: transfer '$($body.transferId)' settled — $($body.amountGrana) grana credited to $($body.payeeDid)"
+        $bodySuccess     = $body.PSObject.Properties['success']     -and $body.success
+        $bodyTransferId  = if ($body.PSObject.Properties['transferId'])  { $body.transferId }  else { '(unknown)' }
+        $bodyAmountGrana = if ($body.PSObject.Properties['amountGrana']) { $body.amountGrana } else { 0 }
+        $bodyPayeeDid    = if ($body.PSObject.Properties['payeeDid'])    { $body.payeeDid }    else { '(unknown)' }
+        $bodyErrorMsg    = if ($body.PSObject.Properties['errorMessage']) { $body.errorMessage } else { '(no detail)' }
+
+        if ($bodySuccess) {
+            Write-Verbose "Confirm-Svrn7Settlement: transfer '$bodyTransferId' settled — $bodyAmountGrana grana credited to $bodyPayeeDid"
         } else {
-            Write-Warning "Confirm-Svrn7Settlement: transfer '$($body.transferId)' rejected by peer — $($body.errorMessage)"
+            Write-Warning "Confirm-Svrn7Settlement: transfer '$bodyTransferId' rejected by peer — $bodyErrorMsg"
         }
 
         return $null

@@ -1,4 +1,4 @@
-# CESR Key and Signature Encoding Profile for SOVRONA (SVRN7)
+# CESR Key and Signature Encoding Profile for SOVRON (SVRN7)
 # draft-herman-cesr-svrn7-profile-00
 # Author: M. Herman, Web 7.0 Foundation
 # Published: April 2026
@@ -18,7 +18,7 @@ Related:        draft-herman-svrn7-monetary-protocol-00
 ## Abstract
 
 This document specifies a Composable Event Streaming Representation (CESR) [CESR] profile
-for the key and signature encoding conventions used in the SOVRONA (SVRN7) Web 7.0 Shared
+for the key and signature encoding conventions used in the SOVRON (SVRN7) Web 7.0 Shared
 Reserve Currency ecosystem. The profile identifies the specific CESR derivation codes used
 for secp256k1 signatures, Ed25519 signatures, secp256k1 public keys, and Ed25519 public keys;
 specifies how each encoded value appears in transfer request signatures, DIDComm message
@@ -412,12 +412,12 @@ This document has no IANA actions. The CESR derivation codes referenced in this 
 - [SECP256K1] Standards for Efficient Cryptography Group. SEC 2: Recommended Elliptic Curve Domain Parameters. Version 2.0, 2010.
 
 ### Informative
-- [DRAFT-MONETARY] Herman, M. SOVRONA (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
+- [DRAFT-MONETARY] Herman, M. SOVRON (SVRN7) Monetary Transfer Protocol. draft-herman-svrn7-monetary-protocol-00.
 - [WEB70-ARCH] Herman, M. Web 7.0 Digital Society Architecture. draft-herman-web7-society-architecture-00.
 - [DRAFT-DIDCOMM-TRANSFER] Herman, M. DIDComm Transfer Protocol for SVRN7. draft-herman-didcomm-svrn7-transfer-00.
 - [KERI] Smith, S. Key Event Receipt Infrastructure. draft-ssmith-keri. IETF.
 - [DID-KEY] Longley, P. et al. The did:key Method. W3C Community Group Report.
-- [WEB70-IMPL] Herman, M. SOVRONA (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
+- [WEB70-IMPL] Herman, M. SOVRON (SVRN7) .NET 8 Reference Implementation. https://github.com/web7foundation/svrn7.
 
 ---
 

@@ -7,7 +7,7 @@
 
 The Web 7.0 Decentralized System Architecture (DSA) is a sovereign, DID-native, DIDComm-native runtime for digital participation. Every participant in the Web 7.0 ecosystem operates a **Trusted Digital Assistant (TDA)** — a personal or institutional software agent that holds identity, manages value, communicates exclusively over end-to-end encrypted DIDComm channels, and participates in **Verifiable Trust Circles (VTC7)** — federated peer meshes in which identity and trust are cryptographic properties, not institutional ones.
 
-This repository is the Epoch 0 (Endowment Phase) reference implementation of the Web 7.0 DSA, specified by the DSA 0.24 diagram using the Parchment Programming Modeling Language (PPML). It includes the TDA Host runtime, all eleven standard LOBE modules, the SOVRONA (SVRN7) Shared Reserve Currency (SRC) library, and fifteen IETF draft specifications.
+This repository is the Epoch 0 (Endowment Phase) reference implementation of the Web 7.0 DSA, specified by the DSA 0.24 diagram using the Parchment Programming Modeling Language (PPML). It includes the TDA Host runtime, all eleven standard LOBE modules, the SOVRON (SVRN7) Shared Reserve Currency (SRC) library, and fifteen IETF draft specifications.
 
 ![Web 7.0 Societal Architecture](./docs/images/Web%207.0%20DSA-SocietyArch%200.26.png)
 
@@ -43,7 +43,7 @@ This repository is the Epoch 0 (Endowment Phase) reference implementation of the
 5. [TDA Host Runtime](#5-tda-host-runtime)
 6. [LOBE Registry](#6-lobe-registry)
 7. [DIDComm V2 Integration](#7-didcomm-v2-integration)
-8. [SOVRONA (SVRN7) Shared Reserve Currency](#8-sovrona-svrn7-shared-reserve-currency)
+8. [SOVRON (SVRN7) Shared Reserve Currency](#8-SOVRON-svrn7-shared-reserve-currency)
 9. [Identity Model](#9-identity-model)
 10. [Verifiable Credentials](#10-verifiable-credentials)
 11. [Merkle Audit Log](#11-merkle-audit-log)
@@ -348,7 +348,7 @@ non-SVRN7 DIDComm agents is not a goal.
 
 ---
 
-## 8. SOVRONA (SVRN7) Shared Reserve Currency
+## 8. SOVRON (SVRN7) Shared Reserve Currency
 
 SVRN7 is the value layer of the Web 7.0 DSA — a Shared Reserve Currency (SRC) embedded
 within the TDA and governed by a three-epoch monetary lifecycle.
@@ -739,7 +739,7 @@ dotnet test --collect:"XPlat Code Coverage"
 | Resolver interface    | `IDidDocumentResolver`        | `IDidResolver`              |
 | VC resolver           | `IVcDocumentResolver`         | `IVcResolver`               |
 | Smallest monetary unit| `grana`                       | `micro`, `satoshi`          |
-| Primary token         | `SVRN7`                       | `SOVRONA` (informal only)   |
+| Primary token         | `SVRN7`                       | `SOVRON` (informal only)   |
 | DID method            | `did:drn`                     | `did:svrn7`                 |
 | LOBE loading          | Eager / JIT                   | Always-on / Lazy            |
 | PPML element 4        | `Device`                      | `DEVICE`                    |

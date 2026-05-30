@@ -322,7 +322,7 @@ by the principal identifier.
 
 | Token pattern    | Name                   | Description |
 |------------------|------------------------|-------------|
-| `ASVRN7`         | SOVRONA Platform       | Agent operates on behalf of the SVRN7 Federation or Society. |
+| `ASVRN7`         | SOVRON Platform       | Agent operates on behalf of the SVRN7 Federation or Society. |
 | `AUSER`          | Named User             | Agent operates on behalf of a registered citizen or user. |
 | `AORG-{name}`    | Named Organization     | Agent operates on behalf of the named organization (e.g., `AORG-ACME`). |
 | `ADAO-{id}`      | Named DAO              | Agent operates on behalf of the identified Decentralized Autonomous Organization. |

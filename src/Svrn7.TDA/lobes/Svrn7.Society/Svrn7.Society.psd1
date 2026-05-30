@@ -1,7 +1,7 @@
 #
 # Module manifest — Svrn7.Society
 # Wraps ISvrn7SocietyDriver: all Society-specific operations.
-# SOVRONA (SVRN7) — Web 7.0 Shared Reserve Currency (SRC)
+# SOVRON (SVRN7) — Web 7.0 Shared Reserve Currency (SRC)
 #
 
 @{
@@ -76,7 +76,7 @@ create the ISvrn7SocietyDriver singleton before using any cmdlet here.
 
     PrivateData = @{
         PSData = @{
-            Tags       = @('SVRN7','SOVRONA','Web7','DID','SRC','Society',
+            Tags       = @('SVRN7','SOVRON','Web7','DID','SRC','Society',
                            'DIDComm','DecentralisedIdentity','DigitalSociety')
             ProjectUri = 'https://github.com/web7foundation/svrn7'
             LicenseUri = 'https://opensource.org/licenses/MIT'
