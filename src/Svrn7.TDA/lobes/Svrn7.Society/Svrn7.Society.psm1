@@ -17,7 +17,7 @@
     GDPR erasure, etc.) are exposed by the Svrn7.Federation module.
 
     DEPENDENCY
-    Svrn7.Federation must be imported and Initialize-Svrn7Federation called before
+    Svrn7.Federation must be imported and Initialize-Svrn7FederationDriver called before
     importing this module.  Call Connect-Svrn7Society after import to create the
     ISvrn7SocietyDriver singleton.
 
@@ -94,7 +94,7 @@ function Connect-Svrn7Society {
         Builds a Svrn7SocietyOptions configuration and resolves an
         ISvrn7SocietyDriver from the Microsoft.Extensions.DependencyInjection
         container via AddSvrn7Society(). Must be called once — after
-        Initialize-Svrn7Federation — before any other Society cmdlet.
+        Initialize-Svrn7FederationDriver — before any other Society cmdlet.
 
         The Society driver wraps the Federation-level ISvrn7Driver singleton and
         adds Society-scoped state: SocietyDid, FederationDid, DIDComm messaging
@@ -149,7 +149,7 @@ function Connect-Svrn7Society {
         None. The ISvrn7SocietyDriver is stored as a module-level singleton.
 
     .EXAMPLE
-        PS> Initialize-Svrn7Federation
+        PS> Initialize-Svrn7FederationDriver
         PS> Connect-Svrn7Society `
                 -SocietyDid    'did:sovronia:my-society' `
                 -FederationDid 'did:drn:the-federation' `
@@ -306,51 +306,46 @@ function Get-Svrn7OwnSociety {
 function Register-Svrn7CitizenInSociety {
     <#
     .SYNOPSIS
-        Registers a new Citizen as a member of this Society, including the
-        1,000 SVRN7 endowment UTXO transfer.
+        Registers a Citizen as a member of this Society, with endowment and
+        DIDDocument copy to the Society's local database.
 
     .DESCRIPTION
         Wraps ISvrn7SocietyDriver.RegisterCitizenInSocietyAsync(). Onboards the
         citizen into this Society by:
           1. Creating a CitizenRecord and SocietyMembershipRecord.
           2. Creating the citizen's wallet.
-          3. Transferring exactly 1,000 SVRN7 (10^9 grana) from the Society wallet
-             to the citizen wallet as the endowment (real UTXO — not synthetic).
-          4. Issuing a Svrn7EndowmentCredential VC to the citizen.
-          5. Appending a CitizenRegistration entry to the Merkle audit log.
+          3. Copying the citizen's DIDDocument to the Society's local svrn7-dids.db
+             so the Society can resolve the citizen's DID without a Federation round-trip.
+          4. Transferring exactly 1,000 SVRN7 from the Society wallet as endowment.
+          5. Issuing a Svrn7EndowmentCredential VC to the citizen.
+          6. Appending a CitizenRegistration entry to the Merkle audit log.
 
         If the Society wallet balance is below 1,000 SVRN7 at the start of this
-        call, the overdraft facility is invoked automatically: a DIDComm
-        OverdraftDrawRequest is sent to the Federation (synchronous, 30-second
-        timeout by default). Registration fails with SocietyEndowmentDepletedException
-        if the overdraft ceiling would be exceeded. Check Get-Svrn7OverdraftStatus
-        before bulk registration to avoid unexpected failures.
+        call, the overdraft facility is invoked automatically. Registration fails
+        with SocietyEndowmentDepletedException if the overdraft ceiling would be
+        exceeded. Check Get-Svrn7OverdraftStatus before bulk registration.
 
     .PARAMETER DidDocument
-        [Svrn7.Core.Models.DidDocument] from New-Svrn7Did. Carries the citizen DID,
-        public key, and any service endpoints. Pass -ServiceEndpointUrl to New-Svrn7Did
-        to embed the citizen's TDA endpoint in the document.
+        [Svrn7.Core.Models.DidDocument] from New-Svrn7Did. Persisted to the Society's
+        local svrn7-dids.db. Include -ServiceEndpointUrl in New-Svrn7Did to embed
+        the citizen's TDA endpoint so the Society can deliver DIDComm messages directly.
 
     .PARAMETER KeyPair
         The Svrn7.KeyPair (secp256k1) for the new citizen. PrivateKeyBytes is stored
-        locally for signing; PublicKeyHex is taken from the DidDocument.
+        locally; PublicKeyHex is taken from the DidDocument.
 
     .PARAMETER PreferredMethodName
-        Optional. If specified, the citizen's DID is issued under this method name
-        rather than the Society's primary method name. Must be Active and owned by
-        this Society.
-
-    .INPUTS
-        None. This cmdlet does not accept pipeline input.
+        Optional. Issues the citizen's DID under this method name rather than the
+        Society's primary method name. Must be Active and owned by this Society.
 
     .OUTPUTS
         PSCustomObject [Svrn7.CitizenRegistration]
-            CitizenDid      [string]   The registered citizen DID.
-            SocietyDid      [string]   This Society's DID.
-            EndowmentSvrn7  [decimal]  Always 1000.000000.
-            EndowmentGrana  [long]     Always 1,000,000,000.
-            MethodName      [string]   The method name used (empty = Society primary).
-            Success         [bool]     Always $true (throws on failure).
+            CitizenDid      [string]
+            SocietyDid      [string]
+            EndowmentSvrn7  [decimal]  Always 1000.000000
+            EndowmentGrana  [long]     Always 1,000,000,000
+            MethodName      [string]
+            Success         [bool]
 
     .EXAMPLE
         PS> $kp     = New-Svrn7KeyPair
@@ -361,8 +356,6 @@ function Register-Svrn7CitizenInSociety {
     .EXAMPLE
         PS> Register-Svrn7CitizenInSociety -DidDocument $didDoc -KeyPair $kp `
                 -PreferredMethodName 'sovroniamed'
-
-        Registers the citizen under a secondary method name.
 
     .NOTES
         C# API: ISvrn7SocietyDriver.RegisterCitizenInSocietyAsync(RegisterCitizenInSocietyRequest)
@@ -387,7 +380,7 @@ function Register-Svrn7CitizenInSociety {
     Assert-SocietyDriver
 
     $societyDid = $Script:SocietyDriver.SocietyDid
-    if (-not $PSCmdlet.ShouldProcess("$($DidDocument.Did) into $societyDid", 'RegisterCitizenInSociety')) { return }
+    if (-not $PSCmdlet.ShouldProcess("$($DidDocument.Did) into $societyDid", 'RegisterCitizen')) { return }
 
     Write-Verbose "Registering citizen '$($DidDocument.Did)' in Society '$societyDid'..."
 
@@ -399,7 +392,7 @@ function Register-Svrn7CitizenInSociety {
     }
 
     $result = $Script:SocietyDriver.RegisterCitizenInSocietyAsync($request).GetAwaiter().GetResult()
-    Resolve-OperationResult -Result $result -Operation 'RegisterCitizenInSociety' | Out-Null
+    Resolve-OperationResult -Result $result -Operation 'RegisterCitizen' | Out-Null
 
     Write-Verbose "Citizen registered: $($DidDocument.Did)"
 
@@ -439,7 +432,7 @@ function Add-Svrn7CitizenDid {
         may reveal their health-domain DID without disclosing their general DID.
 
         The -MethodName must be Active and owned by this Society. Register it first
-        with Register-Svrn7SocietyDidMethod if needed.
+        with Initialize-Svrn7SocietyDidMethod if needed.
 
     .PARAMETER CitizenPrimaryDid
         The primary DID of the citizen. Must already be registered in this Society.
@@ -465,7 +458,7 @@ function Add-Svrn7CitizenDid {
 
     .EXAMPLE
         # Register method then issue secondary DID via pipeline
-        PS> Register-Svrn7SocietyDidMethod -MethodName 'sovroniamed' |
+        PS> Initialize-Svrn7SocietyDidMethod -MethodName 'sovroniamed' |
                 ForEach-Object {
                     Add-Svrn7CitizenDid -CitizenPrimaryDid $citizen -MethodName $_.MethodName
                 }
@@ -1147,7 +1140,7 @@ function Test-Svrn7SocietyMember {
 #                      GetSocietyDidMethodsAsync
 ###############################################################################
 
-function Register-Svrn7SocietyDidMethod {
+function Initialize-Svrn7SocietyDidMethod {
     <#
     .SYNOPSIS
         Registers an additional DID method name for this Society (self-service).
@@ -1177,10 +1170,10 @@ function Register-Svrn7SocietyDidMethod {
             Success     [bool]    Always $true (throws on failure).
 
     .EXAMPLE
-        PS> Register-Svrn7SocietyDidMethod -MethodName 'sovroniamed'
+        PS> Initialize-Svrn7SocietyDidMethod -MethodName 'sovroniamed'
 
     .EXAMPLE
-        PS> 'sovroniaedu', 'sovroniahealth' | Register-Svrn7SocietyDidMethod
+        PS> 'sovroniaedu', 'sovroniahealth' | Initialize-Svrn7SocietyDidMethod
 
     .NOTES
         C# API: ISvrn7SocietyDriver.RegisterSocietyDidMethodAsync(string)
@@ -1994,7 +1987,7 @@ Export-ModuleMember -Function @(
     'Get-Svrn7OverdraftRecord'
     'Get-Svrn7SocietyMembers'
     'Test-Svrn7SocietyMember'
-    'Register-Svrn7SocietyDidMethod'
+    'Initialize-Svrn7SocietyDidMethod'
     'Unregister-Svrn7SocietyDidMethod'
     'Get-Svrn7SocietyDidMethods'
     'Find-Svrn7VcsBySubject'

@@ -97,8 +97,8 @@ DIDComm protocol URIs (all svrn7.net — not svrn7.io):
   did:drn:svrn7.net/protocols/society/1.0/citizen-did-add-result
   did:drn:svrn7.net/protocols/federation/1.0/federation-query
   did:drn:svrn7.net/protocols/federation/1.0/federation-query-result
-  did:drn:svrn7.net/protocols/federation/1.0/init
-  did:drn:svrn7.net/protocols/federation/1.0/init-result
+  did:drn:svrn7.net/protocols/federation/1.0/initialize-federation
+  did:drn:svrn7.net/protocols/federation/1.0/initialize-federation-result
   did:drn:svrn7.net/protocols/federation/1.0/register-society
   did:drn:svrn7.net/protocols/federation/1.0/register-society-result
 

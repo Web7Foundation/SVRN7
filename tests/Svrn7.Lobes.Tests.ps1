@@ -6,7 +6,7 @@
 
 .DESCRIPTION
     These tests cover the PowerShell LOBE layer independently of the C# test suite.
-    They deliberately avoid loading the Svrn7 .NET assemblies (no Initialize-Svrn7Federation
+    They deliberately avoid loading the Svrn7 .NET assemblies (no Initialize-Svrn7FederationDriver
     call), so they run without a compiled solution and without a live TDA.
 
     Requires Pester 5+. Install if needed:

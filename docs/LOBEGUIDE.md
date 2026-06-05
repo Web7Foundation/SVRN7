@@ -37,7 +37,7 @@ only when none of these apply.
 |---|---|---|
 | `request` | Initiate an operation; expects a receipt or result in return | `transfer/1.0/request` |
 | `order` | Issue a formal cross-Society instruction | `transfer/1.0/order` |
-| `init` | One-time initialisation of a resource | `federation/1.0/init` |
+| `init` | One-time initialisation of a resource | `federation/1.0/initialize-federation` |
 | `register` | Register a new entity in a registry | `federation/1.0/register-society` |
 | `add` | Add a sub-entity to an existing resource | `society/1.0/citizen-did-add` |
 | `update` | Modify fields of an existing entity | `identity/1.0/did-update` |
@@ -49,7 +49,7 @@ only when none of these apply.
 | Action | Meaning | Example URI |
 |---|---|---|
 | `receipt` | Acknowledge completion of a transaction | `transfer/1.0/order-receipt` |
-| `result` | Return the outcome of a request or query | `federation/1.0/init-result` |
+| `result` | Return the outcome of a request or query | `federation/1.0/initialize-federation-result` |
 | `response` | Reply to an invite or proposal (accept / decline encoded in body) | `calendar/1.0/response` |
 | `confirm` | Confirm a pending two-phase action | `transfer/1.0/settlement-confirm` |
 | `reject` | Explicitly decline a request | `invoice/1.0/reject` |
@@ -174,7 +174,7 @@ All public cmdlets in SVRN7 LOBEs prefix the noun with `Pando` (protocol handler
 | Prefix | Use | Examples |
 |---|---|---|
 | `Pando` | DIDComm message handlers and message builders | `Invoke-PandoPaymentRequest`, `New-PandoPaymentReceipt` |
-| `Svrn7` | Driver wrappers, key operations, standalone utilities | `Register-Svrn7Citizen`, `Get-Svrn7Balance` |
+| `Svrn7` | Driver wrappers, key operations, standalone utilities | `Register-Svrn7CitizenInSociety`, `Get-Svrn7Balance` |
 
 ### Approved verbs used in SVRN7 LOBEs
 
@@ -714,7 +714,7 @@ understand existing patterns; confirm that any new URI is unique before register
 
 | LOBE | Protocol URI | Direction | Entrypoint |
 |---|---|---|---|
-| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/federation/1.0/init` | inbound | `Invoke-PandoFederationInit` |
+| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/federation/1.0/initialize-federation` | inbound | `Invoke-PandoFederationInit` |
 | `Svrn7.Federation` | `did:drn:svrn7.net/protocols/federation/1.0/federation-query` | inbound | `Invoke-PandoFederationQuery` |
 | `Svrn7.Federation` | `did:drn:svrn7.net/protocols/federation/1.0/register-society` | inbound | `Invoke-PandoRegisterSociety` |
 | `Svrn7.Society` | `did:drn:svrn7.net/protocols/society/1.0/member-query` | inbound | `Invoke-PandoMemberQuery` |

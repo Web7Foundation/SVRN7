@@ -15,10 +15,10 @@
 
 MODULE SPLIT
     Svrn7.Federation — ISvrn7Driver cmdlets (35 functions)
-        Initialize-Svrn7Federation       New-Svrn7KeyPair              New-Svrn7Ed25519KeyPair
+        Initialize-Svrn7FederationDriver       New-Svrn7KeyPair              New-Svrn7Ed25519KeyPair
         Invoke-Svrn7SignSecp256k1         Test-Svrn7SignatureSecp256k1  New-Svrn7Did
-        Resolve-Svrn7CitizenPrimaryDid   Register-Svrn7Citizen         Get-Svrn7Citizen
-        Test-Svrn7CitizenActive          Get-Svrn7CitizenDids          Register-Svrn7Society
+        Resolve-Svrn7CitizenPrimaryDid   Register-Svrn7CitizenInSociety         Get-Svrn7Citizen
+        Test-Svrn7CitizenActive          Get-Svrn7CitizenDids          Initialize-Svrn7Society
         Get-Svrn7Society                 Test-Svrn7SocietyActive       Disable-Svrn7Society
         Register-Svrn7DidMethod          Unregister-Svrn7DidMethod     Get-Svrn7DidMethodStatus
         Get-Svrn7DidMethods              Get-Svrn7Balance              Invoke-Svrn7Transfer
@@ -32,7 +32,7 @@ MODULE SPLIT
         Connect-Svrn7Society             Get-Svrn7OwnSociety           Register-Svrn7CitizenInSociety
         Add-Svrn7CitizenDid             Invoke-Svrn7IncomingTransfer  Invoke-Svrn7ExternalTransfer
         Invoke-Svrn7FederationTransfer  Get-Svrn7OverdraftStatus       Get-Svrn7OverdraftRecord
-        Get-Svrn7SocietyMembers         Test-Svrn7SocietyMember       Register-Svrn7SocietyDidMethod
+        Get-Svrn7SocietyMembers         Test-Svrn7SocietyMember       Initialize-Svrn7SocietyDidMethod
         Unregister-Svrn7SocietyDidMethod Get-Svrn7SocietyDidMethods   Find-Svrn7VcsBySubject
 #>
 
@@ -53,8 +53,8 @@ function Write-Header([string]$text) {
 Write-Header 'SVRN7.FEDERATION — ISvrn7Driver examples'
 
 # ── Initialise ─────────────────────────────────────────────────────────────
-Write-Host "`n[1] Initialize-Svrn7Federation" -ForegroundColor Yellow
-Initialize-Svrn7Federation -Verbose
+Write-Host "`n[1] Initialize-Svrn7FederationDriver" -ForegroundColor Yellow
+Initialize-Svrn7FederationDriver -Verbose
 
 # ── Key generation ─────────────────────────────────────────────────────────
 Write-Host "`n[2] New-Svrn7KeyPair" -ForegroundColor Yellow
@@ -81,8 +81,8 @@ Write-Host "SocietyDid    : $societyDid"
 Write-Host "CitizenDid    : $citizenDid"
 
 # ── Society registration (Whitepaper §15.1) ────────────────────────────────
-Write-Host "`n[5] Register-Svrn7Society  (Whitepaper §15.1)" -ForegroundColor Yellow
-$soc = Register-Svrn7Society `
+Write-Host "`n[5] Initialize-Svrn7Society  (Whitepaper §15.1)" -ForegroundColor Yellow
+$soc = Initialize-Svrn7Society `
     -Did        $societyDid `
     -KeyPair    $societyKp `
     -Name       'Sovronia Digital Nation' `
@@ -90,8 +90,8 @@ $soc = Register-Svrn7Society `
 Write-Host "Registered: $($soc.SocietyName) [$($soc.MethodName)]"
 
 # ── Citizen registration at Federation level ───────────────────────────────
-Write-Host "`n[6] Register-Svrn7Citizen  (Federation level — no endowment)" -ForegroundColor Yellow
-Register-Svrn7Citizen -Did $citizenDid -KeyPair $citizenKp | Out-Null
+Write-Host "`n[6] Register-Svrn7CitizenInSociety  (Federation level — no endowment)" -ForegroundColor Yellow
+Register-Svrn7CitizenInSociety -Did $citizenDid -KeyPair $citizenKp | Out-Null
 Write-Host "Citizen registered: $citizenDid"
 
 # ── Balance query (Whitepaper §15.1) ──────────────────────────────────────
@@ -207,8 +207,8 @@ Write-Host "Citizen2 is member : $(Test-Svrn7SocietyMember -Did $citizen2Did)"
 Write-Host "Random DID member  : $(Test-Svrn7SocietyMember -Did 'did:sovronia:nonexistent')"
 
 # ── Self-service DID method (Whitepaper §15.2) ────────────────────────────
-Write-Host "`n[22] Register-Svrn7SocietyDidMethod  (Whitepaper §15.2)" -ForegroundColor Yellow
-$newMethod = Register-Svrn7SocietyDidMethod -MethodName 'sovroniahealth'
+Write-Host "`n[22] Initialize-Svrn7SocietyDidMethod  (Whitepaper §15.2)" -ForegroundColor Yellow
+$newMethod = Initialize-Svrn7SocietyDidMethod -MethodName 'sovroniahealth'
 Write-Host "Registered: $($newMethod.MethodName)  Status: $($newMethod.Status)"
 
 # ── List all Society DID methods ──────────────────────────────────────────

@@ -736,7 +736,7 @@ handling in the Switchboard before being routed to the registered cmdlet:
 | @type URI prefix                                              | LOBE                | Entrypoint                    | Epoch |
 |---------------------------------------------------------------|---------------------|-------------------------------|-------|
 | `did:drn:svrn7.net/protocols/federation/1.0/federation-query`| Svrn7.Federation    | Invoke-Web7FederationQuery    | 0     |
-| `did:drn:svrn7.net/protocols/federation/1.0/init`            | Svrn7.Federation    | Invoke-Web7FederationInit     | 0     |
+| `did:drn:svrn7.net/protocols/federation/1.0/initialize-federation`            | Svrn7.Federation    | Invoke-Web7FederationInit     | 0     |
 | `did:drn:svrn7.net/protocols/federation/1.0/register-society`| Svrn7.Federation    | Invoke-Web7RegisterSociety    | 0     |
 | `did:drn:svrn7.net/protocols/transfer/1.0/request`           | Svrn7.Society       | Invoke-Svrn7IncomingTransfer  | 0     |
 | `did:drn:svrn7.net/protocols/transfer/1.0/order`             | Svrn7.Society       | Invoke-Svrn7IncomingTransfer  | 1     |

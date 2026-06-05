@@ -323,8 +323,8 @@ did:drn:svrn7.net/protocols/society/1.0/citizen-did-add
 did:drn:svrn7.net/protocols/society/1.0/citizen-did-add-result
 did:drn:svrn7.net/protocols/federation/1.0/federation-query
 did:drn:svrn7.net/protocols/federation/1.0/federation-query-result
-did:drn:svrn7.net/protocols/federation/1.0/init
-did:drn:svrn7.net/protocols/federation/1.0/init-result
+did:drn:svrn7.net/protocols/federation/1.0/initialize-federation
+did:drn:svrn7.net/protocols/federation/1.0/initialize-federation-result
 did:drn:svrn7.net/protocols/federation/1.0/register-society
 did:drn:svrn7.net/protocols/federation/1.0/register-society-result
 ```
@@ -641,7 +641,7 @@ JIT (Import-Module on first use):
 All DIDComm handler cmdlets use the `-Web7` infix.
 Federation handlers (Svrn7.Federation.psm1):
   Invoke-Web7FederationQuery  — federation/1.0/federation-query
-  Invoke-Web7FederationInit   — federation/1.0/init (idempotent bootstrap)
+  Invoke-Web7FederationInit   — federation/1.0/initialize-federation (idempotent bootstrap)
   Invoke-Web7RegisterSociety  — federation/1.0/register-society
 Society handlers (Svrn7.Society.psm1):
   Invoke-Web7SocietyQuery, Invoke-Web7MemberQuery, Invoke-Web7OverdraftQuery,

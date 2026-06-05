@@ -70,6 +70,13 @@ public interface ISvrn7Driver : IAsyncDisposable
     Task<string?> ResolveCitizenPrimaryDidAsync(string anyDid, CancellationToken ct = default);
 
     // ── Society lifecycle ──────────────────────────────────────────────────────
+    /// <summary>Creates the SocietyRecord, wallet, and DIDDocument locally. No Federation method registration.</summary>
+    Task<OperationResult> InitializeSocietyAsync(RegisterSocietyRequest request,
+        CancellationToken ct = default);
+    /// <summary>Registers the already-initialized Society's DID method with the Federation registry, issues VTC, and appends to Merkle log.</summary>
+    Task<OperationResult> RegisterSocietyInFederationAsync(string societyDid,
+        CancellationToken ct = default);
+    /// <summary>Convenience — calls InitializeSocietyAsync then RegisterSocietyInFederationAsync.</summary>
     Task<OperationResult> RegisterSocietyAsync(RegisterSocietyRequest request,
         CancellationToken ct = default);
     Task<SocietyRecord?> GetSocietyAsync(string did, CancellationToken ct = default);

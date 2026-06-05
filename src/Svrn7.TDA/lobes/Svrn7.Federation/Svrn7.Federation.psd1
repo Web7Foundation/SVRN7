@@ -28,7 +28,7 @@ updates, and GDPR Article 17 erasure.
 
 Requires compiled Svrn7 .NET 8 assemblies in bin/ adjacent to the module,
 or the SVRN7_BIN_PATH environment variable pointing to the assembly folder.
-Call Initialize-Svrn7Federation before using any other cmdlet.
+Call Initialize-Svrn7FederationDriver before using any other cmdlet.
 
 See also: Svrn7.Society — Society-level cmdlets (ISvrn7SocietyDriver).
 '@
@@ -38,7 +38,7 @@ See also: Svrn7.Society — Society-level cmdlets (ISvrn7SocietyDriver).
 
     FunctionsToExport = @(
         # Initialisation
-        'Initialize-Svrn7Federation'
+        'Initialize-Svrn7FederationDriver'
 
         # Cryptography
         'New-Svrn7KeyPair'
@@ -52,16 +52,17 @@ See also: Svrn7.Society — Society-level cmdlets (ISvrn7SocietyDriver).
         'Test-Svrn7DidActive'
 
         # Federation lifecycle
-        'Register-Svrn7Federation'
+        'Initialize-Svrn7Federation'
 
         # Citizen lifecycle
-        'Register-Svrn7Citizen'
+        'Initialize-Svrn7Citizen'
         'Get-Svrn7Citizen'
         'Test-Svrn7CitizenActive'
         'Get-Svrn7CitizenDids'
         'Resolve-Svrn7CitizenPrimaryDid'
 
         # Society lifecycle
+        'Initialize-Svrn7Society'
         'Register-Svrn7Society'
         'Get-Svrn7Society'
         'Test-Svrn7SocietyActive'

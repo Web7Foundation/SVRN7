@@ -485,6 +485,8 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
     public Task<bool>             IsCitizenActiveAsync(string d, CancellationToken ct = default)=> _inner.IsCitizenActiveAsync(d, ct);
     public Task<IReadOnlyList<CitizenDidRecord>> GetAllDidsForCitizenAsync(string d, CancellationToken ct = default) => _inner.GetAllDidsForCitizenAsync(d, ct);
     public Task<string?> ResolveCitizenPrimaryDidAsync(string d, CancellationToken ct = default) => _inner.ResolveCitizenPrimaryDidAsync(d, ct);
+    public Task<OperationResult>  InitializeSocietyAsync(RegisterSocietyRequest r, CancellationToken ct = default) => _inner.InitializeSocietyAsync(r, ct);
+    public Task<OperationResult>  RegisterSocietyInFederationAsync(string did, CancellationToken ct = default) => _inner.RegisterSocietyInFederationAsync(did, ct);
     public Task<OperationResult>  RegisterSocietyAsync(RegisterSocietyRequest r, CancellationToken ct = default) => _inner.RegisterSocietyAsync(r, ct);
     public Task<SocietyRecord?>   GetSocietyAsync(string d, CancellationToken ct = default)             => _inner.GetSocietyAsync(d, ct);
     public Task<IReadOnlyList<SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct = default)      => _inner.GetAllSocietiesAsync(ct);

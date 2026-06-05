@@ -25,11 +25,13 @@ using Svrn7.TDA;
 //   4.  host.RunAsync()       — blocks until shutdown
 
 // ── Command-line arguments ────────────────────────────────────────────────────
-// --port <n>   TCP/IP port to listen on (default 8443).
-//              Databases are stored under "<BaseDir>/{port}/mem/".
-//              LOBEs are loaded from   "<BaseDir>/{port}/lobes/".
-// --did <did>  DID for this TDA instance (default did:drn:solo.svrn7.net).
-//              Allows multiple independent TDAs to run side-by-side.
+// --port <n>    TCP/IP port to listen on (default 8443).
+//               Databases are stored under "<BaseDir>/{port}/mem/".
+//               LOBEs are loaded from   "<BaseDir>/{port}/lobes/".
+// --did <did>   DID for this TDA instance (default did:drn:solo.svrn7.net).
+//               Allows multiple independent TDAs to run side-by-side.
+// --role <role> Functional role: Federation | Society | Citizen (default Federation).
+//               Overridden by Tda:Role in appsettings.json or Tda__Role env var.
 int port = 8443;
 {
     var portIdx = Array.IndexOf(args, "--port");
@@ -42,6 +44,13 @@ string did = "did:drn:solo.svrn7.net";
     var didIdx = Array.IndexOf(args, "--did");
     if (didIdx >= 0 && didIdx + 1 < args.Length)
         did = args[didIdx + 1];
+}
+
+TdaRole role = TdaRole.Federation;
+{
+    var roleIdx = Array.IndexOf(args, "--role");
+    if (roleIdx >= 0 && roleIdx + 1 < args.Length)
+        Enum.TryParse(args[roleIdx + 1], ignoreCase: true, out role);
 }
 
 var host = Host.CreateDefaultBuilder(args)
@@ -83,6 +92,10 @@ var host = Host.CreateDefaultBuilder(args)
             opts.SocietyDid                        = ctx.Configuration["Tda:SocietyDid"] ?? did;
             opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
             opts.ListenPort                        = port;
+            if (Enum.TryParse(ctx.Configuration["Tda:Role"], ignoreCase: true, out TdaRole cfgRole))
+                opts.Role = cfgRole;
+            else
+                opts.Role = role;  // from --role command-line argument
             opts.TlsCertificatePath                = ctx.Configuration["Tda:TlsCertPath"];
             opts.TlsCertificatePassword            = ctx.Configuration["Tda:TlsCertPassword"];
             opts.RequireMutualTls                  = bool.Parse(
@@ -145,6 +158,7 @@ var host = Host.CreateDefaultBuilder(args)
     Console.WriteLine($"  Runtime     : {RuntimeInformation.FrameworkDescription}");
     Console.WriteLine($"  OS          : {RuntimeInformation.OSDescription}");
     Console.WriteLine(hr);
+    Console.WriteLine($"  Role        : {tdaOpts.Role}");
     Console.WriteLine($"  Society DID : {did}");
     Console.WriteLine($"  Listen port : {port}");
     Console.WriteLine($"  LOBEs       : {lobeConfig.Eager.Length} eager  {lobeConfig.Jit.Length} JIT  ({totalProtocols} protocols  {totalCmdlets} cmdlets)");

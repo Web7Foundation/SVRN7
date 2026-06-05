@@ -13,7 +13,7 @@
         1. Compile the Svrn7 .NET 8 solution and place assemblies in a bin/ folder
            adjacent to this file, or set $env:SVRN7_BIN_PATH.
         2. Import-Module ./lobes/Svrn7.Federation.psd1
-        3. Initialize-Svrn7Federation
+        3. Initialize-Svrn7FederationDriver
         4. $kp = New-Svrn7KeyPair
 
     RELATED
@@ -42,6 +42,7 @@ $Script:TypeVcQueryResult   = 'Svrn7.CrossSocietyVcQueryResult'
 $Script:TypeGdprErasure     = 'Svrn7.GdprErasure'
 $Script:TypeMerkleHead      = 'Svrn7.MerkleTreeHead'
 $Script:TypeFederation      = 'Svrn7.FederationRecord'
+$Script:TypeFederationReg   = 'Svrn7.FederationRegistration'
 
 # In TDA mode ($SVRN7_LOBES_DIR set), Common is already an eager ISS module — skip.
 # In standalone mode (no ISS), load Common helpers into this module's scope.
@@ -63,7 +64,7 @@ $ErrorActionPreference = 'Stop'
 ###############################################################################
 #region INITIALISATION
 ###############################################################################
-function Initialize-Svrn7Federation {
+function Initialize-Svrn7FederationDriver {
 <#
 .SYNOPSIS
     Loads Svrn7 assemblies and creates the ISvrn7Driver singleton.
@@ -83,9 +84,9 @@ function Initialize-Svrn7Federation {
 .PARAMETER Force
     Disposes and recreates the driver even if one already exists.
 .EXAMPLE
-    Initialize-Svrn7Federation
+    Initialize-Svrn7FederationDriver
 .EXAMPLE
-    Initialize-Svrn7Federation -DbPath 'C:\data\svrn7' -DidMethodName 'drn' -Verbose
+    Initialize-Svrn7FederationDriver -DbPath 'C:\data\svrn7' -DidMethodName 'drn' -Verbose
 .OUTPUTS
     None. Driver stored as a module-level singleton.
 .NOTES
@@ -138,7 +139,7 @@ function New-Svrn7KeyPair {
     Generates a secp256k1 key pair for signing SVRN7 transfer requests.
 .DESCRIPTION
     Calls ISvrn7Driver.GenerateSecp256k1KeyPair(). The returned object can be piped
-    directly into New-Svrn7Did, Register-Svrn7Society, Register-Svrn7Citizen, and
+    directly into New-Svrn7Did, Initialize-Svrn7Society, Register-Svrn7CitizenInSociety, and
     Invoke-Svrn7Transfer. Handle PrivateKeyBytes with care.
 .EXAMPLE
     $kp = New-Svrn7KeyPair
@@ -290,37 +291,42 @@ function New-Svrn7Did {
     [Svrn7.KeyPair] from New-Svrn7KeyPair.
 .PARAMETER MethodName
     DID method name. Must match [a-z0-9]+. Default: 'drn'.
+.PARAMETER ServiceEndpointUrl
+    Optional DIDComm service endpoint URL (e.g. 'https://alpha.svrn7.net:8443/didcomm').
+    Added as a DIDCommMessaging service endpoint in the document.
 .EXAMPLE
     $kp  = New-Svrn7KeyPair
     $did = New-Svrn7Did -KeyPair $kp
     $did.Did   # did:drn:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
 .EXAMPLE
-    New-Svrn7KeyPair | New-Svrn7Did -MethodName 'sovronia'
+    New-Svrn7KeyPair | New-Svrn7Did -MethodName 'sovronia' -ServiceEndpointUrl 'https://alpha.svrn7.net:8443/didcomm'
 .OUTPUTS
-    [PSCustomObject] Svrn7.Did
-        Did          [string]
-        MethodName   [string]
-        PublicKeyHex [string]
+    [Svrn7.Core.Models.DidDocument]
+        Did              [string]
+        MethodName       [string]
+        DocumentJson     [string]   W3C DID Document JSON
+        ServiceEndpoints [List]     contains one entry when -ServiceEndpointUrl is given
 .NOTES
-    ISvrn7Driver method: Base58EncodeAsync(byte[])
+    ISvrn7Driver methods: Base58EncodeAsync(byte[]), CreateDidDocument(string,string,string,string?)
+    Requires TDA runspace — driver must be initialised.
 #>
     [CmdletBinding()]
-    [OutputType([PSCustomObject])]
+    [OutputType([Svrn7.Core.Models.DidDocument])]
     param(
         [Parameter(Mandatory, ValueFromPipeline)] [PSCustomObject] $KeyPair,
-        [Parameter()] [ValidatePattern('^[a-z0-9]+$')] [string] $MethodName = 'drn'
+        [Parameter()] [ValidatePattern('^[a-z0-9]+$')] [string] $MethodName = 'drn',
+        [Parameter()] [string] $ServiceEndpointUrl = ''
     )
     process {
         Assert-FederationDriver
         if (-not $KeyPair.PublicKeyHex) {
             throw [System.ArgumentException]::new('KeyPair.PublicKeyHex is empty. Use New-Svrn7KeyPair.')
         }
-        $bytes = [System.Convert]::FromHexString($KeyPair.PublicKeyHex)
-        $id    = $Script:FederationDriver.Base58EncodeAsync($bytes).GetAwaiter().GetResult()
-        [PSCustomObject]@{
-            PSTypeName = $Script:TypeDid; Did = "did:${MethodName}:${id}"
-            MethodName = $MethodName; PublicKeyHex = $KeyPair.PublicKeyHex
-        }
+        $bytes  = [System.Convert]::FromHexString($KeyPair.PublicKeyHex)
+        $id     = $Script:FederationDriver.Base58EncodeAsync($bytes).GetAwaiter().GetResult()
+        $did    = "did:${MethodName}:${id}"
+        $svcUrl = if ($ServiceEndpointUrl) { $ServiceEndpointUrl } else { $null }
+        $Script:FederationDriver.CreateDidDocument($did, $KeyPair.PublicKeyHex, $MethodName, $svcUrl)
     }
 }
 
@@ -355,23 +361,24 @@ function Resolve-Svrn7CitizenPrimaryDid {
 ###############################################################################
 #region CITIZEN LIFECYCLE
 ###############################################################################
-function Register-Svrn7Citizen {
+function Initialize-Svrn7Citizen {
 <#
 .SYNOPSIS
-    Registers a citizen at the Federation level (no Society endowment).
+    Creates a new citizen record and persists their DIDDocument to the local database.
 .DESCRIPTION
-    Calls ISvrn7Driver.RegisterCitizenAsync(). Creates a citizen record and
-    DID Document but does NOT transfer the 1,000 SVRN7 endowment. For
-    Society-scoped registration with endowment, use Register-Svrn7CitizenInSociety
+    Calls ISvrn7Driver.RegisterCitizenAsync(). Creates the CitizenRecord, wallet, and
+    DIDDocument in the local svrn7-dids.db. Does NOT transfer the 1,000 SVRN7 endowment
+    and does NOT associate the citizen with any Society.
+    To register the citizen with a Society (with endowment), use Register-Svrn7CitizenInSociety
     from Svrn7.Society.
-.PARAMETER Did
-    DID string. Obtain from New-Svrn7Did.
+.PARAMETER DidDocument
+    [Svrn7.Core.Models.DidDocument] from New-Svrn7Did. Persisted to svrn7-dids.db.
 .PARAMETER KeyPair
-    secp256k1 [Svrn7.KeyPair] for the citizen.
+    secp256k1 [Svrn7.KeyPair] — provides PrivateKeyBytes for local key storage.
 .EXAMPLE
-    $kp  = New-Svrn7KeyPair
-    $did = (New-Svrn7Did -KeyPair $kp).Did
-    Register-Svrn7Citizen -Did $did -KeyPair $kp
+    $kp     = New-Svrn7KeyPair
+    $didDoc = New-Svrn7Did -KeyPair $kp -ServiceEndpointUrl 'https://alpha.svrn7.net:8443/didcomm'
+    Initialize-Svrn7Citizen -DidDocument $didDoc -KeyPair $kp
 .OUTPUTS
     [PSCustomObject] Svrn7.CitizenRegistration
         CitizenDid [string]
@@ -382,18 +389,18 @@ function Register-Svrn7Citizen {
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]
     param(
-        [Parameter(Mandatory)] [string]        $Did,
-        [Parameter(Mandatory)] [PSCustomObject] $KeyPair
+        [Parameter(Mandatory)] [Svrn7.Core.Models.DidDocument] $DidDocument,
+        [Parameter(Mandatory)] [PSCustomObject]                 $KeyPair
     )
-    Assert-FederationDriver
-    if ($PSCmdlet.ShouldProcess($Did, 'Register citizen')) {
+    Assert-FederationDriver -RequiredRole 'Society'
+    if ($PSCmdlet.ShouldProcess($DidDocument.Did, 'Initialize citizen')) {
         $r = $Script:FederationDriver.RegisterCitizenAsync(
             [Svrn7.Core.Models.RegisterCitizenRequest]@{
-                Did = $Did; PublicKeyHex = $KeyPair.PublicKeyHex
+                DidDocument     = $DidDocument
                 PrivateKeyBytes = $KeyPair.PrivateKeyBytes
             }).GetAwaiter().GetResult()
-        Resolve-OperationResult $r 'RegisterCitizen' | Out-Null
-        [PSCustomObject]@{ PSTypeName = $Script:TypeCitizenReg; CitizenDid = $Did; Success = $true }
+        Resolve-OperationResult $r 'InitializeCitizen' | Out-Null
+        [PSCustomObject]@{ PSTypeName = $Script:TypeCitizenReg; CitizenDid = $DidDocument.Did; Success = $true }
     }
 }
 
@@ -461,66 +468,100 @@ function Get-Svrn7CitizenDids {
 ###############################################################################
 #region SOCIETY LIFECYCLE
 ###############################################################################
-function Register-Svrn7Society {
+function Initialize-Svrn7Society {
 <#
 .SYNOPSIS
-    Registers a new digital Society with the Federation.
+    Creates a Society record, wallet, and DIDDocument in the local database.
 .DESCRIPTION
-    Calls ISvrn7Driver.RegisterSocietyAsync() to create a Society record, DID Document,
-    and wallet. The primary DID method name is IMMUTABLE after registration. It must:
-      - Match [a-z0-9]+ (W3C DID Core §8.1 — no hyphens or underscores)
-      - Not already be Active or Dormant in the Federation registry
-.PARAMETER Did
-    Society DID string from New-Svrn7Did (use -MethodName matching the primary method).
+    Calls ISvrn7Driver.InitializeSocietyAsync(). Creates the SocietyRecord, wallet,
+    and persists the DIDDocument locally. Does NOT register the DID method name with
+    the Federation registry or issue a VTC credential.
+    Call Register-Svrn7Society after this to complete Federation registration.
+.PARAMETER DidDocument
+    [Svrn7.Core.Models.DidDocument] from New-Svrn7Did. MethodName must match [a-z0-9]+.
 .PARAMETER KeyPair
-    secp256k1 [Svrn7.KeyPair] for the Society.
+    secp256k1 [Svrn7.KeyPair] — provides PrivateKeyBytes for local key storage.
 .PARAMETER Name
     Human-readable Society name (e.g. 'Sovronia Digital Nation').
-.PARAMETER MethodName
-    Primary DID method name. Must match [a-z0-9]+. Immutable after registration.
-.PARAMETER DrawAmountGrana
-    Overdraft draw increment in grana. Default: 1,000,000,000,000 (1,000 SVRN7).
-.PARAMETER OverdraftCeilingGrana
-    Maximum outstanding overdraft in grana. Default: 10,000,000,000,000 (10,000 SVRN7).
 .EXAMPLE
     $kp     = New-Svrn7KeyPair
-    $didObj = New-Svrn7Did -KeyPair $kp -MethodName 'sovronia'
-    Register-Svrn7Society -Did $didObj.Did -KeyPair $kp `
-        -Name 'Sovronia Digital Nation' -MethodName 'sovronia'
-.EXAMPLE
-    $params = @{ Did=$didObj.Did; KeyPair=$kp; Name='Sovronia'; MethodName='sovronia' }
-    Register-Svrn7Society @params
+    $didDoc = New-Svrn7Did -KeyPair $kp -MethodName 'sovronia' `
+                           -ServiceEndpointUrl 'https://sovronia.svrn7.net:8443/didcomm'
+    Initialize-Svrn7Society -DidDocument $didDoc -KeyPair $kp -Name 'Sovronia Digital Nation'
+    Register-Svrn7Society   -SocietyDid $didDoc.Did
 .OUTPUTS
     [PSCustomObject] Svrn7.SocietyRegistration
-        SocietyDid [string]; SocietyName [string]; MethodName [string]
-        DrawAmountGrana [long]; OverdraftCeilingGrana [long]; Success [bool]
+        SocietyDid [string]; SocietyName [string]; MethodName [string]; Success [bool]
 .NOTES
-    ISvrn7Driver method: RegisterSocietyAsync(RegisterSocietyRequest)
+    ISvrn7Driver method: InitializeSocietyAsync(RegisterSocietyRequest)
     Spec: draft-herman-web7-society-architecture-00 §4.2
 #>
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]
     param(
-        [Parameter(Mandatory)] [string]        $Did,
-        [Parameter(Mandatory)] [PSCustomObject] $KeyPair,
-        [Parameter(Mandatory)] [string]        $Name,
-        [Parameter(Mandatory)] [ValidatePattern('^[a-z0-9]+$')] [string] $MethodName,
-        [Parameter()] [ValidateRange(1L,[long]::MaxValue)] [long] $DrawAmountGrana       = 1000000000000L,
-        [Parameter()] [ValidateRange(1L,[long]::MaxValue)] [long] $OverdraftCeilingGrana = 10000000000000L
+        [Parameter(Mandatory)] [Svrn7.Core.Models.DidDocument] $DidDocument,
+        [Parameter(Mandatory)] [PSCustomObject]                 $KeyPair,
+        [Parameter(Mandatory)] [string]                         $Name
     )
     Assert-FederationDriver
-    if ($PSCmdlet.ShouldProcess($Did, "Register Society '$Name' (method: $MethodName)")) {
-        $r = $Script:FederationDriver.RegisterSocietyAsync(
+    if ($PSCmdlet.ShouldProcess($DidDocument.Did, "Initialize Society '$Name' (method: $($DidDocument.MethodName))")) {
+        $r = $Script:FederationDriver.InitializeSocietyAsync(
             [Svrn7.Core.Models.RegisterSocietyRequest]@{
-                Did=$Did; PublicKeyHex=$KeyPair.PublicKeyHex; PrivateKeyBytes=$KeyPair.PrivateKeyBytes
-                SocietyName=$Name; PrimaryDidMethodName=$MethodName
-                DrawAmountGrana=$DrawAmountGrana; OverdraftCeilingGrana=$OverdraftCeilingGrana
+                DidDocument     = $DidDocument
+                PrivateKeyBytes = $KeyPair.PrivateKeyBytes
+                SocietyName     = $Name
+                DrawAmountGrana       = 0L
+                OverdraftCeilingGrana = 0L
             }).GetAwaiter().GetResult()
-        Resolve-OperationResult $r 'RegisterSociety' | Out-Null
+        Resolve-OperationResult $r 'InitializeSociety' | Out-Null
         [PSCustomObject]@{
-            PSTypeName=$Script:TypeSocietyReg; SocietyDid=$Did; SocietyName=$Name
-            MethodName=$MethodName; DrawAmountGrana=$DrawAmountGrana
-            OverdraftCeilingGrana=$OverdraftCeilingGrana; Success=$true
+            PSTypeName = $Script:TypeSocietyReg
+            SocietyDid = $DidDocument.Did
+            SocietyName = $Name
+            MethodName = $DidDocument.MethodName
+            Success    = $true
+        }
+    }
+}
+
+function Register-Svrn7Society {
+<#
+.SYNOPSIS
+    Registers an already-initialized Society's DID method with the Federation registry.
+.DESCRIPTION
+    Calls ISvrn7Driver.RegisterSocietyInFederationAsync(). Checks method name uniqueness,
+    registers the primary DID method name in the Federation registry, issues a
+    Svrn7VtcCredential, and appends a SocietyRegistration entry to the Merkle log.
+    The Society must already be initialized via Initialize-Svrn7Society.
+.PARAMETER SocietyDid
+    DID of the Society to register. Must have been initialized first.
+.EXAMPLE
+    Register-Svrn7Society -SocietyDid 'did:sovronia:3J98...'
+.OUTPUTS
+    [PSCustomObject] Svrn7.SocietyRegistration
+        SocietyDid [string]; MethodName [string]; Success [bool]
+.NOTES
+    ISvrn7Driver method: RegisterSocietyInFederationAsync(string)
+    Spec: draft-herman-web7-society-architecture-00 §4.2
+#>
+    [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([PSCustomObject])]
+    param(
+        [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)] [string] $SocietyDid
+    )
+    process {
+        Assert-FederationDriver
+        if ($PSCmdlet.ShouldProcess($SocietyDid, 'Register Society in Federation')) {
+            $r = $Script:FederationDriver.RegisterSocietyInFederationAsync($SocietyDid).GetAwaiter().GetResult()
+            Resolve-OperationResult $r 'RegisterSociety' | Out-Null
+            $soc = $Script:FederationDriver.GetSocietyAsync($SocietyDid).GetAwaiter().GetResult()
+            [PSCustomObject]@{
+                PSTypeName = $Script:TypeSocietyReg
+                SocietyDid = $SocietyDid
+                SocietyName = $soc?.SocietyName
+                MethodName  = $soc?.PrimaryDidMethodName
+                Success     = $true
+            }
         }
     }
 }
@@ -896,6 +937,65 @@ function Invoke-Svrn7BatchTransfer {
 ###############################################################################
 #region FEDERATION / EPOCH
 ###############################################################################
+function Initialize-Svrn7Federation {
+<#
+.SYNOPSIS
+    Initialises the Federation record (idempotent — no-op if already initialised).
+.DESCRIPTION
+    Calls ISvrn7Driver.InitialiseFederationAsync(). Creates the FederationRecord,
+    registers the primary DID method name, persists the DID Document, and seeds the
+    Federation wallet with the initial supply. Safe to call multiple times — subsequent
+    calls return Success=$true with AlreadyInitialised=$true.
+.PARAMETER DidDocument
+    [Svrn7.Core.Models.DidDocument] from New-Svrn7Did. MethodName, DID, and public key
+    are taken from the document. Include -ServiceEndpointUrl in New-Svrn7Did to embed
+    the Federation TDA endpoint so other TDAs can discover it via resolution.
+.PARAMETER KeyPair
+    secp256k1 [Svrn7.KeyPair] — accepted for pipeline consistency; PrivateKeyBytes
+    are not used by this call.
+.PARAMETER Name
+    Human-readable Federation name (e.g. 'Web 7.0 Foundation').
+.EXAMPLE
+    $kp     = New-Svrn7KeyPair
+    $didDoc = New-Svrn7Did -KeyPair $kp -MethodName 'drn' `
+                           -ServiceEndpointUrl 'https://foundation.svrn7.net:8443/didcomm'
+    Initialize-Svrn7Federation -DidDocument $didDoc -KeyPair $kp -Name 'Web 7.0 Foundation'
+.OUTPUTS
+    [PSCustomObject] Svrn7.FederationRegistration
+        FederationDid      [string]
+        FederationName     [string]
+        MethodName         [string]
+        AlreadyInitialised [bool]
+        Success            [bool]
+.NOTES
+    ISvrn7Driver method: InitialiseFederationAsync(DidDocument, string)
+#>
+    [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([PSCustomObject])]
+    param(
+        [Parameter(Mandatory)] [Svrn7.Core.Models.DidDocument] $DidDocument,
+        [Parameter(Mandatory)] [PSCustomObject]                 $KeyPair,
+        [Parameter(Mandatory)] [string]                         $Name
+    )
+    Assert-FederationDriver
+    if ($PSCmdlet.ShouldProcess($DidDocument.Did, "Register Federation '$Name' (method: $($DidDocument.MethodName))")) {
+        $r = $Script:FederationDriver.InitialiseFederationAsync(
+            $DidDocument,
+            $Name
+        ).GetAwaiter().GetResult()
+        Resolve-OperationResult $r 'RegisterFederation' | Out-Null
+        $alreadyInit = ($r.Payload -and $r.Payload.alreadyInitialised -eq $true)
+        [PSCustomObject]@{
+            PSTypeName         = $Script:TypeFederationReg
+            FederationDid      = $DidDocument.Did
+            FederationName     = $Name
+            MethodName         = $DidDocument.MethodName
+            AlreadyInitialised = $alreadyInit
+            Success            = $true
+        }
+    }
+}
+
 function Get-Svrn7Federation {
 <#
 .SYNOPSIS
@@ -1334,7 +1434,7 @@ function Invoke-Web7SocietyList {
 function Invoke-Web7FederationInit {
     <#
     .SYNOPSIS
-        Handles federation/1.0/init — initialises the Federation record (idempotent).
+        Handles federation/1.0/initialize-federation — initialises the Federation record (idempotent).
     .DESCRIPTION
         Body: { "federationDid":        "<DID>",
                 "federationName":       "<name>",
@@ -1350,7 +1450,7 @@ function Invoke-Web7FederationInit {
         DID Document.  If neither source yields an endpoint the init still succeeds
         and a warning is written to the PS stream; no error is raised.
 
-        Replies with federation/1.0/init-result.
+        Replies with federation/1.0/initialize-federation-result.
     .PARAMETER MessageDid
         TDA resource DID URL for the inbox message.
     #>
@@ -1368,11 +1468,12 @@ function Invoke-Web7FederationInit {
         $body = $msg.PackedPayload | ConvertFrom-Json
         Assert-BodyFields $body @('federationDid','federationName','publicKeyHex','primaryDidMethodName') 'Invoke-Web7FederationInit'
 
+        $svcUrl = if ($body.PSObject.Properties['serviceEndpointUrl'] -and $body.serviceEndpointUrl) { $body.serviceEndpointUrl } else { $null }
+        $fedDoc  = $drv.CreateDidDocument($body.federationDid, $body.publicKeyHex, $body.primaryDidMethodName, $svcUrl)
+
         $result = $drv.InitialiseFederationAsync(
-            $body.federationDid,
-            $body.federationName,
-            $body.publicKeyHex,
-            $body.primaryDidMethodName
+            $fedDoc,
+            $body.federationName
         ).GetAwaiter().GetResult()
 
         Resolve-OperationResult $result 'FederationInit' | Out-Null
@@ -1400,7 +1501,7 @@ function Invoke-Web7FederationInit {
         }
 
         if (-not $endpoint) {
-            Write-Warning "Invoke-Web7FederationInit: no reply endpoint available — init succeeded but no init-result will be sent."
+            Write-Warning "Invoke-Web7FederationInit: no reply endpoint available — init succeeded but no initialize-federation-result will be sent."
             return
         }
 
@@ -1437,12 +1538,13 @@ function Invoke-Web7RegisterSociety {
         $body = $msg.PackedPayload | ConvertFrom-Json
         Assert-BodyFields $body @('societyDid','publicKeyHex','societyName','primaryDidMethodName') 'Invoke-Web7RegisterSociety'
 
+        $svcUrl  = if ($body.PSObject.Properties['serviceEndpointUrl'] -and $body.serviceEndpointUrl) { $body.serviceEndpointUrl } else { $null }
+        $didDoc  = $drv.CreateDidDocument($body.societyDid, $body.publicKeyHex, $body.primaryDidMethodName, $svcUrl)
+
         $request = [Svrn7.Core.Models.RegisterSocietyRequest]::new()
-        $request.Did                  = $body.societyDid
-        $request.PublicKeyHex         = $body.publicKeyHex
+        $request.DidDocument          = $didDoc
         $request.PrivateKeyBytes      = [byte[]]@()
         $request.SocietyName          = $body.societyName
-        $request.PrimaryDidMethodName = $body.primaryDidMethodName
         $request.DrawAmountGrana      = if ($body.PSObject.Properties['drawAmountGrana'])       { [long]$body.drawAmountGrana }       else { 0L }
         $request.OverdraftCeilingGrana= if ($body.PSObject.Properties['overdraftCeilingGrana']) { [long]$body.overdraftCeilingGrana } else { 0L }
 
@@ -1612,7 +1714,7 @@ Export-ModuleMember -Function @(
     'Get-Svrn7Society'
     'Get-Svrn7VcById'
     'Get-Svrn7VcsBySubject'
-    'Initialize-Svrn7Federation'
+    'Initialize-Svrn7FederationDriver'
     'Remove-Svrn7Databases'
     'Invoke-Svrn7BatchTransfer'
     'Invoke-Web7FederationQuery'
@@ -1626,8 +1728,10 @@ Export-ModuleMember -Function @(
     'New-Svrn7Did'
     'New-Svrn7Ed25519KeyPair'
     'New-Svrn7KeyPair'
-    'Register-Svrn7Citizen'
+    'Initialize-Svrn7Citizen'
+    'Initialize-Svrn7Federation'
     'Register-Svrn7DidMethod'
+    'Initialize-Svrn7Society'
     'Register-Svrn7Society'
     'Resolve-Svrn7CitizenPrimaryDid'
     'Resolve-Svrn7Did'

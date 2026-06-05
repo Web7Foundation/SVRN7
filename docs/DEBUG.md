@@ -143,7 +143,7 @@ bootstrap sequence using only DIDComm messages to the running TDA:
 
 | Step | Protocol | Handler |
 |------|----------|---------|
-| E.0 | `federation/1.0/init` | `Invoke-Web7FederationInit` |
+| E.0 | `federation/1.0/initialize-federation` | `Invoke-Web7FederationInit` |
 | E.1 | `federation/1.0/federation-query` | `Invoke-Web7FederationQuery` |
 | E.2 | `federation/1.0/register-society` | `Invoke-Web7RegisterSociety` |
 | E.3 | *(client-side key generation)* | — |
@@ -189,7 +189,7 @@ Public key  : 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
 Private key : 18e14a7b5a...  <-- store securely, never share
 ```
 
-#### E.0.2 — Send the federation/1.0/init DIDComm message
+#### E.0.2 — Send the federation/1.0/initialize-federation DIDComm message
 
 Replace `$federationKp.PublicKeyHex` with the value saved in E.0.1 on subsequent runs.
 
@@ -204,7 +204,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/federation/1.0/init"
+    type = "did:drn:svrn7.net/protocols/federation/1.0/initialize-federation"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -216,12 +216,12 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/federation/1.0/init)
-        → Invoke-Web7FederationInit [Svrn7.Federation]
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/federation/1.0/initialize-federation)
+        → Invoke-Web7FederationInit [Svrn7.Federation]   # routes on initialize-federation
 [Info]  Federation initialised: did:drn:foundation.svrn7.net (Web 7.0 SOVRON Foundation), supply 1000000000000000000 grana
 ```
 
-Reply body (`federation/1.0/init-result`):
+Reply body (`federation/1.0/initialize-federation-result`):
 
 ```json
 {
@@ -332,7 +332,8 @@ This step is identical to Scenario B step B.1 — key generation never goes thro
 
 ```powershell
 $citizenKeyPair = New-Svrn7KeyPair
-$citizenDid     = New-Svrn7Did -KeyPair $citizenKeyPair -MethodName "bindloss"
+$citizenDidDoc  = New-Svrn7Did -KeyPair $citizenKeyPair -MethodName "bindloss"
+$citizenDid     = $citizenDidDoc.Did
 # e.g. did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
 ```
 
@@ -739,7 +740,7 @@ In a separate PowerShell 7 session, import the Society module and query the runn
 Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
 Import-Module .\lobes\Svrn7.Society\Svrn7.Society.psm1
 
-Initialize-Svrn7Federation
+Initialize-Svrn7FederationDriver
 
 Connect-Svrn7Society `
     -SocietyDid     "did:drn:bindloss.svrn7.net" `
@@ -940,12 +941,12 @@ $env:SVRN7_BIN_PATH = $PWD
 ```powershell
 # Import order matters: Federation must be imported before Society
 # (Society dot-sources Svrn7.Common.psm1 through its own copy, but the
-#  assembly loader flag is set by Initialize-Svrn7Federation)
+#  assembly loader flag is set by Initialize-Svrn7FederationDriver)
 Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1 -Force
 Import-Module .\lobes\Svrn7.Society\Svrn7.Society.psm1    -Force
 
 # Load the Svrn7 assemblies and create the ISvrn7Driver singleton
-Initialize-Svrn7Federation -DbPath "./data-ps" -DidMethodName "drn" -Verbose
+Initialize-Svrn7FederationDriver -DbPath "./data-ps" -DidMethodName "drn" -Verbose
 
 # Create the ISvrn7SocietyDriver singleton (wraps the Federation driver)
 Connect-Svrn7Society `
@@ -1016,7 +1017,7 @@ $did = New-Svrn7Did -KeyPair $kp -MethodName "bindloss"
 5. Appends a `CitizenRegistration` entry to the Merkle audit log.
 
 ```powershell
-$reg = Register-Svrn7CitizenInSociety -CitizenDid $did.Did -KeyPair $kp
+$reg = Register-Svrn7CitizenInSociety -DidDocument $did -KeyPair $kp
 $reg | Format-List
 ```
 
@@ -1089,7 +1090,7 @@ DrawCount             : 1
 ```powershell
 $kp2  = New-Svrn7KeyPair
 $did2 = New-Svrn7Did -KeyPair $kp2 -MethodName "bindloss"
-Register-Svrn7CitizenInSociety -CitizenDid $did2.Did -KeyPair $kp2 | Select-Object CitizenDid, Success
+Initialize-Svrn7Citizen -DidDocument $did2 -KeyPair $kp2 | Select-Object CitizenDid, Success
 ```
 
 ```powershell
@@ -1101,7 +1102,7 @@ Get-Svrn7SocietyMembers | Select-Object MemberCount
 
 ```powershell
 # Register a second DID method name under this Society
-Register-Svrn7SocietyDidMethod -MethodName "bindlossgov"
+Initialize-Svrn7SocietyDidMethod -MethodName "bindlossgov"
 
 # Issue a secondary DID for mwherman under the new method
 Add-Svrn7CitizenDid -CitizenPrimaryDid $did.Did -MethodName "bindlossgov"

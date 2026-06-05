@@ -35,8 +35,8 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/federation/1.0/init",
-      "title": "Federation Init",
+      "uri": "did:drn:svrn7.net/protocols/federation/1.0/initialize-federation",
+      "title": "Initialize Federation",
       "description": "Initialises the Federation record (idempotent — no-op if already initialised). Body: federationDid, federationName, publicKeyHex, primaryDidMethodName.",
       "entrypoint": "Invoke-Web7FederationInit",
       "epochRequired": 0
@@ -56,9 +56,9 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/federation/1.0/init-result",
-      "title": "Federation Init Result",
-      "description": "Inbound reply to a federation init request. Body: federationDid, federationName, primaryDidMethodName, totalSupplyGrana, alreadyInitialised, initialisedAt. Terminal — no reply is sent.",
+      "uri": "did:drn:svrn7.net/protocols/federation/1.0/initialize-federation-result",
+      "title": "Initialize Federation Result",
+      "description": "Inbound reply to an initialize-federation request. Body: federationDid, federationName, primaryDidMethodName, totalSupplyGrana, alreadyInitialised, initialisedAt. Terminal — no reply is sent.",
       "entrypoint": "Invoke-Web7FederationInitResult",
       "epochRequired": 0
     },

@@ -12,6 +12,23 @@ using Svrn7.Society;
 
 namespace Svrn7.TDA;
 
+// ── TdaRole ───────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Declares the functional role of this TDA instance in the Web 7.0 network.
+/// Controls which LOBEs are loaded and how the startup banner is labelled.
+/// Additional roles may be added in future epochs.
+/// </summary>
+public enum TdaRole
+{
+    /// <summary>Manages the Federation record, method registry, and total supply.</summary>
+    Federation,
+    /// <summary>Manages a Society's membership, wallets, and endowment transfers.</summary>
+    Society,
+    /// <summary>Represents an individual citizen's identity and signing keys.</summary>
+    Citizen,
+}
+
 // ── TdaOptions ────────────────────────────────────────────────────────────────
 
 /// <summary>
@@ -21,6 +38,11 @@ namespace Svrn7.TDA;
 /// </summary>
 public sealed class TdaOptions
 {
+    // ── Role ──────────────────────────────────────────────────────────────────
+
+    /// <summary>Functional role of this TDA instance. Default: Federation.</summary>
+    public TdaRole Role { get; set; } = TdaRole.Federation;
+
     // ── Society identity ──────────────────────────────────────────────────────
 
     /// <summary>Society DID — e.g., "did:drn:alpha.svrn7.net".</summary>
@@ -207,7 +229,8 @@ public static class TdaServiceCollectionExtensions
             var cache  = sp.GetRequiredService<IMemoryCache>();
             var orders = sp.GetRequiredService<IProcessedOrderStore>();
             return new Svrn7RunspaceContext(driver, inbox, cache, orders,
-                initialEpoch: Svrn7.Core.Svrn7Constants.Epochs.Endowment);
+                initialEpoch: Svrn7.Core.Svrn7Constants.Epochs.Endowment,
+                role:         opts.Role);
         });
 
         // 4. LobeManager

@@ -40,7 +40,7 @@ create the ISvrn7SocietyDriver singleton before using any cmdlet here.
         # Society identity
         'Get-Svrn7OwnSociety'
 
-        # Citizen registration with endowment
+        # Citizen registration with endowment + DIDDocument copy
         'Register-Svrn7CitizenInSociety'
 
         # Multi-DID citizen management
@@ -62,7 +62,7 @@ create the ISvrn7SocietyDriver singleton before using any cmdlet here.
         'Test-Svrn7SocietyMember'
 
         # Self-service DID method governance
-        'Register-Svrn7SocietyDidMethod'
+        'Initialize-Svrn7SocietyDidMethod'
         'Unregister-Svrn7SocietyDidMethod'
         'Get-Svrn7SocietyDidMethods'
 

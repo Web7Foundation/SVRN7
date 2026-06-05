@@ -229,8 +229,8 @@ namespace for standard SVRN7 protocol type URIs.
 | `CitizenDidAddResult` | `did:drn:svrn7.net/protocols/society/1.0/citizen-did-add-result` | Society → Client |
 | `FederationQuery` | `did:drn:svrn7.net/protocols/federation/1.0/federation-query` | Client → Federation |
 | `FederationQueryResult` | `did:drn:svrn7.net/protocols/federation/1.0/federation-query-result` | Federation → Client |
-| `FederationInit` | `did:drn:svrn7.net/protocols/federation/1.0/init` | Client → Federation |
-| `FederationInitResult` | `did:drn:svrn7.net/protocols/federation/1.0/init-result` | Federation → Client |
+| `FederationInit` | `did:drn:svrn7.net/protocols/federation/1.0/initialize-federation` | Client → Federation |
+| `FederationInitResult` | `did:drn:svrn7.net/protocols/federation/1.0/initialize-federation-result` | Federation → Client |
 | `RegisterSociety` | `did:drn:svrn7.net/protocols/federation/1.0/register-society` | Client → Federation |
 | `RegisterSocietyResult` | `did:drn:svrn7.net/protocols/federation/1.0/register-society-result` | Federation → Client |
 

@@ -862,6 +862,8 @@ internal sealed class NullSocietyDriver : Svrn7.Society.ISvrn7SocietyDriver
     public Task<bool> IsCitizenActiveAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.CitizenDidRecord>> GetAllDidsForCitizenAsync(string primaryDid, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<string?> ResolveCitizenPrimaryDidAsync(string anyDid, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<Svrn7.Core.Models.OperationResult> InitializeSocietyAsync(Svrn7.Core.Models.RegisterSocietyRequest r, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<Svrn7.Core.Models.OperationResult> RegisterSocietyInFederationAsync(string societyDid, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> RegisterSocietyAsync(Svrn7.Core.Models.RegisterSocietyRequest r, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.SocietyRecord?> GetSocietyAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct = default) => throw new NotImplementedException();

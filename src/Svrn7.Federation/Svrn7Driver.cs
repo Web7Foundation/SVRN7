@@ -236,7 +236,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
     // ── Society lifecycle ──────────────────────────────────────────────────────
 
-    public async Task<OperationResult> RegisterSocietyAsync(
+    public async Task<OperationResult> InitializeSocietyAsync(
         RegisterSocietyRequest request, CancellationToken ct = default)
     {
         ThrowIfDisposed();
@@ -244,17 +244,56 @@ public sealed class Svrn7Driver : ISvrn7Driver
         ArgumentException.ThrowIfNullOrWhiteSpace(request.DidDocument.Did);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.DidDocument.MethodName);
 
-        var did              = request.DidDocument.Did;
-        var publicKeyHex     = request.DidDocument.VerificationMethod.FirstOrDefault()?.PublicKeyHex ?? string.Empty;
+        var did               = request.DidDocument.Did;
+        var publicKeyHex      = request.DidDocument.VerificationMethod.FirstOrDefault()?.PublicKeyHex ?? string.Empty;
         var primaryMethodName = request.DidDocument.MethodName;
 
         try
         {
-            // Validate method name format ([a-z0-9]+)
             if (!System.Text.RegularExpressions.Regex.IsMatch(primaryMethodName, @"^[a-z0-9]+$"))
                 throw new ConfigurationException(
                     $"DID method name '{primaryMethodName}' must match [a-z0-9]+.");
 
+            var society = new SocietyRecord
+            {
+                Did                  = did,
+                PublicKeyHex         = publicKeyHex,
+                SocietyName          = request.SocietyName,
+                PrimaryDidMethodName = primaryMethodName,
+            };
+            await _registry.RegisterSocietyAsync(society, ct);
+
+            // Society wallet (active — receives Epoch 0 transfers)
+            await _wallets.CreateWalletAsync(
+                new Wallet { Did = did, BalanceGrana = 0, IsRestricted = false }, ct);
+
+            // DID Document
+            await _didRegistry.CreateAsync(request.DidDocument, ct);
+
+            _didsPubl.Add(1);
+            _log.LogInformation("Society initialised locally: {Did} ({Method})", did, primaryMethodName);
+            return OperationResult.Ok(new { did });
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Society initialisation failed for {Did}", request.DidDocument.Did);
+            return OperationResult.Fail(ex.Message);
+        }
+    }
+
+    public async Task<OperationResult> RegisterSocietyInFederationAsync(
+        string societyDid, CancellationToken ct = default)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(societyDid);
+
+        var society = await _registry.GetSocietyAsync(societyDid, ct)
+            ?? throw new NotFoundException("SocietyRecord", societyDid);
+
+        var primaryMethodName = society.PrimaryDidMethodName;
+
+        try
+        {
             // Check uniqueness in Federation registry
             var status = await _federation.GetMethodStatusAsync(primaryMethodName, ct);
             var existingRecord = await _federation.GetMethodRecordAsync(primaryMethodName, ct);
@@ -267,49 +306,30 @@ public sealed class Svrn7Driver : ISvrn7Driver
                     dormantRecord?.DormantUntil ?? DateTimeOffset.UtcNow.Add(_options.DidMethodDormancyPeriod));
             }
 
-            var society = new SocietyRecord
-            {
-                Did                  = did,
-                PublicKeyHex         = publicKeyHex,
-                SocietyName          = request.SocietyName,
-                PrimaryDidMethodName = primaryMethodName,
-            };
-            await _registry.RegisterSocietyAsync(society, ct);
-
             // Register primary method name in Federation registry
             await _federation.RegisterMethodAsync(new SocietyDidMethodRecord
             {
-                SocietyDid  = did,
+                SocietyDid  = societyDid,
                 MethodName  = primaryMethodName,
                 IsPrimary   = true,
                 Status      = DidMethodStatus.Active,
             }, ct);
 
-            // Society wallet (active — receives Epoch 0 transfers)
-            await _wallets.CreateWalletAsync(
-                new Wallet { Did = did, BalanceGrana = 0, IsRestricted = false }, ct);
-
-            // Overdraft record
-            // (ISocietyMembershipStore would store this — handled by Svrn7.Society layer)
-
-            // DID Document — use the pre-built document from the caller
-            await _didRegistry.CreateAsync(request.DidDocument, ct);
-
-            // VTC Credential — skipped when foundation private key is not configured (dev mode)
+            // VTC Credential
             string? vtcVcId = null;
             if (_foundationPrivateKey.Length > 0)
             {
                 var jwtVc = await _vcService.IssueAsync(
                     _options.DidMethodName + ":foundation",
-                    did,
+                    societyDid,
                     "Svrn7VtcCredential",
-                    new { id = did, societyName = request.SocietyName, methodName = primaryMethodName },
+                    new { id = societyDid, societyName = society.SocietyName, methodName = primaryMethodName },
                     _foundationPrivateKey, ct: ct);
                 var vcRecord = new VcRecord
                 {
                     VcId       = $"urn:uuid:{Guid.NewGuid()}",
                     IssuerDid  = _options.DidMethodName + ":foundation",
-                    SubjectDid = did,
+                    SubjectDid = societyDid,
                     Types      = new List<string> { "VerifiableCredential", "Svrn7VtcCredential" },
                     VcHash     = _crypto.Blake3Hex(Encoding.UTF8.GetBytes(jwtVc)),
                     JwtEncoded = jwtVc,
@@ -322,23 +342,30 @@ public sealed class Svrn7Driver : ISvrn7Driver
             }
             else
             {
-                _log.LogWarning("RegisterSocietyAsync: FoundationPrivateKey not configured — " +
-                    "VTC credential skipped for {Did} (development mode)", did);
+                _log.LogWarning("RegisterSocietyInFederationAsync: FoundationPrivateKey not configured — " +
+                    "VTC credential skipped for {Did} (development mode)", societyDid);
             }
 
             await _merkle.AppendAsync("SocietyRegistration",
-                JsonSerializer.Serialize(new { did, method = primaryMethodName }), ct);
+                JsonSerializer.Serialize(new { did = societyDid, method = primaryMethodName }), ct);
 
             _socReg.Add(1);
-            _didsPubl.Add(1);
-            _log.LogInformation("Society registered: {Did} ({Method})", did, primaryMethodName);
-            return OperationResult.Ok(new { did, VcId = vtcVcId });
+            _log.LogInformation("Society registered in Federation: {Did} ({Method})", societyDid, primaryMethodName);
+            return OperationResult.Ok(new { did = societyDid, VcId = vtcVcId });
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Society registration failed for {Did}", request.DidDocument.Did);
+            _log.LogError(ex, "Society Federation registration failed for {Did}", societyDid);
             return OperationResult.Fail(ex.Message);
         }
+    }
+
+    public async Task<OperationResult> RegisterSocietyAsync(
+        RegisterSocietyRequest request, CancellationToken ct = default)
+    {
+        var init = await InitializeSocietyAsync(request, ct);
+        if (!init.Success) return init;
+        return await RegisterSocietyInFederationAsync(request.DidDocument.Did, ct);
     }
 
     public Task<SocietyRecord?> GetSocietyAsync(string did, CancellationToken ct = default)

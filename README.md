@@ -174,9 +174,16 @@ scalability with AI capability — see:
       +--------------+    +--------------+  +--------------+
 ```
 
-Each participant — Federation, Society, and Citizen — operates a TDA. A Society TDA manages
+Each participant — Federation, Society, and Citizen — operates a TDA. The TDA role is
+declared at startup via `--role Federation|Society|Citizen`. A Society TDA manages
 the monetary layer and registry services. A Citizen TDA manages personal identity,
 communications, and value exchange.
+
+To start a local three-node testnet:
+
+```powershell
+.\run-testnet.ps1   # Federation1:8441  Society2:8442  Citizen3:8443
+```
 
 ### Solution Structure
 
