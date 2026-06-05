@@ -878,7 +878,8 @@ internal sealed class NullSocietyDriver : Svrn7.Society.ISvrn7SocietyDriver
     public Task<Svrn7.Core.Models.BalanceResult> GetBalanceResultAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.FederationRecord?> GetFederationAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> UpdateFederationSupplyAsync(long newTotalSupplyGrana, string foundationSignature, string governanceRef, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> InitialiseFederationAsync(string federationDid, string federationName, string publicKeyHex, string primaryDidMethodName, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<Svrn7.Core.Models.OperationResult> InitialiseFederationAsync(Svrn7.Core.Models.DidDocument d, string n, CancellationToken ct = default) => throw new NotImplementedException();
+    public Svrn7.Core.Models.DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null) => throw new NotImplementedException();
     public Task CreateDidAsync(Svrn7.Core.Models.DidDocument document, CancellationToken ct = default) => throw new NotImplementedException();
     public Task UpdateDidAsync(Svrn7.Core.Models.DidDocument document, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.DidResolutionResult> ResolveDidAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
@@ -1376,8 +1377,8 @@ public class SwitchboardStartupTests : IDisposable
             new NullSocietyDriver(), inbox, cache, new NullProcessedOrderStore(), 0);
         var lobes = new LobeManager(
             Options.Create(tdaOpts), ctx, NullLogger<LobeManager>.Instance);
-        var pool = new RunspacePoolManager(
-            Options.Create(tdaOpts), lobes, ctx, NullLogger<RunspacePoolManager>.Instance);
+        var pool = new IsolatedRunspaceFactory(
+            Options.Create(tdaOpts), lobes, ctx, NullLogger<IsolatedRunspaceFactory>.Instance);
 
         return new DIDCommMessageSwitchboard(
             ctx, pool, inbox, outbox, lobes,

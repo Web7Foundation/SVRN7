@@ -447,7 +447,7 @@ pool context.
 Because PowerShell's `Import-Module` imports a module into the calling runspace (not
 into the shared `InitialSessionState`, which is frozen after startup), a JIT LOBE
 is available only in the `IsolatedPipeline` runspace that imported it. Because each
-dispatch opens a fresh runspace from the ISS template via `RunspacePoolManager.CreateIsolatedPipeline()`,
+dispatch opens a fresh runspace from the ISS template via `IsolatedRunspaceFactory.CreateIsolatedPipeline()`,
 a JIT LOBE is imported once per `IsolatedPipeline` invocation. The import cost is
 therefore incurred on every dispatch for JIT LOBEs.
 
@@ -505,7 +505,7 @@ the following dispatch protocol:
    Call LobeManager.EnsureLoadedAsync(registration.ModuleName).
 
 7. PIPELINE INVOCATION:
-   Call RunspacePoolManager.CreateIsolatedPipeline() to open a fresh Runspace from the
+   Call IsolatedRunspaceFactory.CreateIsolatedPipeline() to open a fresh Runspace from the
    shared ISS template. Execute within the IsolatedPipeline:
      Get-Web7Message -Did $msg.Id | {registration.Entrypoint} | Send-Web7Message
    (Pass-by-reference: msg.Id is the DID URL, not the payload.)
@@ -956,7 +956,7 @@ registering LOBE is a standard SVRN7 LOBE (identified by `lobe.id` prefix `svrn7
 ### 14.3 IsolatedPipeline Isolation
 
 Each LOBE dispatch runs in its own `IsolatedPipeline` — a fresh `Runspace` opened from
-the shared `InitialSessionState` template via `RunspacePoolManager.CreateIsolatedPipeline()`.
+the shared `InitialSessionState` template via `IsolatedRunspaceFactory.CreateIsolatedPipeline()`.
 The `IsolatedPipeline` is disposed after each dispatch. This provides complete blast-radius
 isolation: a crash or runaway in one dispatch cannot affect any other.
 

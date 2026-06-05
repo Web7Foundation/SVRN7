@@ -30,6 +30,24 @@
       "match": "prefix",
       "entrypoint": "Get-Svrn7VcById",
       "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/did/1.0/resolve-response",
+      "title": "DID Resolve Response",
+      "description": "Inbound reply to a did/1.0/resolve-request. Body: from, to, requestedDid, found, didDocument, resolvedAt. Terminal — no reply is sent.",
+      "direction": "inbound",
+      "match": "exact",
+      "entrypoint": "Invoke-Svrn7DidResolveResponse",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/vc/1.0/resolve-by-subject-response",
+      "title": "VC Resolve by Subject Response",
+      "description": "Inbound reply to a vc/1.0/resolve-by-subject-request. Body: from, to, subjectDid, found, credentials[], resolvedAt. Terminal — no reply is sent.",
+      "direction": "inbound",
+      "match": "exact",
+      "entrypoint": "Invoke-Svrn7VcResolveResponse",
+      "epochRequired": 0
     }
   ],
   "cmdlets": [

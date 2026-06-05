@@ -79,7 +79,7 @@ public sealed class LobeManager : IDisposable
     /// <summary>
     /// Reads lobes.config.json, imports eager LOBEs, injects session variables,
     /// scans all *.lobe.json descriptors, and starts the FileSystemWatcher.
-    /// Called once by RunspacePoolManager at startup.
+    /// Called once by IsolatedRunspaceFactory at startup.
     /// </summary>
     public InitialSessionState BuildInitialSessionState()
     {
@@ -346,6 +346,11 @@ public sealed class LobeManager : IDisposable
 
     private void ScanDescriptors()
     {
+        if (!Directory.Exists(LobeBaseDir))
+        {
+            _log.LogWarning("LobeManager: LOBE directory '{Dir}' not found — no descriptors scanned.", LobeBaseDir);
+            return;
+        }
         var files = Directory.GetFiles(LobeBaseDir, "*.lobe.json", SearchOption.AllDirectories);
         _log.LogInformation("LobeManager: scanning {N} descriptor(s) under '{Dir}'.",
             files.Length, LobeBaseDir);

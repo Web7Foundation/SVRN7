@@ -114,7 +114,7 @@ Web7-DSA.sln
 └── Svrn7.TDA/             — TDA Host (5 Critical components, DSA 0.24)
     ├── Svrn7RunspaceContext.cs  — $SVRN7 shared session variable
     ├── LobeManager.cs           — eager/JIT LOBE loader, lobes.config.json
-    ├── RunspacePoolManager.cs   — PowerShell RunspacePool lifecycle
+    ├── IsolatedRunspaceFactory.cs   — PowerShell RunspacePool lifecycle
     ├── DIDCommMessageSwitchboard.cs — sole inbox reader, pass-by-reference routing
     ├── KestrelListenerService.cs    — POST /didcomm, HTTP/2 + mTLS
     ├── TdaHost.cs               — TdaOptions, SwitchboardHostedService, DI extensions
@@ -582,7 +582,7 @@ src/Svrn7.TDA/
 ├── TdaHost.cs                   — TdaOptions, SwitchboardHostedService, AddSvrn7Tda() DI
 ├── KestrelListenerService.cs    — POST /didcomm, HTTP/2 + mTLS, UnpackAsync boundary
 ├── DIDCommMessageSwitchboard.cs — sole inbox reader, epoch gate, DID URL pass-by-reference
-├── RunspacePoolManager.cs       — PowerShell RunspacePool (min=2, max=N), epoch refresh
+├── IsolatedRunspaceFactory.cs       — PowerShell RunspacePool (min=2, max=N), epoch refresh
 ├── LobeManager.cs               — eager/JIT LOBE loading from lobes.config.json
 ├── Svrn7RunspaceContext.cs      — $SVRN7 session variable: Driver, Inbox, Cache, Epoch
 └── TdaResourceAddress.cs        — DID URL typed builder/parser (delegates to TdaResourceId)
@@ -726,7 +726,7 @@ Formally defined in draft-herman-parchment-programming-00 Section 5.2.1.
 - LOBE (3)      → {Name}.psm1 + {Name}.psd1 + {Name}.lobe.json + exported cmdlets
 - Data Storage (5) → LiteDB context class + IXxxStore interface + implementation
 - Data Access (6)  → IXxxResolver interface + implementation(s)
-- Runspace Pool (7)→ RunspacePoolManager.cs + InitialSessionState builder
+- Runspace Pool (7)→ IsolatedRunspaceFactory.cs + InitialSessionState builder
 - Switchboard (8)  → DIDCommMessageSwitchboard.cs + protocol registry (ConcurrentDictionary)
 - Host (9)      → Program.cs + IServiceCollection DI + IHostedService registrations
 - PS Runspace (10) → Agent{N}.ps1 + Switchboard protocol registration

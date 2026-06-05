@@ -89,8 +89,11 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
         RegisterCitizenInSocietyRequest request, CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Did);
+        ArgumentNullException.ThrowIfNull(request.DidDocument);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.DidDocument.Did);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SocietyDid);
+
+        var did = request.DidDocument.Did;
 
         if (request.SocietyDid != _opts.SocietyDid)
             return OperationResult.Fail(
@@ -110,8 +113,7 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
         // Transfer endowment from Society wallet to citizen wallet (will be created by RegisterCitizenAsync)
         var baseRequest = new RegisterCitizenRequest
         {
-            Did             = request.Did,
-            PublicKeyHex    = request.PublicKeyHex,
+            DidDocument     = request.DidDocument,
             PrivateKeyBytes = request.PrivateKeyBytes,
         };
         var result = await _inner.RegisterCitizenAsync(baseRequest, ct);
@@ -120,7 +122,7 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
         // Record society membership
         await _registry.StoreMembershipAsync(new SocietyMembershipRecord
         {
-            CitizenPrimaryDid = request.Did,
+            CitizenPrimaryDid = did,
             SocietyDid        = _opts.SocietyDid,
         }, ct);
 
@@ -128,17 +130,17 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
         if (request.PreferredMethodName is not null &&
             request.PreferredMethodName != _opts.DidMethodName)
         {
-            var additionalDid = $"did:{request.PreferredMethodName}:{request.Did.Split(':')[^1]}";
+            var additionalDid = $"did:{request.PreferredMethodName}:{did.Split(':')[^1]}";
             await _registry.StoreCitizenDidAsync(new CitizenDidRecord
             {
-                CitizenPrimaryDid = request.Did,
+                CitizenPrimaryDid = did,
                 Did               = additionalDid,
                 MethodName        = request.PreferredMethodName,
                 IsPrimary         = false,
             }, ct);
         }
 
-        _log.LogInformation("Citizen {Did} registered in Society {Society}", request.Did, _opts.SocietyDid);
+        _log.LogInformation("Citizen {Did} registered in Society {Society}", did, _opts.SocietyDid);
         return result;
     }
 
@@ -499,8 +501,10 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
     public Task<BalanceResult>    GetBalanceResultAsync(string d, CancellationToken ct = default) => _inner.GetBalanceResultAsync(d, ct);
     public Task<FederationRecord?> GetFederationAsync(CancellationToken ct = default)             => _inner.GetFederationAsync(ct);
     public Task<OperationResult>  UpdateFederationSupplyAsync(long n, string s, string r, CancellationToken ct = default) => _inner.UpdateFederationSupplyAsync(n, s, r, ct);
-    public Task<OperationResult>  InitialiseFederationAsync(string d, string n, string k, string m, CancellationToken ct = default) => _inner.InitialiseFederationAsync(d, n, k, m, ct);
-    public Task CreateDidAsync(DidDocument d, CancellationToken ct = default)                    => _inner.CreateDidAsync(d, ct);
+    public Task<OperationResult>  InitialiseFederationAsync(DidDocument d, string n, CancellationToken ct = default) => _inner.InitialiseFederationAsync(d, n, ct);
+    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null)
+        => _inner.CreateDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl);
+    public Task CreateDidAsync(DidDocument d, CancellationToken ct = default)                   => _inner.CreateDidAsync(d, ct);
     public Task UpdateDidAsync(DidDocument d, CancellationToken ct = default)                    => _inner.UpdateDidAsync(d, ct);
     public Task<DidResolutionResult> ResolveDidAsync(string d, CancellationToken ct = default)   => _inner.ResolveDidAsync(d, ct);
     public Task DeactivateDidAsync(string d, CancellationToken ct = default)                     => _inner.DeactivateDidAsync(d, ct);

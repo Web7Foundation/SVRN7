@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace Svrn7.TDA;
 
-// ── RunspacePoolManager ───────────────────────────────────────────────────────
+// ── IsolatedRunspaceFactory ───────────────────────────────────────────────────────
 //
 // Derived from: "PowerShell Runspace Pool" (Runspace Pool element type) — DSA 0.24 Epoch 0.
 //
@@ -21,21 +21,21 @@ namespace Svrn7.TDA;
 /// per-invocation <see cref="IsolatedPipeline"/> instances for LOBE dispatch.
 /// Derived from: PowerShell Runspace Pool — DSA 0.24 Epoch 0 (PPML).
 /// </summary>
-public sealed class RunspacePoolManager : IDisposable
+public sealed class IsolatedRunspaceFactory : IDisposable
 {
     private readonly LobeManager             _lobes;
     private readonly Svrn7RunspaceContext    _ctx;
-    private readonly ILogger<RunspacePoolManager> _log;
+    private readonly ILogger<IsolatedRunspaceFactory> _log;
 
     private InitialSessionState? _iss;
     private Timer?               _epochTimer;
     private bool                 _disposed;
 
-    public RunspacePoolManager(
+    public IsolatedRunspaceFactory(
         IOptions<TdaOptions>         opts,
         LobeManager                  lobes,
         Svrn7RunspaceContext         ctx,
-        ILogger<RunspacePoolManager> log)
+        ILogger<IsolatedRunspaceFactory> log)
     {
         _lobes = lobes;
         _ctx   = ctx;
@@ -54,7 +54,7 @@ public sealed class RunspacePoolManager : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         _iss = _lobes.BuildInitialSessionState();
-        _log.LogInformation("RunspacePoolManager: InitialSessionState built — per-invocation runspace isolation active.");
+        _log.LogInformation("IsolatedRunspaceFactory: InitialSessionState built — per-invocation runspace isolation active.");
 
         // 60-second epoch refresh — keeps $SVRN7.CurrentEpoch current in all runspaces.
         _epochTimer = new Timer(
@@ -74,7 +74,7 @@ public sealed class RunspacePoolManager : IDisposable
     {
         if (_iss is null)
             throw new InvalidOperationException(
-                "RunspacePoolManager has not been started. Call Start() first.");
+                "IsolatedRunspaceFactory has not been started. Call Start() first.");
         return new IsolatedPipeline(_iss, _log);
     }
 
@@ -87,7 +87,7 @@ public sealed class RunspacePoolManager : IDisposable
         // for Epoch 1 advancement without code changes.
         var epoch = Svrn7.Core.Svrn7Constants.Epochs.Endowment;
         _ctx.SetEpoch(epoch);
-        _log.LogDebug("RunspacePoolManager: epoch refreshed to {Epoch}.", epoch);
+        _log.LogDebug("IsolatedRunspaceFactory: epoch refreshed to {Epoch}.", epoch);
     }
 
     // ── Disposal ──────────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ public sealed class RunspacePoolManager : IDisposable
         if (_disposed) return;
         _disposed = true;
         _epochTimer?.Dispose();
-        _log.LogInformation("RunspacePoolManager: disposed.");
+        _log.LogInformation("IsolatedRunspaceFactory: disposed.");
     }
 }
 

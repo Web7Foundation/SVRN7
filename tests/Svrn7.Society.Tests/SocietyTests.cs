@@ -85,6 +85,9 @@ public sealed class SocietyTestFixture : IAsyncDisposable
             societyOpts, NullLogger<Svrn7SocietyDriver>.Instance);
     }
 
+    public DidDocument MakeDidDoc(string did, Svrn7KeyPair kp, string methodName = "alpha")
+        => Driver.CreateDidDocument(did, kp.PublicKeyHex, methodName);
+
     /// <summary>Build a correctly signed TransferRequest for a registered citizen.</summary>
     public TransferRequest BuildSignedTransfer(
         string payerDid, byte[] payerPrivateKey, string payeeDid, long amountGrana)
@@ -128,8 +131,7 @@ public class SocietyDriverTests : IAsyncDisposable
         var kp  = _f.Crypto.GenerateSecp256k1KeyPair();
         var res = await _f.Driver.RegisterCitizenInSocietyAsync(new RegisterCitizenInSocietyRequest
         {
-            Did             = "did:drn:alpha.svrn7.net/citizen/alice",
-            PublicKeyHex    = kp.PublicKeyHex,
+            DidDocument     = _f.MakeDidDoc("did:drn:alpha.svrn7.net/citizen/alice", kp),
             PrivateKeyBytes = kp.PrivateKeyBytes,
             SocietyDid      = "did:drn:wrongsociety.svrn7.net",
         });
@@ -170,10 +172,8 @@ public class SocietyCitizenRegistrationTests : IAsyncDisposable
         var socKp = _f.Crypto.GenerateSecp256k1KeyPair();
         await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
         {
-            Did = _f.SocietyDid, PublicKeyHex = socKp.PublicKeyHex,
-            PrivateKeyBytes = socKp.PrivateKeyBytes,
-            SocietyName = "Test Society", PrimaryDidMethodName = "alpha",
-            DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
+            DidDocument = _f.MakeDidDoc(_f.SocietyDid, socKp, "alpha"), PrivateKeyBytes = socKp.PrivateKeyBytes,
+            SocietyName = "Test Society", DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
         });
         // Add seed UTXO to society wallet for endowment payments
         var walletStore = new LiteWalletStore(_f.Context);
@@ -188,10 +188,10 @@ public class SocietyCitizenRegistrationTests : IAsyncDisposable
     [Fact] public async Task RegisterCitizenInSociety_RecordsMembership()
     {
         await SeedSocietyWalletAsync();
-        var kp = _f.Crypto.GenerateSecp256k1KeyPair();
+        var kp  = _f.Crypto.GenerateSecp256k1KeyPair();
         var req = new RegisterCitizenInSocietyRequest
         {
-            Did = "did:drn:alpha.svrn7.net/citizen/member1", PublicKeyHex = kp.PublicKeyHex,
+            DidDocument = _f.MakeDidDoc("did:drn:alpha.svrn7.net/citizen/member1", kp),
             PrivateKeyBytes = kp.PrivateKeyBytes, SocietyDid = _f.SocietyDid,
         };
         var res = await _f.Driver.RegisterCitizenInSocietyAsync(req);
@@ -207,7 +207,7 @@ public class SocietyCitizenRegistrationTests : IAsyncDisposable
         var kp = _f.Crypto.GenerateSecp256k1KeyPair();
         await _f.Driver.RegisterCitizenInSocietyAsync(new RegisterCitizenInSocietyRequest
         {
-            Did = "did:drn:alpha.svrn7.net/citizen/member2", PublicKeyHex = kp.PublicKeyHex,
+            DidDocument = _f.MakeDidDoc("did:drn:alpha.svrn7.net/citizen/member2", kp),
             PrivateKeyBytes = kp.PrivateKeyBytes, SocietyDid = _f.SocietyDid,
         });
         var members = await _f.Driver.GetMemberCitizenDidsAsync();
@@ -228,9 +228,8 @@ public class SocietyDidMethodTests : IAsyncDisposable
         var kp = _f.Crypto.GenerateSecp256k1KeyPair();
         await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
         {
-            Did = _f.SocietyDid, PublicKeyHex = kp.PublicKeyHex,
-            PrivateKeyBytes = kp.PrivateKeyBytes, SocietyName = "Alpha Society",
-            PrimaryDidMethodName = "alpha", DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
+            DidDocument = _f.MakeDidDoc(_f.SocietyDid, kp, "alpha"), PrivateKeyBytes = kp.PrivateKeyBytes,
+            SocietyName = "Alpha Society", DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
         });
     }
 
@@ -290,7 +289,7 @@ public class MultiDidCitizenTests : IAsyncDisposable
         var kp  = _f.Crypto.GenerateSecp256k1KeyPair();
         await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
         {
-            Did = "did:drn:alpha.svrn7.net/citizen/c1", PublicKeyHex = kp.PublicKeyHex,
+            DidDocument     = _f.MakeDidDoc("did:drn:alpha.svrn7.net/citizen/c1", kp),
             PrivateKeyBytes = kp.PrivateKeyBytes,
         });
         var primary = await _f.Driver.ResolveCitizenPrimaryDidAsync("did:drn:alpha.svrn7.net/citizen/c1");
@@ -302,7 +301,7 @@ public class MultiDidCitizenTests : IAsyncDisposable
         var kp = _f.Crypto.GenerateSecp256k1KeyPair();
         await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
         {
-            Did = "did:drn:alpha.svrn7.net/citizen/c2", PublicKeyHex = kp.PublicKeyHex,
+            DidDocument     = _f.MakeDidDoc("did:drn:alpha.svrn7.net/citizen/c2", kp),
             PrivateKeyBytes = kp.PrivateKeyBytes,
         });
         var dids = await _f.Driver.GetAllDidsForCitizenAsync("did:drn:alpha.svrn7.net/citizen/c2");
@@ -312,18 +311,17 @@ public class MultiDidCitizenTests : IAsyncDisposable
 
     [Fact] public async Task AddCitizenDid_ValidMethod_Succeeds()
     {
-        var kp  = _f.Crypto.GenerateSecp256k1KeyPair();
+        var kp    = _f.Crypto.GenerateSecp256k1KeyPair();
         var socKp = _f.Crypto.GenerateSecp256k1KeyPair();
         await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
         {
-            Did = _f.SocietyDid, PublicKeyHex = socKp.PublicKeyHex,
-            PrivateKeyBytes = socKp.PrivateKeyBytes, SocietyName = "Alpha",
-            PrimaryDidMethodName = "alpha", DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
+            DidDocument = _f.MakeDidDoc(_f.SocietyDid, socKp, "alpha"), PrivateKeyBytes = socKp.PrivateKeyBytes,
+            SocietyName = "Alpha", DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
         });
         await _f.Driver.RegisterSocietyDidMethodAsync("alphaid");
         await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
         {
-            Did = "did:drn:alpha.svrn7.net/citizen/c3", PublicKeyHex = kp.PublicKeyHex,
+            DidDocument     = _f.MakeDidDoc("did:drn:alpha.svrn7.net/citizen/c3", kp),
             PrivateKeyBytes = kp.PrivateKeyBytes,
         });
 
@@ -349,14 +347,12 @@ public class CrossSocietyTransferTests : IAsyncDisposable
         var socKp    = _f.Crypto.GenerateSecp256k1KeyPair();
         await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
         {
-            Did = _f.SocietyDid, PublicKeyHex = socKp.PublicKeyHex,
-            PrivateKeyBytes = socKp.PrivateKeyBytes,
-            SocietyName = "Alpha", PrimaryDidMethodName = "alpha",
-            DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
+            DidDocument = _f.MakeDidDoc(_f.SocietyDid, socKp, "alpha"), PrivateKeyBytes = socKp.PrivateKeyBytes,
+            SocietyName = "Alpha", DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
         });
         await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
         {
-            Did = payerDid, PublicKeyHex = payerKp.PublicKeyHex,
+            DidDocument     = _f.MakeDidDoc(payerDid, payerKp),
             PrivateKeyBytes = payerKp.PrivateKeyBytes,
         });
 
@@ -375,7 +371,7 @@ public class CrossSocietyTransferTests : IAsyncDisposable
         var kp = _f.Crypto.GenerateSecp256k1KeyPair();
         await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
         {
-            Did = "did:drn:alpha.svrn7.net/citizen/crossvc", PublicKeyHex = kp.PublicKeyHex,
+            DidDocument     = _f.MakeDidDoc("did:drn:alpha.svrn7.net/citizen/crossvc", kp),
             PrivateKeyBytes = kp.PrivateKeyBytes,
         });
         var vcs = await _f.Driver.GetVcsBySubjectAsync("did:drn:alpha.svrn7.net/citizen/crossvc");
@@ -401,7 +397,7 @@ public class VcDocumentResolverTests : IAsyncDisposable
         var kp = _f.Crypto.GenerateSecp256k1KeyPair();
         await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
         {
-            Did = "did:drn:alpha.svrn7.net/citizen/vcr1", PublicKeyHex = kp.PublicKeyHex,
+            DidDocument     = _f.MakeDidDoc("did:drn:alpha.svrn7.net/citizen/vcr1", kp),
             PrivateKeyBytes = kp.PrivateKeyBytes,
         });
         var vcs = await _f.Driver.GetVcsBySubjectAsync("did:drn:alpha.svrn7.net/citizen/vcr1");
@@ -416,9 +412,9 @@ public class VcDocumentResolverTests : IAsyncDisposable
         var kp1 = _f.Crypto.GenerateSecp256k1KeyPair();
         var kp2 = _f.Crypto.GenerateSecp256k1KeyPair();
         await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
-            { Did = "did:drn:alpha.svrn7.net/citizen/vcr2", PublicKeyHex = kp1.PublicKeyHex, PrivateKeyBytes = kp1.PrivateKeyBytes });
+            { DidDocument = _f.MakeDidDoc("did:drn:alpha.svrn7.net/citizen/vcr2", kp1), PrivateKeyBytes = kp1.PrivateKeyBytes });
         await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
-            { Did = "did:drn:alpha.svrn7.net/citizen/vcr3", PublicKeyHex = kp2.PublicKeyHex, PrivateKeyBytes = kp2.PrivateKeyBytes });
+            { DidDocument = _f.MakeDidDoc("did:drn:alpha.svrn7.net/citizen/vcr3", kp2), PrivateKeyBytes = kp2.PrivateKeyBytes });
 
         var vcs1 = await _f.Driver.GetVcsBySubjectAsync("did:drn:alpha.svrn7.net/citizen/vcr2");
         var vcs2 = await _f.Driver.GetVcsBySubjectAsync("did:drn:alpha.svrn7.net/citizen/vcr3");

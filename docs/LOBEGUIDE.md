@@ -514,24 +514,30 @@ if (-not $replyEndpoint) {
 
 ## Appendix D — Outbound Return Contract
 
-A LOBE handler signals outbound delivery by returning a specific hashtable.
+A LOBE handler signals outbound delivery by returning a `[Svrn7.TDA.OutboundMessage]` instance.
 Returning `$null`, an empty pipeline, or a bare `return` means no reply is sent.
 
 ### With reply
 
 ```powershell
-return @{
-    PeerEndpoint  = $endpoint          # string — DIDComm HTTP/2 URL of the recipient TDA
-    PackedMessage = $payload           # string — JSON body of the outbound DIDComm message
-    MessageType   = 'did:drn:svrn7.net/protocols/domain/1.0/result'
-}
+$payload = @{ ... } | ConvertTo-Json -Compress   # the data to send
+
+$envelope = [ordered]@{
+    typ  = 'application/didcomm-plain+json'
+    id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+    type = 'did:drn:svrn7.net/protocols/domain/1.0/result'   # outbound @type URI
+    from = $SVRN7.Driver.SocietyDid
+    to   = @($msg.FromDid)
+    body = $payload   # $payload is a JSON string; stored as a string literal in the envelope
+} | ConvertTo-Json -Compress
+
+[Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
 ```
 
-| Key | Type | Description |
+| Parameter | Type | Description |
 |---|---|---|
-| `PeerEndpoint` | `string` | HTTP/2 (h2c) URL of the recipient's TDA endpoint (e.g. `http://peer.svrn7.net:8443/didcomm`). Resolved via `replyEndpoint` body field or `Resolve-SocietySenderEndpoint`. |
-| `PackedMessage` | `string` | JSON-serialised body of the outbound DIDComm message. Build with `@{ ... } \| ConvertTo-Json -Compress`. |
-| `MessageType` | `string` | The outbound `@type` URI (e.g. `did:drn:svrn7.net/protocols/invoice/1.0/receipt`). |
+| `PeerEndpoint` (1st arg) | `string` | HTTP/2 (h2c) URL of the recipient's TDA endpoint (e.g. `http://peer.svrn7.net:8443`). Resolved via `replyEndpoint` body field or `Resolve-SocietySenderEndpoint`. |
+| `PackedMessage` (2nd arg) | `string` | Full DIDComm plaintext envelope (`typ`/`id`/`type`/`from`/`to`/`body`). The Switchboard POSTs this verbatim; the recipient's `KestrelListenerService` routes on the `type` field. |
 
 ### No reply
 

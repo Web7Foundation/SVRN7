@@ -76,12 +76,23 @@ function Resolve-Svrn7Did {
         } | ConvertTo-Json -Depth 10 -Compress
 
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $body.from
-
-        return @{
-            PeerEndpoint  = $peerEndpoint
-            PackedMessage = $responsePayload
-            MessageType   = 'did:drn:svrn7.net/protocols/did/1.0/resolve-response'
+        if (-not $peerEndpoint) {
+            Write-Warning "Resolve-Svrn7Did: no DIDComm service endpoint for '$($body.from)' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/did/1.0/resolve-response'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($body.from)
+            body = $responsePayload
+        } | ConvertTo-Json -Compress
+
+        Write-Information "Resolve-Svrn7Did: requestedDid='$requestedDid' found=$($null -ne $didDoc) replying to '$($body.from)'"
+
+        [Svrn7.TDA.OutboundMessage]::new($peerEndpoint, $envelope)
     }
 }
 
@@ -138,12 +149,23 @@ function Get-Svrn7VcById {
         } | ConvertTo-Json -Depth 10 -Compress
 
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $body.from
-
-        return @{
-            PeerEndpoint  = $peerEndpoint
-            PackedMessage = $responsePayload
-            MessageType   = 'did:drn:svrn7.net/protocols/vc/1.0/resolve-by-subject-response'
+        if (-not $peerEndpoint) {
+            Write-Warning "Get-Svrn7VcById: no DIDComm service endpoint for '$($body.from)' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/vc/1.0/resolve-by-subject-response'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($body.from)
+            body = $responsePayload
+        } | ConvertTo-Json -Compress
+
+        Write-Information "Get-Svrn7VcById: subjectDid='$subjectDid' found=$($vcs.Count -gt 0) replying to '$($body.from)'"
+
+        [Svrn7.TDA.OutboundMessage]::new($peerEndpoint, $envelope)
     }
 }
 
@@ -196,8 +218,58 @@ function Resolve-Svrn7CitizenIdentity {
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+function Invoke-Svrn7DidResolveResponse {
+    <#
+    .SYNOPSIS
+        Handles did/1.0/resolve-response — receives the DID resolution reply.
+    .DESCRIPTION
+        Inbound reply to a previously-sent did/1.0/resolve-request.
+        Body: { from, to, requestedDid, found, didDocument, resolvedAt }
+        Logs the resolution outcome. No reply is sent — response messages are terminal.
+    .PARAMETER MessageDid
+        TDA resource DID URL for the inbox message.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory, ValueFromPipelineByPropertyName)] [string] $MessageDid)
+    process {
+        $msg          = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { throw "Invoke-Svrn7DidResolveResponse: message '$MessageDid' not found." }
+        $body         = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+        $requestedDid = Get-BodyField $body 'requestedDid' '(unknown)'
+        $found        = Get-BodyField $body 'found'        $false
+        Write-Information "Invoke-Svrn7DidResolveResponse: requestedDid='$requestedDid' found=$found from='$($msg.FromDid)'"
+        # Terminal reply — no outbound message returned.
+    }
+}
+
+function Invoke-Svrn7VcResolveResponse {
+    <#
+    .SYNOPSIS
+        Handles vc/1.0/resolve-by-subject-response — receives the VC resolution reply.
+    .DESCRIPTION
+        Inbound reply to a previously-sent vc/1.0/resolve-by-subject-request.
+        Body: { from, to, subjectDid, found, credentials[], resolvedAt }
+        Logs the resolution outcome. No reply is sent — response messages are terminal.
+    .PARAMETER MessageDid
+        TDA resource DID URL for the inbox message.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory, ValueFromPipelineByPropertyName)] [string] $MessageDid)
+    process {
+        $msg        = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { throw "Invoke-Svrn7VcResolveResponse: message '$MessageDid' not found." }
+        $body       = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+        $subjectDid = Get-BodyField $body 'subjectDid' '(unknown)'
+        $found      = Get-BodyField $body 'found'      $false
+        Write-Information "Invoke-Svrn7VcResolveResponse: subjectDid='$subjectDid' found=$found from='$($msg.FromDid)'"
+        # Terminal reply — no outbound message returned.
+    }
+}
+
 Export-ModuleMember -Function @(
     'Resolve-Svrn7Did',
     'Get-Svrn7VcById',
-    'Resolve-Svrn7CitizenIdentity'
+    'Resolve-Svrn7CitizenIdentity',
+    'Invoke-Svrn7DidResolveResponse',
+    'Invoke-Svrn7VcResolveResponse'
 )

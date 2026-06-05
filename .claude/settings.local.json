@@ -4,7 +4,8 @@
       "Bash(dotnet build:*)",
       "Bash(dotnet pack:*)",
       "WebFetch(domain:hyperonomy.com)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "WebFetch(domain:www.w3.org)"
     ]
   }
 }

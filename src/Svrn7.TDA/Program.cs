@@ -20,16 +20,41 @@ using Svrn7.TDA;
 // Startup sequence (matches DSA 0.24 derivation chain):
 //   1.  AddSvrn7Society()     — full SVRN7 stack (driver, stores, DIDComm, resolvers)
 //   2.  AddSvrn7Tda()         — TDA Host: IMemoryCache, $SVRN7, LobeManager,
-//                               RunspacePoolManager, Switchboard, KestrelListenerService
+//                               IsolatedRunspaceFactory, Switchboard, KestrelListenerService
 //   3.  UseConsoleLifetime()  — SIGTERM / Ctrl-C graceful shutdown
 //   4.  host.RunAsync()       — blocks until shutdown
+
+// ── Command-line arguments ────────────────────────────────────────────────────
+// --port <n>   TCP/IP port to listen on (default 8443).
+//              Databases are stored under "<BaseDir>/{port}/mem/".
+//              LOBEs are loaded from   "<BaseDir>/{port}/lobes/".
+// --did <did>  DID for this TDA instance (default did:drn:solo.svrn7.net).
+//              Allows multiple independent TDAs to run side-by-side.
+int port = 8443;
+{
+    var portIdx = Array.IndexOf(args, "--port");
+    if (portIdx >= 0 && portIdx + 1 < args.Length && int.TryParse(args[portIdx + 1], out int p))
+        port = p;
+}
+
+string did = "did:drn:solo.svrn7.net";
+{
+    var didIdx = Array.IndexOf(args, "--did");
+    if (didIdx >= 0 && didIdx + 1 < args.Length)
+        did = args[didIdx + 1];
+}
 
 var host = Host.CreateDefaultBuilder(args)
     .UseConsoleLifetime()
     .ConfigureLogging(logging =>
     {
         logging.SetMinimumLevel(LogLevel.Debug); // MWH
-        logging.AddConsole();
+        logging.AddSimpleConsole(opts =>
+        {
+            opts.TimestampFormat = "HH:mm:ss.fff ";
+            opts.UseUtcTimestamp = true;
+            opts.SingleLine      = true;
+        });
     })
     .ConfigureServices((ctx, services) =>
     {
@@ -39,15 +64,13 @@ var host = Host.CreateDefaultBuilder(args)
         {
             // In production, load these from environment variables or a secrets manager.
             // These defaults are for development/test only.
-            opts.SocietyDid                      = ctx.Configuration["Svrn7:SocietyDid"]
-                                                   ?? "did:drn:alpha.svrn7.net";
-            opts.FederationDid                   = ctx.Configuration["Svrn7:FederationDid"]
-                                                   ?? "did:drn:foundation.svrn7.net";
-            opts.Svrn7DbPath                     = ResolvePath(ctx.Configuration["Svrn7:DbPath"],      "svrn7.db");
-            opts.DidsDbPath                      = ResolvePath(ctx.Configuration["Svrn7:DidsDbPath"],  "svrn7-dids.db");
-            opts.VcsDbPath                       = ResolvePath(ctx.Configuration["Svrn7:VcsDbPath"],   "svrn7-vcs.db");
-            opts.InboxDbPath                     = ResolvePath(ctx.Configuration["Svrn7:InboxDbPath"], "svrn7-inbox.db");
-            opts.SchemasDbPath                   = ResolvePath(ctx.Configuration["Svrn7:SchemasDbPath"], "svrn7-schemas.db");
+            opts.SocietyDid                      = ctx.Configuration["Svrn7:SocietyDid"]  ?? did;
+            opts.FederationDid                   = ctx.Configuration["Svrn7:FederationDid"] ?? did;
+            opts.Svrn7DbPath                     = ResolvePath(ctx.Configuration["Svrn7:DbPath"],        "svrn7.db",        port);
+            opts.DidsDbPath                      = ResolvePath(ctx.Configuration["Svrn7:DidsDbPath"],   "svrn7-dids.db",   port);
+            opts.VcsDbPath                       = ResolvePath(ctx.Configuration["Svrn7:VcsDbPath"],    "svrn7-vcs.db",    port);
+            opts.InboxDbPath                     = ResolvePath(ctx.Configuration["Svrn7:InboxDbPath"],  "svrn7-inbox.db",  port);
+            opts.SchemasDbPath                   = ResolvePath(ctx.Configuration["Svrn7:SchemasDbPath"],"svrn7-schemas.db",port);
             opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
         });
 
@@ -57,11 +80,9 @@ var host = Host.CreateDefaultBuilder(args)
         // ── 2. TDA Host: five Critical DSA 0.24 components ───────────────────
         services.AddSvrn7Tda(opts =>
         {
-            opts.SocietyDid                        = ctx.Configuration["Tda:SocietyDid"]
-                                                     ?? "did:drn:alpha.svrn7.net";
+            opts.SocietyDid                        = ctx.Configuration["Tda:SocietyDid"] ?? did;
             opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
-            opts.ListenPort                        = int.Parse(
-                                                     ctx.Configuration["Tda:ListenPort"] ?? "8443");
+            opts.ListenPort                        = port;
             opts.TlsCertificatePath                = ctx.Configuration["Tda:TlsCertPath"];
             opts.TlsCertificatePassword            = ctx.Configuration["Tda:TlsCertPassword"];
             opts.RequireMutualTls                  = bool.Parse(
@@ -71,7 +92,7 @@ var host = Host.CreateDefaultBuilder(args)
             opts.MinRunspaces                      = 2;
             opts.MaxRunspaces                      = 0; // default: ProcessorCount × 2
             opts.LobesConfigPath                   = ctx.Configuration["Tda:LobesConfigPath"]
-                                                     ?? "./lobes/lobes.config.json";
+                                                     ?? Path.Combine(AppContext.BaseDirectory, "lobes", "lobes.config.json");
         });
     })
     .Build();
@@ -124,8 +145,8 @@ var host = Host.CreateDefaultBuilder(args)
     Console.WriteLine($"  Runtime     : {RuntimeInformation.FrameworkDescription}");
     Console.WriteLine($"  OS          : {RuntimeInformation.OSDescription}");
     Console.WriteLine(hr);
-    Console.WriteLine($"  Society DID : {cfg["Svrn7:SocietyDid"] ?? cfg["Tda:SocietyDid"] ?? "(not configured)"}");
-    Console.WriteLine($"  Listen port : {cfg["Tda:ListenPort"] ?? "8443"}");
+    Console.WriteLine($"  Society DID : {did}");
+    Console.WriteLine($"  Listen port : {port}");
     Console.WriteLine($"  LOBEs       : {lobeConfig.Eager.Length} eager  {lobeConfig.Jit.Length} JIT  ({totalProtocols} protocols  {totalCmdlets} cmdlets)");
     // Print eager LOBE names, then JIT LOBE names, each on one indented line.
     var lobeNameOf = descriptors.ToDictionary(d => d.Lobe.Name, d => d);
@@ -153,7 +174,7 @@ var host = Host.CreateDefaultBuilder(args)
     }
     else
     {
-        Console.WriteLine($"  Federation  : (not yet initialised — see DEBUG.md §E.0 to generate keys and POST federation/1.0/init to :{cfg["Tda:ListenPort"] ?? "8443"}/didcomm)");
+        Console.WriteLine($"  Federation  : (not yet initialised — see DEBUG.md §E.0 to generate keys and POST federation/1.0/init to :{port}/didcomm)");
         Console.WriteLine($"  Societies   : (not yet initialised — see DEBUG.md §B.1 to onboard the first society)");
     }
     Console.WriteLine(hr);
@@ -165,13 +186,14 @@ await host.RunAsync();
 // Resolves a configured DB path against AppContext.BaseDirectory so that relative
 // paths in appsettings.json work regardless of the process working directory.
 // Also creates the parent directory so LiteDB never fails on a missing folder.
-static string ResolvePath(string? configured, string defaultName)
+static string ResolvePath(string? configured, string defaultName, int port)
 {
+    var portDir = Path.Combine(AppContext.BaseDirectory, port.ToString(), "mem");
     var path = configured is null
-        ? Path.Combine(AppContext.BaseDirectory, defaultName)
+        ? Path.Combine(portDir, defaultName)
         : Path.IsPathRooted(configured)
             ? configured
-            : Path.Combine(AppContext.BaseDirectory, configured);
+            : Path.Combine(portDir, configured);
     Directory.CreateDirectory(Path.GetDirectoryName(path)!);
     return path;
 }

@@ -226,21 +226,60 @@ public record SocietyOverdraftRecord
 
 // ── DID Document models ────────────────────────────────────────────────────────
 
+/// <summary>W3C DID Core §5.2.1 verification method.</summary>
+public record DidVerificationMethod
+{
+    public required string  Id           { get; set; }  // e.g. "did:drn:abc#key-1"
+    public required string  Type         { get; set; }  // e.g. "EcdsaSecp256k1VerificationKey2019"
+    public required string  Controller   { get; set; }  // DID that controls this key
+    public string?          PublicKeyHex { get; set; }  // hex-encoded; set for Secp256k1/Ed25519
+    public string?          PublicKeyMultibase { get; set; }  // multibase-encoded alternative
+}
+
+/// <summary>W3C DID Core §5.4 service endpoint.</summary>
+public record DidServiceEndpoint
+{
+    public required string Id              { get; set; }  // e.g. "did:drn:abc#svc-1"
+    public required string Type            { get; set; }  // e.g. "DIDCommMessaging"
+    public required string ServiceEndpoint { get; set; }  // URI or object JSON
+}
+
+/// <summary>W3C Data Integrity proof attached to a DID Document.</summary>
+public record DidProof
+{
+    public required string         Type               { get; set; }  // e.g. "Ed25519Signature2020"
+    public required DateTimeOffset Created            { get; set; }
+    public required string         VerificationMethod { get; set; }  // key DID URL
+    public required string         ProofPurpose       { get; set; }  // e.g. "assertionMethod"
+    public required string         ProofValue         { get; set; }  // base58btc multibase
+}
+
 /// <summary>
 /// A W3C DID Document stored in the registry.
 /// Version is monotonically increasing. Deactivation is permanent.
+/// W3C DID Core 1.0 properties are first-class fields; DocumentJson holds the canonical serialization.
 /// </summary>
 public record DidDocument
 {
-    public string                 Id           { get; set; } = Guid.NewGuid().ToString("N");
-    public required string        Did          { get; set; }
-    public required string        MethodName   { get; set; }
-    public int                    Version      { get; set;  }
-    public DidStatus              Status       { get; set;  } = DidStatus.Active;
-    public required string        DocumentJson { get; set;  }
-    public DateTimeOffset         CreatedAt    { get; set; } = DateTimeOffset.UtcNow;
-    public DateTimeOffset         UpdatedAt    { get; set;  } = DateTimeOffset.UtcNow;
-    public DateTimeOffset?        DeactivatedAt{ get; set;  }
+    public string                           Id                     { get; set; } = Guid.NewGuid().ToString("N");
+    public required string                  Did                    { get; set; }  // W3C id
+    public required string                  MethodName             { get; set; }  // SVRN7 registry key
+    public string?                          Controller             { get; set; }  // W3C controller (single DID)
+    public List<string>                     AlsoKnownAs            { get; set; } = [];
+    public List<DidVerificationMethod>      VerificationMethod     { get; set; } = [];
+    public List<string>                     Authentication         { get; set; } = [];  // DID URLs referencing VerificationMethod
+    public List<string>                     AssertionMethod        { get; set; } = [];
+    public List<string>                     KeyAgreement           { get; set; } = [];
+    public List<string>                     CapabilityInvocation   { get; set; } = [];
+    public List<string>                     CapabilityDelegation   { get; set; } = [];
+    public List<DidServiceEndpoint>         ServiceEndpoints       { get; set; } = [];
+    public DidProof?                        Proof                  { get; set; }
+    public int                              Version                { get; set; }
+    public DidStatus                        Status                 { get; set; } = DidStatus.Active;
+    public required string                  DocumentJson           { get; set; }  // canonical W3C JSON
+    public DateTimeOffset                   CreatedAt              { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset                   UpdatedAt              { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset?                  DeactivatedAt          { get; set; }
 }
 
 /// <summary>Result of a W3C DID Document Resolution.</summary>
@@ -387,9 +426,8 @@ public record OverdraftDrawReceipt
 
 public record RegisterCitizenRequest
 {
-    public required string        Did               { get; set; }
-    public required string        PublicKeyHex      { get; set; }
-    public required byte[]        PrivateKeyBytes   { get; set; }
+    public required DidDocument   DidDocument       { get; set; }
+    public byte[]                 PrivateKeyBytes   { get; set; } = [];
 }
 
 /// <summary>
@@ -398,21 +436,18 @@ public record RegisterCitizenRequest
 /// </summary>
 public record RegisterCitizenInSocietyRequest
 {
-    public required string        Did               { get; set; }
-    public required string        PublicKeyHex      { get; set; }
-    public required byte[]        PrivateKeyBytes   { get; set; }
-    public required string        SocietyDid        { get; set; }
-    public string?                PreferredMethodName{ get; set; }  // null = Society primary
+    public required DidDocument   DidDocument          { get; set; }
+    public byte[]                 PrivateKeyBytes      { get; set; } = [];
+    public required string        SocietyDid           { get; set; }
+    public string?                PreferredMethodName  { get; set; }  // null = Society primary
 }
 
 public record RegisterSocietyRequest
 {
-    public required string        Did               { get; set; }
-    public required string        PublicKeyHex      { get; set; }
-    public required byte[]        PrivateKeyBytes   { get; set; }
-    public required string        SocietyName       { get; set; }
-    public required string        PrimaryDidMethodName { get; set; }
-    public required long          DrawAmountGrana   { get; set; }
+    public required DidDocument   DidDocument           { get; set; }
+    public byte[]                 PrivateKeyBytes       { get; set; } = [];
+    public required string        SocietyName           { get; set; }
+    public required long          DrawAmountGrana       { get; set; }
     public required long          OverdraftCeilingGrana { get; set; }
 }
 

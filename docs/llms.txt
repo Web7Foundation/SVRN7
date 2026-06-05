@@ -326,7 +326,7 @@ Key classes:
                             (re-enqueue dead-lettered outbound messages from prior session);
                             TTL check: messages older than TdaOptions.MaxMessageAgeSeconds are dead-lettered
                             before processing begins (default 3600s = 1 hour; 0=disabled)
-  RunspacePoolManager     — Builds shared InitialSessionState (ISS) at startup; vends per-invocation
+  IsolatedRunspaceFactory     — Builds shared InitialSessionState (ISS) at startup; vends per-invocation
                             IsolatedPipeline (crash-isolated runspace per dispatch);
                             CreateIsolatedPipeline() opens a fresh Runspace from the ISS, disposed after invocation;
                             ISS is shared read-only; $SVRN7 (Svrn7RunspaceContext) is shared but thread-safe

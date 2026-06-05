@@ -128,7 +128,7 @@ Write-Host "Public key : $($federationKp.PublicKeyHex)"
 
 ```powershell
 $body = @{
-    federationDid        = "did:drn:foundation.svrn7.net"
+    federationDid        = "did:drn:solo.svrn7.net"
     federationName       = "Web 7.0 SOVRON Foundation"
     publicKeyHex         = $federationKp.PublicKeyHex
     primaryDidMethodName = "drn"
@@ -138,17 +138,56 @@ $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = "did:drn:svrn7.net/protocols/federation/1.0/init"
-    from = "did:drn:foundation.svrn7.net"
-    to   = @("did:drn:bindloss.svrn7.net")
+    from = "did:drn:solo.svrn7.net"
+    to   = @("did:drn:solo.svrn7.net")
     body = $body
 } | ConvertTo-Json
 
 Send-DIDCommMessage -Body $msg
 ```
 
-Expected TDA log: `Federation initialised: did:drn:foundation.svrn7.net`
+Expected TDA log: `Federation initialised: did:drn:solo.svrn7.net`
 
-### 4.3 — Register the society
+### 4.3 — Verify the federation was created
+
+Send a `federation/1.0/federation-query` message.  The TDA replies with a
+`federation/1.0/federation-query-result` containing the federation record.
+
+```powershell
+$msg = @{
+    typ  = "application/didcomm-plain+json"
+    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
+    type = "did:drn:svrn7.net/protocols/federation/1.0/federation-query"
+    from = "did:drn:solo.svrn7.net"
+    to   = @("did:drn:solo.svrn7.net")
+    body = "{}"
+} | ConvertTo-Json
+
+Send-DIDCommMessage -Body $msg
+```
+
+Expected TDA log:
+```
+Invoke-Web7FederationQuery: replying to did:drn:solo.svrn7.net
+```
+
+Expected reply body (delivered back to the local TDA inbox and logged):
+```json
+{
+  "found": true,
+  "federationDid": "did:drn:solo.svrn7.net",
+  "federationName": "Web 7.0 SOVRON Foundation",
+  "primaryDidMethodName": "drn",
+  "totalSupplyGrana": ...,
+  "currentEpoch": 0,
+  "isActive": true
+}
+```
+
+If `"found": false` the federation init in §4.2 did not complete — check the TDA log
+for errors from `Invoke-Web7FederationInit`.
+
+### 4.4 — Register a new society
 
 ```powershell
 $societyKp = New-Svrn7KeyPair
@@ -166,8 +205,8 @@ $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = "did:drn:svrn7.net/protocols/federation/1.0/register-society"
-    from = "did:drn:foundation.svrn7.net"
-    to   = @("did:drn:bindloss.svrn7.net")
+    from = "did:drn:solo.svrn7.net"
+    to   = @("did:drn:solo.svrn7.net")
     body = $body
 } | ConvertTo-Json
 
@@ -176,7 +215,7 @@ Send-DIDCommMessage -Body $msg
 
 Expected TDA log: `Society registered: did:drn:bindloss.svrn7.net (Bindloss Alberta)`
 
-### 4.4 — List all societies in the federation
+### 4.5 — List all societies in the federation
 
 While the TDA is running, send a `federation/1.0/society-list` message.
 Include `replyEndpoint` so the result is delivered back to the local TDA.
@@ -188,14 +227,14 @@ $body = @{
     replyEndpoint = "http://localhost:8443"
 } | ConvertTo-Json -Compress
 
-$body = "{}"
+# $body = "{}"
 
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = "did:drn:svrn7.net/protocols/federation/1.0/society-list"
-    from = "did:drn:foundation.svrn7.net"
-    to   = @("did:drn:bindloss.svrn7.net")
+    from = "did:drn:solo.svrn7.net"
+    to   = @("did:drn:solo.svrn7.net")
     body = $body
 } | ConvertTo-Json
 
@@ -241,8 +280,8 @@ $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = "did:drn:svrn7.net/protocols/diagnostics/1.0/date-query"
-    from = "did:drn:foundation.svrn7.net"
-    to   = @("did:drn:bindloss.svrn7.net")
+    from = "did:drn:solo.svrn7.net"
+    to   = @("did:drn:solo.svrn7.net")
     body = "{}"
 } | ConvertTo-Json
 
@@ -254,7 +293,7 @@ Expected response: `Status: Accepted`
 Expected TDA log:
 
 ```
-info:  Switchboard: routing did:drn:bindloss.svrn7.net/inbox/msg/<id>
+info:  Switchboard: routing did:drn:solo.svrn7.net/inbox/msg/<id>
            (type=did:drn:svrn7.net/protocols/diagnostics/1.0/date-query)
            → Invoke-PandoDiagnosticsDateQuery [Pando.Diagnostics]
 info:    [PS Info] Pando.Diagnostics: serverUtc=2026-05-30T... epoch=0
@@ -280,8 +319,8 @@ $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = "did:drn:svrn7.net/protocols/diagnostics/1.0/date-query"
-    from = "did:drn:foundation.svrn7.net"
-    to   = @("did:drn:bindloss.svrn7.net")
+    from = "did:drn:solo.svrn7.net"
+    to   = @("did:drn:solo.svrn7.net")
     body = $body
 } | ConvertTo-Json
 

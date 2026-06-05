@@ -51,6 +51,9 @@ See also: Svrn7.Society — Society-level cmdlets (ISvrn7SocietyDriver).
         'Resolve-Svrn7Did'
         'Test-Svrn7DidActive'
 
+        # Federation lifecycle
+        'Register-Svrn7Federation'
+
         # Citizen lifecycle
         'Register-Svrn7Citizen'
         'Get-Svrn7Citizen'

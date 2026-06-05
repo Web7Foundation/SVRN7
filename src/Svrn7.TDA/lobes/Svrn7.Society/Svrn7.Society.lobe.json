@@ -93,6 +93,60 @@
       "match": "prefix",
       "entrypoint": "Invoke-Web7CitizenDidAdd",
       "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/society/1.0/society-query-result",
+      "title": "Society Query Result",
+      "description": "Inbound reply to a society-query request. Body: societyDid, federationDid, currentEpoch, queriedAt. Terminal — no reply is sent.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Invoke-Web7SocietyQueryResult",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/society/1.0/member-query-result",
+      "title": "Member Query Result",
+      "description": "Inbound reply to a member-query request. Body: { societyDid, did, isMember } or { societyDid, memberCount, memberDids[] }. Terminal — no reply is sent.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Invoke-Web7MemberQueryResult",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/society/1.0/overdraft-query-result",
+      "title": "Overdraft Query Result",
+      "description": "Inbound reply to an overdraft-query request. Body: societyDid, status, totalOverdrawnGrana, overdraftCeilingGrana, lifetimeDrawsGrana, drawCount, drawAmountGrana, lastDrawAt, queriedAt. Terminal — no reply is sent.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Invoke-Web7OverdraftQueryResult",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/society/1.0/did-methods-query-result",
+      "title": "DID Methods Query Result",
+      "description": "Inbound reply to a did-methods-query request. Body: societyDid, methods[], queriedAt. Terminal — no reply is sent.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Invoke-Web7DidMethodsQueryResult",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/society/1.0/did-method-register-result",
+      "title": "DID Method Register Result",
+      "description": "Inbound reply to a did-method-register request. Body: societyDid, methodName, status, success. Terminal — no reply is sent.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Invoke-Web7DidMethodRegisterResult",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/society/1.0/citizen-did-add-result",
+      "title": "Citizen DID Add Result",
+      "description": "Inbound reply to a citizen-did-add request. Body: citizenPrimaryDid, secondaryDid, methodName, success. Terminal — no reply is sent.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Invoke-Web7CitizenDidAddResult",
+      "epochRequired": 0
     }
   ],
   "cmdlets": [

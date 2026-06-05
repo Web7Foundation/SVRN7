@@ -326,13 +326,14 @@ function Register-Svrn7CitizenInSociety {
         if the overdraft ceiling would be exceeded. Check Get-Svrn7OverdraftStatus
         before bulk registration to avoid unexpected failures.
 
-    .PARAMETER CitizenDid
-        The DID string for the new citizen. Derive with New-Svrn7Did using a method
-        name owned by this Society.
+    .PARAMETER DidDocument
+        [Svrn7.Core.Models.DidDocument] from New-Svrn7Did. Carries the citizen DID,
+        public key, and any service endpoints. Pass -ServiceEndpointUrl to New-Svrn7Did
+        to embed the citizen's TDA endpoint in the document.
 
     .PARAMETER KeyPair
-        The Svrn7.KeyPair (secp256k1) for the new citizen. PublicKeyHex is stored in
-        the citizen record and used for transfer signature verification.
+        The Svrn7.KeyPair (secp256k1) for the new citizen. PrivateKeyBytes is stored
+        locally for signing; PublicKeyHex is taken from the DidDocument.
 
     .PARAMETER PreferredMethodName
         Optional. If specified, the citizen's DID is issued under this method name
@@ -352,12 +353,13 @@ function Register-Svrn7CitizenInSociety {
             Success         [bool]     Always $true (throws on failure).
 
     .EXAMPLE
-        PS> $kp  = New-Svrn7KeyPair
-        PS> $did = (New-Svrn7Did -KeyPair $kp -MethodName 'sovronia').Did
-        PS> Register-Svrn7CitizenInSociety -CitizenDid $did -KeyPair $kp
+        PS> $kp     = New-Svrn7KeyPair
+        PS> $didDoc = New-Svrn7Did -KeyPair $kp -MethodName 'sovronia' `
+                                   -ServiceEndpointUrl 'https://citizen.svrn7.net:8443/didcomm'
+        PS> Register-Svrn7CitizenInSociety -DidDocument $didDoc -KeyPair $kp
 
     .EXAMPLE
-        PS> Register-Svrn7CitizenInSociety -CitizenDid $did -KeyPair $kp `
+        PS> Register-Svrn7CitizenInSociety -DidDocument $didDoc -KeyPair $kp `
                 -PreferredMethodName 'sovroniamed'
 
         Registers the citizen under a secondary method name.
@@ -372,8 +374,7 @@ function Register-Svrn7CitizenInSociety {
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory)]
-        [ValidateNotNullOrEmpty()]
-        [string] $CitizenDid,
+        [Svrn7.Core.Models.DidDocument] $DidDocument,
 
         [Parameter(Mandatory)]
         [PSCustomObject] $KeyPair,
@@ -386,13 +387,12 @@ function Register-Svrn7CitizenInSociety {
     Assert-SocietyDriver
 
     $societyDid = $Script:SocietyDriver.SocietyDid
-    if (-not $PSCmdlet.ShouldProcess("$CitizenDid into $societyDid", 'RegisterCitizenInSociety')) { return }
+    if (-not $PSCmdlet.ShouldProcess("$($DidDocument.Did) into $societyDid", 'RegisterCitizenInSociety')) { return }
 
-    Write-Verbose "Registering citizen '$CitizenDid' in Society '$societyDid'..."
+    Write-Verbose "Registering citizen '$($DidDocument.Did)' in Society '$societyDid'..."
 
     $request = [Svrn7.Core.Models.RegisterCitizenInSocietyRequest]@{
-        Did                 = $CitizenDid
-        PublicKeyHex        = $KeyPair.PublicKeyHex
+        DidDocument         = $DidDocument
         PrivateKeyBytes     = $KeyPair.PrivateKeyBytes
         SocietyDid          = $societyDid
         PreferredMethodName = if ($PreferredMethodName) { $PreferredMethodName } else { $null }
@@ -401,11 +401,11 @@ function Register-Svrn7CitizenInSociety {
     $result = $Script:SocietyDriver.RegisterCitizenInSocietyAsync($request).GetAwaiter().GetResult()
     Resolve-OperationResult -Result $result -Operation 'RegisterCitizenInSociety' | Out-Null
 
-    Write-Verbose "Citizen registered: $CitizenDid"
+    Write-Verbose "Citizen registered: $($DidDocument.Did)"
 
     [PSCustomObject]@{
         PSTypeName     = $Script:TypeCitizenReg
-        CitizenDid     = $CitizenDid
+        CitizenDid     = $DidDocument.Did
         SocietyDid     = $societyDid
         EndowmentSvrn7 = [decimal]0.001
         EndowmentGrana = 1000L
@@ -1478,13 +1478,23 @@ function Invoke-Web7SocietyQuery {
         } | ConvertTo-Json -Compress
 
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
-        Write-Verbose "Invoke-Web7SocietyQuery: replying to $($msg.FromDid)"
-
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/society/1.0/society-query-result'
+        if (-not $endpoint) {
+            Write-Warning "Invoke-Web7SocietyQuery: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/society/1.0/society-query-result'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($msg.FromDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        Write-Information "Invoke-Web7SocietyQuery: replying to $($msg.FromDid)"
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
 }
 
@@ -1528,13 +1538,23 @@ function Invoke-Web7MemberQuery {
 
         $payload  = $result | ConvertTo-Json -Compress
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
-        Write-Verbose "Invoke-Web7MemberQuery: replying to $($msg.FromDid)"
-
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/society/1.0/member-query-result'
+        if (-not $endpoint) {
+            Write-Warning "Invoke-Web7MemberQuery: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/society/1.0/member-query-result'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($msg.FromDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        Write-Information "Invoke-Web7MemberQuery: replying to $($msg.FromDid)"
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
 }
 
@@ -1572,13 +1592,23 @@ function Invoke-Web7OverdraftQuery {
         } | ConvertTo-Json -Compress
 
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
-        Write-Verbose "Invoke-Web7OverdraftQuery: replying to $($msg.FromDid)"
-
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/society/1.0/overdraft-query-result'
+        if (-not $endpoint) {
+            Write-Warning "Invoke-Web7OverdraftQuery: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/society/1.0/overdraft-query-result'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($msg.FromDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        Write-Information "Invoke-Web7OverdraftQuery: replying to $($msg.FromDid)"
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
 }
 
@@ -1619,13 +1649,23 @@ function Invoke-Web7DidMethodsQuery {
         } | ConvertTo-Json -Depth 4 -Compress
 
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
-        Write-Verbose "Invoke-Web7DidMethodsQuery: replying to $($msg.FromDid)"
-
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/society/1.0/did-methods-query-result'
+        if (-not $endpoint) {
+            Write-Warning "Invoke-Web7DidMethodsQuery: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/society/1.0/did-methods-query-result'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($msg.FromDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        Write-Information "Invoke-Web7DidMethodsQuery: replying to $($msg.FromDid)"
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
 }
 
@@ -1662,13 +1702,23 @@ function Invoke-Web7DidMethodRegister {
         } | ConvertTo-Json -Compress
 
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
-        Write-Verbose "Invoke-Web7DidMethodRegister: registered '$($body.methodName)', replying to $($msg.FromDid)"
-
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/society/1.0/did-method-register-result'
+        if (-not $endpoint) {
+            Write-Warning "Invoke-Web7DidMethodRegister: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/society/1.0/did-method-register-result'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($msg.FromDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        Write-Information "Invoke-Web7DidMethodRegister: registered '$($body.methodName)', replying to $($msg.FromDid)"
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
 }
 
@@ -1709,13 +1759,153 @@ function Invoke-Web7CitizenDidAdd {
         } | ConvertTo-Json -Compress
 
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
-        Write-Verbose "Invoke-Web7CitizenDidAdd: issued '$secondaryDid', replying to $($msg.FromDid)"
-
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/society/1.0/citizen-did-add-result'
+        if (-not $endpoint) {
+            Write-Warning "Invoke-Web7CitizenDidAdd: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/society/1.0/citizen-did-add-result'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($msg.FromDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        Write-Information "Invoke-Web7CitizenDidAdd: issued '$secondaryDid', replying to $($msg.FromDid)"
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
+    }
+}
+
+function Invoke-Web7SocietyQueryResult {
+    <#
+    .SYNOPSIS
+        Handles society/1.0/society-query-result — receives the society-query reply.
+    .DESCRIPTION
+        Body: { societyDid, federationDid, currentEpoch, queriedAt }
+        Terminal — no reply is sent.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory, ValueFromPipelineByPropertyName)] [string] $MessageDid)
+    process {
+        $msg   = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { throw "Invoke-Web7SocietyQueryResult: message '$MessageDid' not found." }
+        $body  = $msg.PackedPayload | ConvertFrom-Json
+        $did   = Get-BodyField $body 'societyDid'   '(unknown)'
+        $epoch = Get-BodyField $body 'currentEpoch' '(unknown)'
+        Write-Information "Invoke-Web7SocietyQueryResult: societyDid='$did' epoch=$epoch from='$($msg.FromDid)'"
+    }
+}
+
+function Invoke-Web7MemberQueryResult {
+    <#
+    .SYNOPSIS
+        Handles society/1.0/member-query-result — receives the member-query reply.
+    .DESCRIPTION
+        Body (single-DID test): { societyDid, did, isMember }
+        Body (list variant):    { societyDid, memberCount, memberDids[] }
+        Terminal — no reply is sent.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory, ValueFromPipelineByPropertyName)] [string] $MessageDid)
+    process {
+        $msg         = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { throw "Invoke-Web7MemberQueryResult: message '$MessageDid' not found." }
+        $body        = $msg.PackedPayload | ConvertFrom-Json
+        $isMember    = Get-BodyField $body 'isMember'    $null
+        $memberCount = Get-BodyField $body 'memberCount' $null
+        if ($null -ne $isMember) {
+            $did = Get-BodyField $body 'did' '(unknown)'
+            Write-Information "Invoke-Web7MemberQueryResult: did='$did' isMember=$isMember from='$($msg.FromDid)'"
+        } else {
+            Write-Information "Invoke-Web7MemberQueryResult: memberCount=$memberCount from='$($msg.FromDid)'"
+        }
+    }
+}
+
+function Invoke-Web7OverdraftQueryResult {
+    <#
+    .SYNOPSIS
+        Handles society/1.0/overdraft-query-result — receives the overdraft-query reply.
+    .DESCRIPTION
+        Body: { societyDid, status, totalOverdrawnGrana, overdraftCeilingGrana,
+                lifetimeDrawsGrana, drawCount, drawAmountGrana, lastDrawAt, queriedAt }
+        Terminal — no reply is sent.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory, ValueFromPipelineByPropertyName)] [string] $MessageDid)
+    process {
+        $msg    = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { throw "Invoke-Web7OverdraftQueryResult: message '$MessageDid' not found." }
+        $body   = $msg.PackedPayload | ConvertFrom-Json
+        $did    = Get-BodyField $body 'societyDid' '(unknown)'
+        $status = Get-BodyField $body 'status'     '(unknown)'
+        Write-Information "Invoke-Web7OverdraftQueryResult: societyDid='$did' status=$status from='$($msg.FromDid)'"
+        Write-Information $msg.PackedPayload
+    }
+}
+
+function Invoke-Web7DidMethodsQueryResult {
+    <#
+    .SYNOPSIS
+        Handles society/1.0/did-methods-query-result — receives the did-methods-query reply.
+    .DESCRIPTION
+        Body: { societyDid, methods[], queriedAt }
+        Terminal — no reply is sent.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory, ValueFromPipelineByPropertyName)] [string] $MessageDid)
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { throw "Invoke-Web7DidMethodsQueryResult: message '$MessageDid' not found." }
+        $body = $msg.PackedPayload | ConvertFrom-Json
+        $did  = Get-BodyField $body 'societyDid' '(unknown)'
+        Write-Information "Invoke-Web7DidMethodsQueryResult: societyDid='$did' from='$($msg.FromDid)'"
+        Write-Information $msg.PackedPayload
+    }
+}
+
+function Invoke-Web7DidMethodRegisterResult {
+    <#
+    .SYNOPSIS
+        Handles society/1.0/did-method-register-result — receives the did-method-register reply.
+    .DESCRIPTION
+        Body: { societyDid, methodName, status, success }
+        Terminal — no reply is sent.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory, ValueFromPipelineByPropertyName)] [string] $MessageDid)
+    process {
+        $msg        = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { throw "Invoke-Web7DidMethodRegisterResult: message '$MessageDid' not found." }
+        $body       = $msg.PackedPayload | ConvertFrom-Json
+        $did        = Get-BodyField $body 'societyDid'  '(unknown)'
+        $methodName = Get-BodyField $body 'methodName'  '(unknown)'
+        $success    = Get-BodyField $body 'success'     $false
+        Write-Information "Invoke-Web7DidMethodRegisterResult: societyDid='$did' methodName='$methodName' success=$success from='$($msg.FromDid)'"
+    }
+}
+
+function Invoke-Web7CitizenDidAddResult {
+    <#
+    .SYNOPSIS
+        Handles society/1.0/citizen-did-add-result — receives the citizen-did-add reply.
+    .DESCRIPTION
+        Body: { citizenPrimaryDid, secondaryDid, methodName, success }
+        Terminal — no reply is sent.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory, ValueFromPipelineByPropertyName)] [string] $MessageDid)
+    process {
+        $msg          = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { throw "Invoke-Web7CitizenDidAddResult: message '$MessageDid' not found." }
+        $body         = $msg.PackedPayload | ConvertFrom-Json
+        $primaryDid   = Get-BodyField $body 'citizenPrimaryDid' '(unknown)'
+        $secondaryDid = Get-BodyField $body 'secondaryDid'      '(unknown)'
+        $success      = Get-BodyField $body 'success'           $false
+        Write-Information "Invoke-Web7CitizenDidAddResult: primary='$primaryDid' secondary='$secondaryDid' success=$success from='$($msg.FromDid)'"
     }
 }
 
@@ -1817,5 +2007,11 @@ Export-ModuleMember -Function @(
     'Invoke-Web7DidMethodsQuery'
     'Invoke-Web7DidMethodRegister'
     'Invoke-Web7CitizenDidAdd'
+    'Invoke-Web7SocietyQueryResult'
+    'Invoke-Web7MemberQueryResult'
+    'Invoke-Web7OverdraftQueryResult'
+    'Invoke-Web7DidMethodsQueryResult'
+    'Invoke-Web7DidMethodRegisterResult'
+    'Invoke-Web7CitizenDidAddResult'
     'Send-DIDCommMessage'
 )

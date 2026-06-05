@@ -60,11 +60,22 @@ function ConvertFrom-Web7OnboardRequest {
 
         Assert-BodyFields $body @('citizenDid') 'Onboarding LOBE: onboard/1.0/request'
 
+        $citizenDid   = $body.citizenDid
+        $publicKeyHex = Get-BodyField $body 'publicKeyHex' ''
+        $svcUrl       = Get-BodyField $body 'serviceEndpointUrl' ''
+        $methodName   = ($citizenDid -split ':')[1]
+
+        $didDocument = $SVRN7.Driver.CreateDidDocument(
+            $citizenDid,
+            $publicKeyHex,
+            $methodName,
+            $(if ($svcUrl) { $svcUrl } else { $null })
+        )
+
         return @{
             MessageDid   = $MessageDid
-            CitizenDid   = $body.citizenDid
-            PublicKeyHex = Get-BodyField $body 'publicKeyHex' ''
-            DisplayName  = Get-BodyField $body 'displayName'  ''
+            DidDocument  = $didDocument
+            DisplayName  = Get-BodyField $body 'displayName' ''
             RequestedAt  = [datetimeoffset]::UtcNow.ToString('o')
         }
     }

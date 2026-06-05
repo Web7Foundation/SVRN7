@@ -46,7 +46,7 @@ public sealed class Svrn7RunspaceContext
 
     /// <summary>
     /// The current epoch value. Refreshed every 60 seconds by
-    /// <see cref="RunspacePoolManager"/>. Cmdlets read this for epoch gating.
+    /// <see cref="IsolatedRunspaceFactory"/>. Cmdlets read this for epoch gating.
     /// </summary>
     public int CurrentEpoch => _currentEpoch;
 
@@ -71,7 +71,7 @@ public sealed class Svrn7RunspaceContext
     }
 
     /// <summary>
-    /// Refreshes the epoch value. Called by <see cref="RunspacePoolManager"/>
+    /// Refreshes the epoch value. Called by <see cref="IsolatedRunspaceFactory"/>
     /// on a 60-second timer. Thread-safe via volatile write.
     /// </summary>
     internal void SetEpoch(int epoch) => _currentEpoch = epoch;

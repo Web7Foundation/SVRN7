@@ -28,6 +28,13 @@
       "epochRequired": 0
     },
     {
+      "uri": "did:drn:svrn7.net/protocols/federation/1.0/society-list-result",
+      "title": "Society List Result",
+      "description": "Inbound reply to a society-list request. Body: count, activeCount, societies[], queriedAt. Terminal — no reply is sent.",
+      "entrypoint": "Invoke-Web7SocietyListResult",
+      "epochRequired": 0
+    },
+    {
       "uri": "did:drn:svrn7.net/protocols/federation/1.0/init",
       "title": "Federation Init",
       "description": "Initialises the Federation record (idempotent — no-op if already initialised). Body: federationDid, federationName, publicKeyHex, primaryDidMethodName.",
@@ -39,6 +46,27 @@
       "title": "Register Society",
       "description": "Registers a new Society with the Federation. Body: societyDid, publicKeyHex, societyName, primaryDidMethodName, drawAmountGrana, overdraftCeilingGrana.",
       "entrypoint": "Invoke-Web7RegisterSociety",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/federation/1.0/federation-query-result",
+      "title": "Federation Query Result",
+      "description": "Inbound reply to a federation-query request. Body: found, federationDid, federationName, primaryDidMethodName, totalSupplyGrana, currentEpoch, isActive, queriedAt. Terminal — no reply is sent.",
+      "entrypoint": "Invoke-Web7FederationQueryResult",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/federation/1.0/init-result",
+      "title": "Federation Init Result",
+      "description": "Inbound reply to a federation init request. Body: federationDid, federationName, primaryDidMethodName, totalSupplyGrana, alreadyInitialised, initialisedAt. Terminal — no reply is sent.",
+      "entrypoint": "Invoke-Web7FederationInitResult",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/federation/1.0/register-society-result",
+      "title": "Register Society Result",
+      "description": "Inbound reply to a register-society request. Body: societyDid, societyName, primaryDidMethodName, drawAmountGrana, overdraftCeilingGrana, success, registeredAt. Terminal — no reply is sent.",
+      "entrypoint": "Invoke-Web7RegisterSocietyResult",
       "epochRequired": 0
     }
   ],

@@ -106,10 +106,8 @@ public interface ISvrn7Driver : IAsyncDisposable
 
     // ── Federation initialisation (idempotent — no-op if record already exists) ──
     Task<OperationResult> InitialiseFederationAsync(
-        string federationDid,
+        DidDocument didDocument,
         string federationName,
-        string publicKeyHex,
-        string primaryDidMethodName,
         CancellationToken ct = default);
 
     // ── DID Document registry ─────────────────────────────────────────────────
@@ -157,6 +155,7 @@ public interface ISvrn7Driver : IAsyncDisposable
     bool    VerifySecp256k1(byte[] payload, string cesrSig, string publicKeyHex);
     Task<string> Blake3HexAsync(byte[] data, CancellationToken ct = default);
     Task<string> Base58EncodeAsync(byte[] data, CancellationToken ct = default);
+    DidDocument  CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null);
 
     // ── Wallet admin ───────────────────────────────────────────────────────────
     Task<int> LiftAllWalletRestrictionsAsync(CancellationToken ct = default);

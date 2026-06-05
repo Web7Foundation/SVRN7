@@ -119,7 +119,7 @@ public sealed class TdaOptions
 public sealed class SwitchboardHostedService : BackgroundService
 {
     private readonly DIDCommMessageSwitchboard         _switchboard;
-    private readonly RunspacePoolManager               _pool;
+    private readonly IsolatedRunspaceFactory               _pool;
     private readonly ILogger<SwitchboardHostedService> _log;
 
     // Delay before restarting the drain loop after an unexpected fault.
@@ -127,7 +127,7 @@ public sealed class SwitchboardHostedService : BackgroundService
 
     public SwitchboardHostedService(
         DIDCommMessageSwitchboard          switchboard,
-        RunspacePoolManager                pool,
+        IsolatedRunspaceFactory                pool,
         ILogger<SwitchboardHostedService>  log)
     {
         _switchboard = switchboard;
@@ -173,7 +173,7 @@ public sealed class SwitchboardHostedService : BackgroundService
 ///   2.  IMemoryCache (in-process hot cache — Data Access element — DSA 0.24)
 ///   3.  Svrn7RunspaceContext ($SVRN7 session variable — all runspaces)
 ///   4.  LobeManager (LOBE loader — eager + JIT)
-///   5.  RunspacePoolManager (PowerShell Runspace Pool lifecycle)
+///   5.  IsolatedRunspaceFactory (PowerShell Runspace Pool lifecycle)
 ///   6.  DIDCommMessageSwitchboard (sole inbox reader + outbound queue)
 ///   7.  SwitchboardHostedService (drain loop BackgroundService)
 ///   8.  KestrelListenerService (POST /didcomm, HTTP/2 + mTLS)
@@ -214,17 +214,24 @@ public static class TdaServiceCollectionExtensions
         // Derived from: "LobeManager" (LOBE layer) — DSA 0.24 Epoch 0.
         services.AddSingleton<LobeManager>();
 
-        // 5. RunspacePoolManager
+        // 5. IsolatedRunspaceFactory
         // Derived from: "PowerShell Runspace Pool" — DSA 0.24 Epoch 0.
-        services.AddSingleton<RunspacePoolManager>();
+        services.AddSingleton<IsolatedRunspaceFactory>();
 
         // 6. HttpClient (named "didcomm") — outbound DIDComm delivery to peer TDAs.
         // Derived from: "HTTP Listener/Sender (HTTPClient)" outbound path — DSA 0.24.
         // Polly retry: exponential backoff, 3 attempts, 500ms base delay.
+        //
+        // RequestVersionExact: prevents silent fallback to HTTP/1.1 on http:// (h2c)
+        // URLs. With the default RequestVersionOrLower, SocketsHttpHandler downgrades
+        // to HTTP/1.1 for cleartext connections, producing 400 from a Http2-only Kestrel
+        // endpoint. RequestVersionExact enforces HTTP/2 end-to-end (same approach used
+        // by Send-DIDCommMessage in Svrn7.Common.psm1).
         services.AddHttpClient("didcomm", client =>
         {
             client.DefaultRequestVersion = new System.Version(2, 0);
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultVersionPolicy  = System.Net.Http.HttpVersionPolicy.RequestVersionExact;
+            client.Timeout               = TimeSpan.FromSeconds(30);
         });
 
         // IOutboxStore — dead-letter outbox for failed outbound messages.
@@ -238,7 +245,7 @@ public static class TdaServiceCollectionExtensions
         services.AddSingleton<DIDCommMessageSwitchboard>(sp =>
             new DIDCommMessageSwitchboard(
                 sp.GetRequiredService<Svrn7RunspaceContext>(),
-                sp.GetRequiredService<RunspacePoolManager>(),
+                sp.GetRequiredService<IsolatedRunspaceFactory>(),
                 sp.GetRequiredService<IInboxStore>(),
                 sp.GetRequiredService<Svrn7.Core.Interfaces.IOutboxStore>(),
                 sp.GetRequiredService<LobeManager>(),

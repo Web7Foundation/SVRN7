@@ -41,7 +41,7 @@ namespace Svrn7.TDA;
 public sealed class DIDCommMessageSwitchboard
 {
     private readonly Svrn7RunspaceContext                _ctx;
-    private readonly RunspacePoolManager                _pool;
+    private readonly IsolatedRunspaceFactory                _pool;
     private readonly IInboxStore                        _inbox;
     private readonly Svrn7.Core.Interfaces.IOutboxStore _outbox;
     private readonly LobeManager                        _lobes;
@@ -65,7 +65,7 @@ public sealed class DIDCommMessageSwitchboard
 
     public DIDCommMessageSwitchboard(
         Svrn7RunspaceContext                ctx,
-        RunspacePoolManager                 pool,
+        IsolatedRunspaceFactory                 pool,
         IInboxStore                         inbox,
         Svrn7.Core.Interfaces.IOutboxStore  outbox,
         LobeManager                         lobes,
