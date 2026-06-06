@@ -238,9 +238,113 @@ Derived from: "Citizen/Society TDA (Host)" — element type Host — DSA 0.24 Ep
   prevents read-modify-write races on shared financial state)
 → LOBE cmdlet pipeline (`IsolatedPipeline` — fresh `Runspace` per dispatch, disposed after; invocation timeout: 30s default)
 
-**Outbound**: LOBE returns `OutboundMessage { PeerEndpoint, PackedMessage, MessageType }`
+**Outbound**: LOBE returns `[Svrn7.TDA.OutboundMessage]::new(endpoint, envelope)`
 → `DIDCommMessageSwitchboard.EnqueueOutbound()`
 → `HttpClient` HTTP/2 POST to peer TDA endpoint; retries up to 3 times with exponential backoff (500ms, 1s, 2s)
+
+### C# ↔ PowerShell Layer Model
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  NETWORK                                                       │
+│  HTTP/2 + mTLS  POST /didcomm  (KestrelListenerService.cs)   │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ writes packed DIDComm payload
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  DURABLE INBOX  (IInboxStore → LiteDB: svrn7-inbox.db)       │
+│  InboxMessage { Id=DID URL, MessageType, PackedPayload, ... } │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ drain loop (sequential batch)
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  DIDCommMessageSwitchboard  (C#)                              │
+│  1. Epoch gate  — rejects types not permitted in CurrentEpoch │
+│  2. Idempotency — checks IProcessedOrderStore before routing  │
+│  3. Route       — LobeManager.TryResolveProtocol(@type)       │
+│  4. Dispatch    — InvokeCmdletPipelineAsync(entrypoint, did)  │
+│  5. Collect     — result?.BaseObject is OutboundMessage?      │
+│  6. Deliver     — HttpClient.PostAsync to peer TDA            │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ CreateIsolatedPipeline()
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  IsolatedRunspaceFactory  (C#)                                │
+│  · Per-invocation Runspace from shared InitialSessionState   │
+│  · Crash/timeout in one runspace cannot affect others        │
+│  · 60-second timer refreshes $SVRN7.CurrentEpoch             │
+│                                                              │
+│  LobeManager  (C#)                                           │
+│  · Reads lobes.config.json                                   │
+│  · ISS has eager LOBEs pre-imported + $SVRN7 + $SVRN7_JIT_* │
+│  · Protocol registry: exact-match + longest-prefix-match     │
+│  · JIT: Import-Module on first use (idempotent)              │
+│  · FileSystemWatcher: hot-adds new *.lobe.json at runtime    │
+└──────────────────────────┬───────────────────────────────────┘
+                           │
+          ════════ SEAM ═══════════════════════════════════════
+          C# → PS  injected session variables:
+            $SVRN7            = Svrn7RunspaceContext object
+            $SVRN7_JIT_LOBES  = string[] of .psm1 paths
+            $SVRN7_LOBES_DIR  = absolute lobes directory path
+          C# → PS  parameter:
+            -MessageDid       = TDA DID URL (pass-by-reference handle)
+          PS → C#  pipeline result:
+            [Svrn7.TDA.OutboundMessage]::new(endpoint, envelope)
+          ════════════════════════════════════════════════════
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  POWERSHELL RUNSPACE  (per invocation, isolated)              │
+│                                                              │
+│  Two dispatch patterns:                                      │
+│  a) LOBE cmdlet: Get-Web7Message -Did $did                   │
+│                  | Invoke-{Lobe}Cmdlet -MessageDid $did      │
+│                                                              │
+│  b) Agent script: AgentN-Invoicing.ps1 -MessageDid $did      │
+│     (script orchestrates its own multi-step pipeline)        │
+│                                                              │
+│  EAGER LOBEs (in ISS at startup — all runspaces):            │
+│    Svrn7.Common, Svrn7.Federation, Svrn7.Society, Svrn7.UX  │
+│                                                              │
+│  JIT LOBEs (imported on first use per runspace):             │
+│    Svrn7.Email, Svrn7.Calendar, Svrn7.Presence,             │
+│    Svrn7.Notifications, Svrn7.Onboarding,                   │
+│    Svrn7.Invoicing, Svrn7.Identity                           │
+│                                                              │
+│  In every LOBE cmdlet:                                       │
+│    $msg = $SVRN7.GetMessageAsync($MessageDid)   ← hot cache  │
+│    $SVRN7.Driver.SomeMethodAsync(...)           ← C# driver  │
+│    [Svrn7.TDA.OutboundMessage]::new($ep, $env)  ← return     │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ $SVRN7.Driver.*  calls back into C#
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  ISvrn7SocietyDriver  (C#)                                    │
+│  Full monetary + identity stack:                             │
+│  Svrn7.Federation / Svrn7.Society / Svrn7.Store /            │
+│  Svrn7.Ledger / Svrn7.Identity / Svrn7.Crypto               │
+│  → LiteDB (svrn7.db, svrn7-dids.db, svrn7-vcs.db)           │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Three design rules enforced by this model:
+
+**1. Pass-by-reference, never by payload copy.**
+The Switchboard passes the message's DID URL string (`$MessageDid`) to the LOBE, not the
+payload. The LOBE calls `$SVRN7.GetMessageAsync()` which hits an in-process `IMemoryCache`
+(hot path) or LiteDB (cold path). No payload serialization crosses the C#/PS boundary.
+
+**2. Single return type across the seam.**
+The only way a LOBE puts work back into C# is `[Svrn7.TDA.OutboundMessage]::new(endpoint,
+envelope)`. The Switchboard checks `result?.BaseObject is OutboundMessage` — anything else
+(hashtable, PSCustomObject, `$null`) is silently dropped.
+
+**3. Isolation per invocation, not per pool slot.**
+Each dispatch gets its own `Runspace` opened fresh from the shared `InitialSessionState`.
+A crash, infinite loop, or `Set-StrictMode` violation in one cmdlet cannot corrupt another
+concurrent dispatch. The ISS is built once; the per-invocation runspace is opened and
+closed around a single `ps.Invoke()`.
 
 ### Message Identity — Pass-by-Reference
 
