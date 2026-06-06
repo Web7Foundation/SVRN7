@@ -10,6 +10,12 @@ public enum VcStatus       { Active, Suspended, Revoked, Expired }
 public enum OverdraftStatus{ Clean, Overdrawn, Ceiling }
 public enum DidMethodStatus{ Active, Dormant }   // Available = not in registry
 
+/// <summary>
+/// Functional role of a TDA instance in the Web 7.0 network.
+/// Stored on DidDocument to identify what role the owning TDA plays.
+/// </summary>
+public enum TdaRole { Federation, Society, Citizen }
+
 // ── Core monetary models ───────────────────────────────────────────────────────
 
 /// <summary>
@@ -274,6 +280,11 @@ public record DidDocument
     public List<string>                     CapabilityDelegation   { get; set; } = [];
     public List<DidServiceEndpoint>         ServiceEndpoints       { get; set; } = [];
     public DidProof?                        Proof                  { get; set; }
+    /// <summary>
+    /// Role of the TDA that owns this DIDDocument. Set once at registration; treat as
+    /// immutable thereafter. Uses set (not init) for LiteDB compatibility.
+    /// </summary>
+    public TdaRole?                         Role                   { get; set; }
     public int                              Version                { get; set; }
     public DidStatus                        Status                 { get; set; } = DidStatus.Active;
     public required string                  DocumentJson           { get; set; }  // canonical W3C JSON

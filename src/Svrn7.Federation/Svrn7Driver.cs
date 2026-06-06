@@ -169,8 +169,8 @@ public sealed class Svrn7Driver : ISvrn7Driver
                 AmountGrana = Svrn7Constants.CitizenEndowmentGrana,
             }, ct);
 
-            // DID Document — use the pre-built document from the caller
-            await _didRegistry.CreateAsync(request.DidDocument, ct);
+            // DID Document — stamp role then persist
+            await _didRegistry.CreateAsync(request.DidDocument with { Role = TdaRole.Citizen }, ct);
 
             // Endowment VC
             var jwtVc = await _vcService.IssueAsync(
@@ -267,8 +267,8 @@ public sealed class Svrn7Driver : ISvrn7Driver
             await _wallets.CreateWalletAsync(
                 new Wallet { Did = did, BalanceGrana = 0, IsRestricted = false }, ct);
 
-            // DID Document
-            await _didRegistry.CreateAsync(request.DidDocument, ct);
+            // DID Document — stamp role then persist
+            await _didRegistry.CreateAsync(request.DidDocument with { Role = TdaRole.Society }, ct);
 
             _didsPubl.Add(1);
             _log.LogInformation("Society initialised locally: {Did} ({Method})", did, primaryMethodName);
@@ -652,8 +652,8 @@ public sealed class Svrn7Driver : ISvrn7Driver
             IsRestricted = false,
         }, ct);
 
-        // DID Document
-        await _didRegistry.CreateAsync(didDocument, ct);
+        // DID Document — stamp role then persist
+        await _didRegistry.CreateAsync(didDocument with { Role = TdaRole.Federation }, ct);
 
         await _merkle.AppendAsync("FederationInitialised",
             JsonSerializer.Serialize(new

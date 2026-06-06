@@ -7,27 +7,11 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Svrn7.Core.Interfaces;
+using Svrn7.Core.Models;
 using Svrn7.DIDComm;
 using Svrn7.Society;
 
 namespace Svrn7.TDA;
-
-// ── TdaRole ───────────────────────────────────────────────────────────────────
-
-/// <summary>
-/// Declares the functional role of this TDA instance in the Web 7.0 network.
-/// Controls which LOBEs are loaded and how the startup banner is labelled.
-/// Additional roles may be added in future epochs.
-/// </summary>
-public enum TdaRole
-{
-    /// <summary>Manages the Federation record, method registry, and total supply.</summary>
-    Federation,
-    /// <summary>Manages a Society's membership, wallets, and endowment transfers.</summary>
-    Society,
-    /// <summary>Represents an individual citizen's identity and signing keys.</summary>
-    Citizen,
-}
 
 // ── TdaOptions ────────────────────────────────────────────────────────────────
 
