@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using Svrn7.Core.Interfaces;
+using Svrn7.Core.Models;
 using Svrn7.Society;
 
 namespace Svrn7.TDA;
