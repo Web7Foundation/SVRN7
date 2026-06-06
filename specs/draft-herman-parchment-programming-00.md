@@ -1107,7 +1107,7 @@ Derivation rule: LOBE -> PowerShell module (.psm1); exports named cmdlets (35 cm
 
 **Register-Svrn7CitizenInSociety** (cmdlet in Svrn7.Society.psm1)
 Derived from: "SVRN7 LOBE" (-> Svrn7.Society.psm1) and the Switchboard routing rule for
-"onboard/1.0/request" -> Agent 2 Onboarding -> Register-Svrn7CitizenInSociety pipeline.
+"onboard/1.0/register-citizen" -> Agent 2 Onboarding -> Register-Svrn7CitizenInSociety pipeline.
 
 ### 11.4 The Parchment Programming Loop: One Iteration
 
@@ -1174,7 +1174,7 @@ Each LOBE either defines a net-new DIDComm protocol or tunnels an existing indus
 inside a DIDComm envelope:
 
 - **Net-new**: Presence (presence/1.0/status, presence/1.0/subscribe), Notifications
-  (notification/1.0/alert), Onboarding (onboard/1.0/request, onboard/1.0/receipt), Invoicing
+  (notification/1.0/alert), Onboarding (onboard/1.0/register-citizen, onboard/1.0/receipt), Invoicing
   (invoice/1.0/request, invoice/1.0/receipt).
 - **Tunneling**: Email LOBE tunnels RFC 5322 (email message format) inside a DIDComm body.
   Calendar LOBE tunnels iCalendar (RFC 5545) inside a DIDComm body.

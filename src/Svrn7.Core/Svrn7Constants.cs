@@ -118,7 +118,7 @@ public static class Svrn7Constants
         public const string SupplyUpdate          = "did:drn:svrn7.net/protocols/supply/1.0/update";
         public const string DidResolveRequest     = "did:drn:svrn7.net/protocols/did/1.0/resolve-request";
         public const string DidResolveResponse    = "did:drn:svrn7.net/protocols/did/1.0/resolve-response";
-        public const string OnboardRequest        = "did:drn:svrn7.net/protocols/onboard/1.0/request";
+        public const string OnboardRequest        = "did:drn:svrn7.net/protocols/onboard/1.0/register-citizen";
         public const string OnboardReceipt        = "did:drn:svrn7.net/protocols/onboard/1.0/receipt";
         public const string InvoiceRequest        = "did:drn:svrn7.net/protocols/invoice/1.0/request";
         public const string InvoiceReceipt        = "did:drn:svrn7.net/protocols/invoice/1.0/receipt";

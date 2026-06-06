@@ -12,7 +12,7 @@
 
 .NOTES
     Protocol URIs:
-        did:drn:svrn7.net/protocols/onboard/1.0/request — inbound registration request
+        did:drn:svrn7.net/protocols/onboard/1.0/register-citizen — inbound registration request
         did:drn:svrn7.net/protocols/onboard/1.0/receipt — outbound registration receipt
 
     Pipeline:
@@ -28,7 +28,7 @@ $ErrorActionPreference = 'Stop'
 function ConvertFrom-Web7OnboardRequest {
     <#
     .SYNOPSIS
-        Extracts the citizen DID and public key from an onboard/1.0/request message.
+        Extracts the citizen DID and public key from an onboard/1.0/register-citizen message.
 
     .DESCRIPTION
         Resolves the inbox message DID URL and deserialises the onboarding request body.
@@ -58,7 +58,7 @@ function ConvertFrom-Web7OnboardRequest {
 
         $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
 
-        Assert-BodyFields $body @('citizenDid') 'Onboarding LOBE: onboard/1.0/request'
+        Assert-BodyFields $body @('citizenDid') 'Onboarding LOBE: onboard/1.0/register-citizen'
 
         $citizenDid   = $body.citizenDid
         $publicKeyHex = Get-BodyField $body 'publicKeyHex' ''

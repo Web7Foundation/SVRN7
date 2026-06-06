@@ -152,7 +152,7 @@ $body = @{
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = 'did:drn:svrn7.net/protocols/onboard/1.0/request'
+    type = 'did:drn:svrn7.net/protocols/onboard/1.0/register-citizen'
     from = $citizenDid
     to   = @('did:drn:bindloss.svrn7.net')
     body = $body
@@ -164,7 +164,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/onboard/1.0/request)
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/onboard/1.0/register-citizen)
         → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
 [Info]  Citizen registered: did:bindloss:mwherman001
 ```

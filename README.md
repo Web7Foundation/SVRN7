@@ -650,7 +650,7 @@ All SVRN7 `@type` URIs follow: `did:drn:svrn7.net/protocols/{family}/{version}/{
 | `SupplyUpdate`       | `did:drn:svrn7.net/protocols/supply/1.0/update`                       |
 | `DidResolveRequest`  | `did:drn:svrn7.net/protocols/did/1.0/resolve-request`                 |
 | `DidResolveResponse` | `did:drn:svrn7.net/protocols/did/1.0/resolve-response`                |
-| `OnboardRequest`     | `did:drn:svrn7.net/protocols/onboard/1.0/request`                     |
+| `OnboardRequest`     | `did:drn:svrn7.net/protocols/onboard/1.0/register-citizen`                     |
 | `OnboardReceipt`     | `did:drn:svrn7.net/protocols/onboard/1.0/receipt`                     |
 | `InvoiceRequest`     | `did:drn:svrn7.net/protocols/invoice/1.0/request`                     |
 | `InvoiceReceipt`     | `did:drn:svrn7.net/protocols/invoice/1.0/receipt`                     |

@@ -147,7 +147,7 @@ bootstrap sequence using only DIDComm messages to the running TDA:
 | E.1 | `federation/1.0/federation-query` | `Invoke-Web7FederationQuery` |
 | E.2 | `federation/1.0/register-society` | `Invoke-Web7RegisterSociety` |
 | E.3 | *(client-side key generation)* | — |
-| E.4 | `onboard/1.0/request` | `ConvertFrom-Web7OnboardRequest` |
+| E.4 | `onboard/1.0/register-citizen` | `ConvertFrom-Web7OnboardRequest` |
 | E.5–E.11 | `society/1.0/*` query/admin | see below |
 
 > **How replies work:** the Switchboard executes the handler cmdlet, which resolves
@@ -337,7 +337,7 @@ $citizenDid     = $citizenDidDoc.Did
 # e.g. did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
 ```
 
-### E.4 — Register citizen "mwherman" via onboard/1.0/request
+### E.4 — Register citizen "mwherman" via onboard/1.0/register-citizen
 
 ```powershell
 $body = @{
@@ -349,7 +349,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/onboard/1.0/request"
+    type = "did:drn:svrn7.net/protocols/onboard/1.0/register-citizen"
     from = $citizenDid
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -361,7 +361,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/onboard/1.0/request)
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/onboard/1.0/register-citizen)
         → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
 [Info]  Citizen registered: did:bindloss:3J98...
 ```
@@ -627,7 +627,7 @@ Expected: `Status: Accepted`
 | `did:drn:svrn7.net/protocols/transfer/1.0/request` | `Invoke-Svrn7IncomingTransfer` |
 | `did:drn:svrn7.net/protocols/transfer/1.0/order` | `Invoke-Svrn7IncomingTransfer` |
 | `did:drn:svrn7.net/protocols/transfer/1.0/order-receipt` | `Confirm-Svrn7Settlement` |
-| `did:drn:svrn7.net/protocols/onboard/1.0/request` | `Register-Svrn7CitizenInSociety` |
+| `did:drn:svrn7.net/protocols/onboard/1.0/register-citizen` | `Register-Svrn7CitizenInSociety` |
 
 Any other `type` value is enqueued (202) but the Switchboard will log an unroutable message — visible at `LogLevel.Trace`.
 
@@ -777,7 +777,7 @@ did:drn:bindloss.svrn7.net   Clean
 
 ## Scenario B — Register first citizen "mwherman" via DIDComm
 
-Citizen registration is driven by the `onboard/1.0/request` DIDComm protocol.
+Citizen registration is driven by the `onboard/1.0/register-citizen` DIDComm protocol.
 The Switchboard routes the inbound message to Agent 2 (Onboarding LOBE), which calls
 `Register-Svrn7CitizenInSociety` and returns an `onboard/1.0/receipt`.
 
@@ -830,7 +830,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/onboard/1.0/request"
+    type = "did:drn:svrn7.net/protocols/onboard/1.0/register-citizen"
     from = $citizenDid
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -847,7 +847,7 @@ With `LogLevel.Trace`, look for the Agent 2 pipeline output:
 
 ```
 [Info]  Switchboard: routing did:drn:bindloss.svrn7.net/inbox/msg/<id>
-        (type=did:drn:svrn7.net/protocols/onboard/1.0/request) → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
+        (type=did:drn:svrn7.net/protocols/onboard/1.0/register-citizen) → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
 [Trace] PS invoke: Agent2-Onboarding.ps1 -MessageDid did:drn:...
 [Trace]   [PS Verbose] Agent 2 / Onboarding: processing did:drn:...
 [Trace]   [PS Verbose] Agent 2 / Onboarding: registering citizen did:bindloss:3J98...
@@ -885,7 +885,7 @@ MemberCount MemberDids
 
 ### B.6 — Error: duplicate registration
 
-Sending the same `onboard/1.0/request` a second time (same `citizenDid`) results in
+Sending the same `onboard/1.0/register-citizen` a second time (same `citizenDid`) results in
 a `202 Accepted` at the HTTP layer (the Switchboard always enqueues), but Agent 2 will
 log an error and return an `onboard/1.0/receipt` with `success: false`:
 

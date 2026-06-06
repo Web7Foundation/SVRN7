@@ -634,7 +634,7 @@ JIT (Import-Module on first use):
 
 ### Agent Scripts (lobes/)
   Agent1-Coordinator.ps1  — dispatch via Get-Web7Message / Send-Web7Message
-  Agent2-Onboarding.ps1   — onboard/1.0/request → ConvertFrom-Web7OnboardRequest
+  Agent2-Onboarding.ps1   — onboard/1.0/register-citizen → ConvertFrom-Web7OnboardRequest
   AgentN-Invoicing.ps1    — invoice/1.0/request → ConvertFrom-Web7InvoiceRequest
 
 ### LOBE Cmdlet Naming Convention (v0.8.0)

@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/onboard/1.0/request",
+      "uri": "did:drn:svrn7.net/protocols/onboard/1.0/register-citizen",
       "title": "Onboarding Request",
       "description": "Citizen requests Society registration. Body: { citizenDid, publicKeyHex, displayName }",
       "direction": "inbound",

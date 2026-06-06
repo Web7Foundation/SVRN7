@@ -18,7 +18,7 @@ did:drn:svrn7.net/protocols/{domain}/{version}/{action}
 ```
 
 Examples:
-- `did:drn:svrn7.net/protocols/onboard/1.0/request`
+- `did:drn:svrn7.net/protocols/onboard/1.0/register-citizen`
 - `did:drn:svrn7.net/protocols/invoice/1.0/request`
 - `did:drn:svrn7.net/protocols/payments/1.0/request`
 
@@ -726,7 +726,7 @@ understand existing patterns; confirm that any new URI is unique before register
 | `Svrn7.Society` | `did:drn:svrn7.net/protocols/transfer/1.0/request` | inbound | `Invoke-Svrn7IncomingTransfer` |
 | `Svrn7.Society` | `did:drn:svrn7.net/protocols/transfer/1.0/order` | inbound | `Invoke-Svrn7IncomingTransfer` |
 | `Svrn7.Society` | `did:drn:svrn7.net/protocols/transfer/1.0/order-receipt` | inbound | `Confirm-Svrn7Settlement` |
-| `Svrn7.Onboarding` | `did:drn:svrn7.net/protocols/onboard/1.0/request` | inbound | `ConvertFrom-PandoOnboardRequest` |
+| `Svrn7.Onboarding` | `did:drn:svrn7.net/protocols/onboard/1.0/register-citizen` | inbound | `ConvertFrom-PandoOnboardRequest` |
 | `Svrn7.Onboarding` | `did:drn:svrn7.net/protocols/onboard/1.0/receipt` | outbound | — |
 | `Svrn7.Invoicing` | `did:drn:svrn7.net/protocols/invoice/1.0/request` | inbound | `ConvertFrom-PandoInvoiceRequest` |
 | `Svrn7.Invoicing` | `did:drn:svrn7.net/protocols/invoice/1.0/receipt` | outbound | — |

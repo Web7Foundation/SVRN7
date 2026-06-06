@@ -229,7 +229,7 @@ Epoch 0.
 | `SupplyUpdate`          | `did:drn:svrn7.net/protocols/supply/1.0/update`                     | Federation → Societies |
 | `DidResolveRequest`     | `did:drn:svrn7.net/protocols/did/1.0/resolve-request`               | Society → Society |
 | `DidResolveResponse`    | `did:drn:svrn7.net/protocols/did/1.0/resolve-response`              | Society → Society |
-| `OnboardRequest`        | `did:drn:svrn7.net/protocols/onboard/1.0/request`                   | Citizen → Society |
+| `OnboardRequest`        | `did:drn:svrn7.net/protocols/onboard/1.0/register-citizen`                   | Citizen → Society |
 | `OnboardReceipt`        | `did:drn:svrn7.net/protocols/onboard/1.0/receipt`                   | Society → Citizen |
 | `InvoiceRequest`        | `did:drn:svrn7.net/protocols/invoice/1.0/request`                   | Citizen → Society |
 | `InvoiceReceipt`        | `did:drn:svrn7.net/protocols/invoice/1.0/receipt`                   | Society → Citizen |
