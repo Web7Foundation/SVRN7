@@ -89,25 +89,15 @@ try {
                -ForegroundColor Green
 
     # Return the OutboundMessage to the Switchboard pipeline
-    [PSCustomObject]@{
-        PeerEndpoint  = $outbound.PeerEndpoint
-        PackedMessage = $outbound.PackedMessage
-        MessageType   = $outbound.MessageType
-    }
+    $outbound
 
 } catch {
     Write-Error "Agent 2 / Onboarding: failed for $MessageDid — $_"
 
     # Send error receipt if we know the citizen DID
     if ($citizenDid -and (Get-Command Send-Web7OnboardError -ErrorAction SilentlyContinue)) {
-        $errOutbound = Send-Web7OnboardError `
+        Send-Web7OnboardError `
             -CitizenDid    $citizenDid `
             -ErrorMessage  $_.ToString()
-
-        [PSCustomObject]@{
-            PeerEndpoint  = $errOutbound.PeerEndpoint
-            PackedMessage = $errOutbound.PackedMessage
-            MessageType   = $errOutbound.MessageType
-        }
     }
 }

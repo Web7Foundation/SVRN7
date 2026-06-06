@@ -235,13 +235,12 @@ function New-Svrn7TransferIntent {
         Optional memo (max 256 chars).
 
     .OUTPUTS
-        Hashtable — OutboundMessage for the Switchboard.
+        OutboundMessage — packed DIDComm message ready for Switchboard delivery.
 
     .EXAMPLE
         New-Svrn7TransferIntent -PayerDid $from -PayeeDid $to -AmountGrana 500000
     #>
     [CmdletBinding()]
-    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory)] [string] $PayerDid,
         [Parameter(Mandatory)] [string] $PayeeDid,
@@ -254,27 +253,31 @@ function New-Svrn7TransferIntent {
             throw "UX LOBE: AmountGrana must be greater than zero."
         }
 
-        $payload = @{
-            type        = 'did:drn:svrn7.net/protocols/transfer/1.0/request'
-            from        = $PayerDid
-            to          = $PayeeDid
-            body        = @{
-                payerDid    = $PayerDid
-                payeeDid    = $PayeeDid
-                amountGrana = $AmountGrana
-                memo        = $Memo
-                nonce       = [guid]::NewGuid().ToString('N')
-                timestamp   = [datetimeoffset]::UtcNow.ToString('o')
-            }
-        } | ConvertTo-Json -Depth 5 -Compress
+        $bodyJson = @{
+            payerDid    = $PayerDid
+            payeeDid    = $PayeeDid
+            amountGrana = $AmountGrana
+            memo        = $Memo
+            nonce       = [guid]::NewGuid().ToString('N')
+            timestamp   = [datetimeoffset]::UtcNow.ToString('o')
+        } | ConvertTo-Json -Compress
 
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $SVRN7.Driver.SocietyDid
-
-        return @{
-            PeerEndpoint  = $peerEndpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/transfer/1.0/request'
+        if (-not $peerEndpoint) {
+            Write-Warning "New-Svrn7TransferIntent: no DIDComm service endpoint for Society — intent skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/transfer/1.0/request'
+            from = $PayerDid
+            to   = @($PayeeDid)
+            body = $bodyJson
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($peerEndpoint, $envelope)
     }
 }
 

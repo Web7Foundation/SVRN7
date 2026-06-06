@@ -158,14 +158,22 @@ $Body
             rfc5322Body = $rfc5322
         } | ConvertTo-Json -Compress
 
-        # Resolve peer TDA endpoint via IDidDocumentResolver
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $RecipientDid
-
-        return @{
-            PeerEndpoint  = $peerEndpoint
-            PackedMessage = $payload   # Switchboard packs via DIDComm V2 before delivery
-            MessageType   = 'did:drn:svrn7.net/protocols/email/1.0/message'
+        if (-not $peerEndpoint) {
+            Write-Warning "Send-Web7Email: no DIDComm service endpoint for '$RecipientDid' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/email/1.0/message'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($RecipientDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($peerEndpoint, $envelope)
     }
 }
 

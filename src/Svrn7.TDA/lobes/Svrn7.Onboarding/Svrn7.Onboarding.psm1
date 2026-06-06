@@ -97,13 +97,12 @@ function New-Web7OnboardReceipt {
         Expected fields: CitizenDid, EndowmentGrana, EndowmentVcId, SocietyDid.
 
     .OUTPUTS
-        Hashtable — OutboundMessage for the Switchboard.
+        OutboundMessage — packed DIDComm message ready for Switchboard delivery.
 
     .EXAMPLE
         ConvertFrom-Web7OnboardRequest | Register-Svrn7CitizenInSociety | New-Web7OnboardReceipt
     #>
     [CmdletBinding()]
-    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory, ValueFromPipeline)]
         [hashtable] $RegistrationResult
@@ -124,14 +123,23 @@ function New-Web7OnboardReceipt {
         } | ConvertTo-Json -Compress
 
         $endpoint = Resolve-SocietySenderEndpoint -Did $RegistrationResult.CitizenDid
+        if (-not $endpoint) {
+            Write-Warning "New-Web7OnboardReceipt: no DIDComm service endpoint for '$($RegistrationResult.CitizenDid)' — reply skipped."
+            return
+        }
 
         Write-Verbose "Onboarding LOBE: receipt for $($RegistrationResult.CitizenDid) — $($RegistrationResult.EndowmentGrana) grana"
 
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/onboard/1.0/receipt'
-        }
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/onboard/1.0/receipt'
+            from = $mySocietyDid
+            to   = @($RegistrationResult.CitizenDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
 }
 
@@ -149,7 +157,7 @@ function Send-Web7OnboardError {
         Human-readable error description.
 
     .OUTPUTS
-        Hashtable — OutboundMessage for the Switchboard.
+        OutboundMessage — packed DIDComm message ready for Switchboard delivery.
     #>
     [CmdletBinding()]
     param(
@@ -169,11 +177,21 @@ function Send-Web7OnboardError {
         } | ConvertTo-Json -Compress
 
         $endpoint = Resolve-SocietySenderEndpoint -Did $CitizenDid
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/onboard/1.0/receipt'
+        if (-not $endpoint) {
+            Write-Warning "Send-Web7OnboardError: no DIDComm service endpoint for '$CitizenDid' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/onboard/1.0/receipt'
+            from = $mySocietyDid
+            to   = @($CitizenDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
 }
 

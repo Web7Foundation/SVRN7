@@ -160,11 +160,21 @@ function Publish-Web7Presence {
 
         foreach ($subscriberDid in $subs) {
             $endpoint = Resolve-SocietySenderEndpoint -Did $subscriberDid
-            [PSCustomObject]@{
-                PeerEndpoint  = $endpoint
-                PackedMessage = $payload
-                MessageType   = 'did:drn:svrn7.net/protocols/presence/1.0/status'
+            if (-not $endpoint) {
+                Write-Warning "Publish-Web7Presence: no DIDComm service endpoint for '$subscriberDid' — skipped."
+                continue
             }
+
+            $envelope = [ordered]@{
+                typ  = 'application/didcomm-plain+json'
+                id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+                type = 'did:drn:svrn7.net/protocols/presence/1.0/status'
+                from = $mySocietyDid
+                to   = @($subscriberDid)
+                body = $payload
+            } | ConvertTo-Json -Compress
+
+            [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
         }
     }
 }

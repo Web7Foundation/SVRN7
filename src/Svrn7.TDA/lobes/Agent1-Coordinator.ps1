@@ -181,15 +181,12 @@ function Send-Web7Message {
     .SYNOPSIS
         Posts an outbound DIDComm message to the Switchboard's outbound queue.
     .PARAMETER OutboundMessage
-        Hashtable with PeerEndpoint, PackedMessage, MessageType.
+        OutboundMessage from a LOBE handler (pipeline input).
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory, ValueFromPipeline)] [hashtable] $OutboundMessage)
+    param([Parameter(Mandatory, ValueFromPipeline)] [Svrn7.TDA.OutboundMessage] $OutboundMessage)
     process {
-        # Return a C# OutboundMessage record so the Switchboard's BaseObject check matches.
-        [Svrn7.TDA.OutboundMessage]::new(
-            $OutboundMessage.PeerEndpoint,
-            $OutboundMessage.PackedMessage)
+        $OutboundMessage
     }
 }
 

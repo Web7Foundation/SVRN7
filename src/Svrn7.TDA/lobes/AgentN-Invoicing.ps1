@@ -129,25 +129,15 @@ try {
                "Transfer: $($transferResult.TransferId)" `
                -ForegroundColor Green
 
-    [PSCustomObject]@{
-        PeerEndpoint  = $outbound.PeerEndpoint
-        PackedMessage = $outbound.PackedMessage
-        MessageType   = $outbound.MessageType
-    }
+    $outbound
 
 } catch {
     Write-Error "Agent N / Invoicing: failed for $MessageDid — $_"
 
     if ($invoice -and (Get-Command Send-Web7InvoiceError -ErrorAction SilentlyContinue)) {
-        $errOutbound = Send-Web7InvoiceError `
+        Send-Web7InvoiceError `
             -PayerDid     $invoice.PayerDid `
             -InvoiceId    ($invoiceId ?? 'unknown') `
             -ErrorMessage $_.ToString()
-
-        [PSCustomObject]@{
-            PeerEndpoint  = $errOutbound.PeerEndpoint
-            PackedMessage = $errOutbound.PackedMessage
-            MessageType   = $errOutbound.MessageType
-        }
     }
 }

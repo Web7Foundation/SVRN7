@@ -134,7 +134,7 @@ function New-Web7CalendarResponse {
         Switch: decline the invite.
 
     .OUTPUTS
-        Hashtable — OutboundMessage for the Switchboard.
+        OutboundMessage — packed DIDComm message ready for Switchboard delivery.
 
     .EXAMPLE
         $invite | New-Web7CalendarResponse -Accept
@@ -172,11 +172,21 @@ END:VCALENDAR
         } | ConvertTo-Json -Compress
 
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $Invite.OrganizerDid
-        return @{
-            PeerEndpoint  = $peerEndpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/calendar/1.0/response'
+        if (-not $peerEndpoint) {
+            Write-Warning "New-Web7CalendarResponse: no DIDComm service endpoint for '$($Invite.OrganizerDid)' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/calendar/1.0/response'
+            from = $mySocietyDid
+            to   = @($Invite.OrganizerDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($peerEndpoint, $envelope)
     }
 }
 

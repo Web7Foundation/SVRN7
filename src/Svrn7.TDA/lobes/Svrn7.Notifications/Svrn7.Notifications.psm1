@@ -98,7 +98,7 @@ function Send-Web7Alert {
         Optional DID URL of the resource that triggered the alert.
 
     .OUTPUTS
-        Hashtable — OutboundMessage for the Switchboard.
+        OutboundMessage — packed DIDComm message ready for Switchboard delivery.
 
     .EXAMPLE
         Send-Web7Alert -RecipientDid "did:drn:alpha.svrn7.net/citizen/alice" `
@@ -133,11 +133,21 @@ function Send-Web7Alert {
         } | ConvertTo-Json -Compress
 
         $endpoint = Resolve-SocietySenderEndpoint -Did $RecipientDid
-        return @{
-            PeerEndpoint  = $endpoint
-            PackedMessage = $payload
-            MessageType   = 'did:drn:svrn7.net/protocols/notification/1.0/alert'
+        if (-not $endpoint) {
+            Write-Warning "Send-Web7Alert: no DIDComm service endpoint for '$RecipientDid' — reply skipped."
+            return
         }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/notification/1.0/alert'
+            from = $mySocietyDid
+            to   = @($RecipientDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
 }
 
