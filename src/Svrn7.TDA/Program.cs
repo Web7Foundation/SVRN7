@@ -26,11 +26,13 @@ using Svrn7.TDA;
 //   4.  host.RunAsync()       — blocks until shutdown
 
 // ── Command-line arguments ────────────────────────────────────────────────────
-// --port <n>    TCP/IP port to listen on (required — no default).
-//               Databases are stored under "<BaseDir>/{port}/mem/".
-//               LOBEs are loaded from   "<BaseDir>/{port}/lobes/".
-// --reset       Delete all databases and agent-identity.json for this port before
-//               starting, forcing a clean first-run Wanderer bootstrap.
+// --port <n>       TCP/IP port to listen on (required — no default).
+//                  Databases are stored under "<BaseDir>/{port}/mem/".
+//                  LOBEs are loaded from   "<BaseDir>/{port}/lobes/".
+// --name <string>  Human-readable name for this TDA (required).
+//                  Stored as Svrn7Name in the Wanderer DIDDocument on first run.
+// --reset          Delete all databases and agent-identity.json for this port before
+//                  starting, forcing a clean first-run Wanderer bootstrap.
 int port;
 {
     var portIdx = Array.IndexOf(args, "--port");
@@ -43,6 +45,21 @@ int port;
     else
     {
         port = p;
+    }
+}
+
+string tdaName;
+{
+    var nameIdx = Array.IndexOf(args, "--name");
+    if (nameIdx < 0 || nameIdx + 1 >= args.Length || string.IsNullOrWhiteSpace(args[nameIdx + 1]))
+    {
+        Console.Error.WriteLine("ERROR: --name <string> is required.");
+        Environment.Exit(1);
+        tdaName = string.Empty; // unreachable — satisfies definite assignment
+    }
+    else
+    {
+        tdaName = args[nameIdx + 1];
     }
 }
 
@@ -128,8 +145,8 @@ if (await driver.DidRegistry.CountAsync() == 0)
 {
     isFirstRun = true;
     var kp   = driver.GenerateSecp256k1KeyPair();
-    agentDid = $"did:drn:wanderer.testnet.svrn7.net/agent/1.0/{Guid.NewGuid():N}";
-    svrn7Name = $"TDA-{port}";
+    agentDid  = $"did:drn:wanderer.testnet.svrn7.net/agent/1.0/{Guid.NewGuid():N}";
+    svrn7Name = tdaName;
 
     var didDoc = driver.CreateDidDocument(agentDid, kp.PublicKeyHex, "drn",
                      $"http://localhost:{port}/didcomm", Svrn7Role.Wanderer, svrn7Name);

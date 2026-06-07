@@ -40,6 +40,8 @@ $nodes = @(
     @{ Name = 'Wanderer3'; Port = 8443 }
     @{ Name = 'Wanderer4'; Port = 8444 }
 )
+# Each node's Name is passed as --name to the TDA so it becomes the Svrn7Name in
+# the Wanderer DIDDocument on first run.
 
 $processes = [System.Collections.Generic.List[System.Diagnostics.Process]]::new()
 
@@ -49,7 +51,7 @@ foreach ($node in $nodes) {
 
     $psi = [System.Diagnostics.ProcessStartInfo]@{
         FileName               = 'dotnet'
-        Arguments              = "`"$dll`" --port $($node.Port)"
+        Arguments              = "`"$dll`" --port $($node.Port) --name $($node.Name)"
         WorkingDirectory       = $BinDir
         UseShellExecute        = $true
         CreateNoWindow         = $false
@@ -58,7 +60,7 @@ foreach ($node in $nodes) {
     # On Windows, open each TDA in its own titled console window
     if ($IsWindows) {
         $psi.FileName        = 'cmd.exe'
-        $psi.Arguments       = "/k title $($node.Name) [Wanderer] :$($node.Port) && dotnet `"$dll`" --port $($node.Port)"
+        $psi.Arguments       = "/k title $($node.Name) [Wanderer] :$($node.Port) && dotnet `"$dll`" --port $($node.Port) --name $($node.Name)"
         $psi.UseShellExecute = $true
     }
 
