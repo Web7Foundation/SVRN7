@@ -26,18 +26,26 @@ using Svrn7.TDA;
 //   4.  host.RunAsync()       — blocks until shutdown
 
 // ── Command-line arguments ────────────────────────────────────────────────────
-// --port <n>    TCP/IP port to listen on (default 8443).
+// --port <n>    TCP/IP port to listen on (required — no default).
 //               Databases are stored under "<BaseDir>/{port}/mem/".
 //               LOBEs are loaded from   "<BaseDir>/{port}/lobes/".
 // --did <did>   DID for this TDA instance (default did:drn:solo.svrn7.net).
 //               Allows multiple independent TDAs to run side-by-side.
-// --role <role> Functional role: Federation | Society | Citizen (default Federation).
+// --role <role> Functional role: Federation | Society | Citizen | Wanderer (default Wanderer).
 //               Overridden by Tda:Role in appsettings.json or Tda__Role env var.
-int port = 8443;
+int port;
 {
     var portIdx = Array.IndexOf(args, "--port");
-    if (portIdx >= 0 && portIdx + 1 < args.Length && int.TryParse(args[portIdx + 1], out int p))
+    if (portIdx < 0 || portIdx + 1 >= args.Length || !int.TryParse(args[portIdx + 1], out int p))
+    {
+        Console.Error.WriteLine("ERROR: --port <n> is required.");
+        Environment.Exit(1);
+        port = 0; // unreachable — satisfies definite assignment
+    }
+    else
+    {
         port = p;
+    }
 }
 
 string did = "did:drn:solo.svrn7.net";
@@ -47,7 +55,7 @@ string did = "did:drn:solo.svrn7.net";
         did = args[didIdx + 1];
 }
 
-TdaRole role = TdaRole.Federation;
+TdaRole role = TdaRole.Wanderer;
 {
     var roleIdx = Array.IndexOf(args, "--role");
     if (roleIdx >= 0 && roleIdx + 1 < args.Length)

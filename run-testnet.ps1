@@ -4,16 +4,17 @@
     Starts a local SVRN7 testnet with three TDA instances.
 
 .DESCRIPTION
-    Launches three TDA processes in separate windows:
+    Launches four TDA processes in separate windows:
 
         Federation1   --role Federation  --port 8441  --did did:drn:federation1.testnet.svrn7.net
         Society2      --role Society     --port 8442  --did did:drn:society2.testnet.svrn7.net
         Citizen3      --role Citizen     --port 8443  --did did:drn:citizen3.testnet.svrn7.net
+        Wanderer4     --role Wanderer    --port 8444  --did did:drn:wanderer4.testnet.svrn7.net
 
     Each TDA stores its databases under:
         <BinDir>/{port}/mem/
 
-    Press Ctrl+C in this window to stop all three processes.
+    Press Ctrl+C in this window to stop all four processes.
 
 .PARAMETER BinDir
     Path to the TDA output directory containing Svrn7.TDA.dll.
@@ -33,6 +34,7 @@ $nodes = @(
     @{ Name = 'Federation1'; Role = 'Federation'; Port = 8441; Did = 'did:drn:federation1.testnet.svrn7.net' }
     @{ Name = 'Society2';    Role = 'Society';    Port = 8442; Did = 'did:drn:society2.testnet.svrn7.net'    }
     @{ Name = 'Citizen3';    Role = 'Citizen';    Port = 8443; Did = 'did:drn:citizen3.testnet.svrn7.net'    }
+    @{ Name = 'Wanderer4';   Role = 'Wanderer';   Port = 8444; Did = 'did:drn:wanderer4.testnet.svrn7.net'   }
 )
 
 $processes = [System.Collections.Generic.List[System.Diagnostics.Process]]::new()
