@@ -881,7 +881,7 @@ internal sealed class NullSocietyDriver : Svrn7.Society.ISvrn7SocietyDriver
     public Task<Svrn7.Core.Models.FederationRecord?> GetFederationAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> UpdateFederationSupplyAsync(long newTotalSupplyGrana, string foundationSignature, string governanceRef, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> InitialiseFederationAsync(Svrn7.Core.Models.DidDocument d, string n, CancellationToken ct = default) => throw new NotImplementedException();
-    public Svrn7.Core.Models.DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null) => throw new NotImplementedException();
+    public Svrn7.Core.Models.DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7.Core.Models.Svrn7Role? role = null, string? svrn7Name = null) => throw new NotImplementedException();
     public Task CreateDidAsync(Svrn7.Core.Models.DidDocument document, CancellationToken ct = default) => throw new NotImplementedException();
     public Task UpdateDidAsync(Svrn7.Core.Models.DidDocument document, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.DidResolutionResult> ResolveDidAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
