@@ -79,13 +79,7 @@ function Initialize-Svrn7Assemblies {
 # ── Driver guards ──────────────────────────────────────────────────────────────
 
 function Assert-FederationDriver {
-    param([string] $RequiredRole = 'Federation')
-    if ($null -ne $SVRN7 -and $SVRN7.Role.ToString() -ne $RequiredRole) {
-        throw [System.InvalidOperationException]::new(
-            "This cmdlet requires TDA role '$RequiredRole'. " +
-            "Current role: '$($SVRN7.Role)'. Start the TDA with --role $RequiredRole.")
-    }
-    if ($null -eq $Script:FederationDriver) {
+    if ($null -eq $SVRN7 -and $null -eq $Script:FederationDriver) {
         throw [System.InvalidOperationException]::new(
             'Svrn7.Federation driver not initialised. ' +
             'Call Initialize-Svrn7FederationDriver before using Federation cmdlets.')
@@ -93,12 +87,7 @@ function Assert-FederationDriver {
 }
 
 function Assert-SocietyDriver {
-    if ($null -ne $SVRN7 -and $SVRN7.Role.ToString() -ne 'Society') {
-        throw [System.InvalidOperationException]::new(
-            "This cmdlet requires TDA role 'Society'. " +
-            "Current role: '$($SVRN7.Role)'. Start the TDA with --role Society.")
-    }
-    if ($null -eq $Script:SocietyDriver) {
+    if ($null -eq $SVRN7 -and $null -eq $Script:SocietyDriver) {
         throw [System.InvalidOperationException]::new(
             'Svrn7.Society driver not initialised. ' +
             'Call Connect-Svrn7Society before using Society cmdlets.')
@@ -149,18 +138,19 @@ function Get-ActiveSocietyDriver {
 }
 
 function Get-ActiveFederationDriver {
-    if ($null -ne $SVRN7) {
-        if ($SVRN7.Role.ToString() -ne 'Federation') {
-            throw [System.InvalidOperationException]::new(
-                "This cmdlet requires TDA role 'Federation'. " +
-                "Current role: '$($SVRN7.Role)'. Start the TDA with --role Federation.")
-        }
-        return $SVRN7.Driver
+    $drv = if ($null -ne $SVRN7) { $SVRN7.Driver } else { $Script:FederationDriver }
+    if (-not $drv) {
+        throw [System.InvalidOperationException]::new(
+            'No active federation driver. In standalone mode call Initialize-Svrn7FederationDriver; ' +
+            'in TDA context ensure the runspace is initialised.')
     }
-    if ($Script:FederationDriver)    { return $Script:FederationDriver }
-    throw [System.InvalidOperationException]::new(
-        'No active federation driver. In standalone mode call Initialize-Svrn7FederationDriver; ' +
-        'in TDA context ensure the runspace is initialised.')
+    $fed = $drv.GetFederationAsync().GetAwaiter().GetResult()
+    if (-not $fed) {
+        throw [System.InvalidOperationException]::new(
+            'This TDA has not been initialized as a Federation. ' +
+            'Call Initialize-Svrn7Federation first.')
+    }
+    return $drv
 }
 
 # ── Strict-mode-safe JSON body helpers ───────────────────────────────────────────
