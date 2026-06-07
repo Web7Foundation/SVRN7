@@ -9,7 +9,7 @@
         Federation1   --role Federation  --port 8441  --did did:drn:federation1.testnet.svrn7.net
         Society2      --role Society     --port 8442  --did did:drn:society2.testnet.svrn7.net
         Citizen3      --role Citizen     --port 8443  --did did:drn:citizen3.testnet.svrn7.net
-        Wanderer4     --role Wanderer    --port 8444  --did did:drn:wanderer4.testnet.svrn7.net
+        Wanderer4     --role Wanderer    --port 8444  --did did:drn:wanderer4.testnet.svrn7.net/agent/1.0/<guid>
 
     Each TDA stores its databases under:
         <BinDir>/{port}/mem/
@@ -30,11 +30,13 @@ if (-not (Test-Path $dll)) {
     exit 1
 }
 
+$wandererGuid = [Guid]::NewGuid().ToString('N')
+
 $nodes = @(
     @{ Name = 'Federation1'; Role = 'Federation'; Port = 8441; Did = 'did:drn:federation1.testnet.svrn7.net' }
     @{ Name = 'Society2';    Role = 'Society';    Port = 8442; Did = 'did:drn:society2.testnet.svrn7.net'    }
     @{ Name = 'Citizen3';    Role = 'Citizen';    Port = 8443; Did = 'did:drn:citizen3.testnet.svrn7.net'    }
-    @{ Name = 'Wanderer4';   Role = 'Wanderer';   Port = 8444; Did = 'did:drn:wanderer4.testnet.svrn7.net'   }
+    @{ Name = 'Wanderer4';   Role = 'Wanderer';   Port = 8444; Did = "did:drn:wanderer4.testnet.svrn7.net/agent/1.0/$wandererGuid" }
 )
 
 $processes = [System.Collections.Generic.List[System.Diagnostics.Process]]::new()
