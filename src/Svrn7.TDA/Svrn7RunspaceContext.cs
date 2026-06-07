@@ -49,7 +49,7 @@ public sealed class Svrn7RunspaceContext
     /// The functional role of this TDA instance. Exposed to LOBE cmdlets as
     /// <c>$SVRN7.Role</c> for role-based guards.
     /// </summary>
-    public TdaRole Role { get; }
+    public Svrn7Role Role { get; }
 
     /// <summary>
     /// The current epoch value. Refreshed every 60 seconds by
@@ -69,7 +69,7 @@ public sealed class Svrn7RunspaceContext
         IMemoryCache         cache,
         IProcessedOrderStore processedOrders,
         int                  initialEpoch = 0,
-        TdaRole              role         = TdaRole.Federation)
+        Svrn7Role              role         = Svrn7Role.Federation)
     {
         Driver           = driver;
         Role             = role;

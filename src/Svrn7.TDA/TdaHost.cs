@@ -25,7 +25,7 @@ public sealed class TdaOptions
     // ── Role ──────────────────────────────────────────────────────────────────
 
     /// <summary>Functional role of this TDA instance. Always Wanderer at startup.</summary>
-    public TdaRole Role { get; set; } = TdaRole.Wanderer;
+    public Svrn7Role Role { get; set; } = Svrn7Role.Wanderer;
 
     // ── Society identity ──────────────────────────────────────────────────────
 

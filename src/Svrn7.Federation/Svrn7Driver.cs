@@ -170,7 +170,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
             }, ct);
 
             // DID Document — stamp role then persist
-            await _didRegistry.CreateAsync(request.DidDocument with { Role = TdaRole.Citizen }, ct);
+            await _didRegistry.CreateAsync(request.DidDocument with { Role = Svrn7Role.Citizen }, ct);
 
             // Endowment VC
             var jwtVc = await _vcService.IssueAsync(
@@ -268,7 +268,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
                 new Wallet { Did = did, BalanceGrana = 0, IsRestricted = false }, ct);
 
             // DID Document — stamp role then persist
-            await _didRegistry.CreateAsync(request.DidDocument with { Role = TdaRole.Society }, ct);
+            await _didRegistry.CreateAsync(request.DidDocument with { Role = Svrn7Role.Society }, ct);
 
             _didsPubl.Add(1);
             _log.LogInformation("Society initialised locally: {Did} ({Method})", did, primaryMethodName);
@@ -653,7 +653,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
         }, ct);
 
         // DID Document — stamp role then persist
-        await _didRegistry.CreateAsync(didDocument with { Role = TdaRole.Federation }, ct);
+        await _didRegistry.CreateAsync(didDocument with { Role = Svrn7Role.Federation }, ct);
 
         await _merkle.AppendAsync("FederationInitialised",
             JsonSerializer.Serialize(new
@@ -803,10 +803,10 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, TdaRole? role = null, string? tdaName = null)
+    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null)
         => BuildMinimalDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role, tdaName);
 
-    private static DidDocument BuildMinimalDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, TdaRole? role = null, string? tdaName = null)
+    private static DidDocument BuildMinimalDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null)
     {
         var keyId = $"{did}#key-1";
         var vm = new DidVerificationMethod
@@ -847,7 +847,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
             Authentication     = [keyId],
             AssertionMethod    = [keyId],
             Role               = role,
-            TdaName            = tdaName,
+            Svrn7Name            = tdaName,
             Version            = 1,
             Status             = DidStatus.Active,
             DocumentJson       = JsonSerializer.Serialize(doc, new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }),

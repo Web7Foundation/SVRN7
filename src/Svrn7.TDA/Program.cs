@@ -83,7 +83,7 @@ var host = Host.CreateDefaultBuilder(args)
             opts.SocietyDid                        = ctx.Configuration["Tda:SocietyDid"] ?? "did:drn:solo.svrn7.net";
             opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
             opts.ListenPort                        = port;
-            opts.Role                              = TdaRole.Wanderer;
+            opts.Role                              = Svrn7Role.Wanderer;
             opts.TlsCertificatePath                = ctx.Configuration["Tda:TlsCertPath"];
             opts.TlsCertificatePassword            = ctx.Configuration["Tda:TlsCertPassword"];
             opts.RequireMutualTls                  = bool.Parse(
@@ -115,7 +115,7 @@ if (await driver.DidRegistry.CountAsync() == 0)
 
     var tdaName = $"TDA-{port}";
     var didDoc = driver.CreateDidDocument(agentDid, kp.PublicKeyHex, "drn",
-                     $"http://localhost:{port}/didcomm", TdaRole.Wanderer, tdaName);
+                     $"http://localhost:{port}/didcomm", Svrn7Role.Wanderer, tdaName);
     await driver.CreateDidAsync(didDoc);
 
     await File.WriteAllTextAsync(identityPath,

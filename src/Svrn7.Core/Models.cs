@@ -14,7 +14,7 @@ public enum DidMethodStatus{ Active, Dormant }   // Available = not in registry
 /// Functional role of a TDA instance in the Web 7.0 network.
 /// Stored on DidDocument to identify what role the owning TDA plays.
 /// </summary>
-public enum TdaRole { Federation, Society, Citizen, Wanderer }
+public enum Svrn7Role { Federation, Society, Citizen, Wanderer }
 
 // ── Core monetary models ───────────────────────────────────────────────────────
 
@@ -284,9 +284,9 @@ public record DidDocument
     /// Role of the TDA that owns this DIDDocument. Set once at registration; treat as
     /// immutable thereafter. Uses set (not init) for LiteDB compatibility.
     /// </summary>
-    public TdaRole?                         Role                   { get; set; }
+    public Svrn7Role?                         Role                   { get; set; }
     /// <summary>Human-readable name for this TDA (e.g. "Web 7.0 Foundation"). Set at Wanderer creation and carried forward to promoted-role DIDDocuments.</summary>
-    public string?                          TdaName                { get; set; }
+    public string?                          Svrn7Name                { get; set; }
     public int                              Version                { get; set; }
     public DidStatus                        Status                 { get; set; } = DidStatus.Active;
     public required string                  DocumentJson           { get; set; }  // canonical W3C JSON
