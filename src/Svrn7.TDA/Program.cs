@@ -29,8 +29,6 @@ using Svrn7.TDA;
 // --port <n>    TCP/IP port to listen on (required — no default).
 //               Databases are stored under "<BaseDir>/{port}/mem/".
 //               LOBEs are loaded from   "<BaseDir>/{port}/lobes/".
-// --did <did>   DID for this TDA instance (default did:drn:solo.svrn7.net).
-//               Allows multiple independent TDAs to run side-by-side.
 // --role <role> Functional role: Federation | Society | Citizen | Wanderer (default Wanderer).
 //               Overridden by Tda:Role in appsettings.json or Tda__Role env var.
 int port;
@@ -46,13 +44,6 @@ int port;
     {
         port = p;
     }
-}
-
-string did = "did:drn:solo.svrn7.net";
-{
-    var didIdx = Array.IndexOf(args, "--did");
-    if (didIdx >= 0 && didIdx + 1 < args.Length)
-        did = args[didIdx + 1];
 }
 
 TdaRole role = TdaRole.Wanderer;
@@ -82,8 +73,8 @@ var host = Host.CreateDefaultBuilder(args)
         {
             // In production, load these from environment variables or a secrets manager.
             // These defaults are for development/test only.
-            opts.SocietyDid                      = ctx.Configuration["Svrn7:SocietyDid"]  ?? did;
-            opts.FederationDid                   = ctx.Configuration["Svrn7:FederationDid"] ?? did;
+            opts.SocietyDid                      = ctx.Configuration["Svrn7:SocietyDid"]  ?? "did:drn:solo.svrn7.net";
+            opts.FederationDid                   = ctx.Configuration["Svrn7:FederationDid"] ?? "did:drn:solo.svrn7.net";
             opts.Svrn7DbPath                     = ResolvePath(ctx.Configuration["Svrn7:DbPath"],        "svrn7.db",        port);
             opts.DidsDbPath                      = ResolvePath(ctx.Configuration["Svrn7:DidsDbPath"],   "svrn7-dids.db",   port);
             opts.VcsDbPath                       = ResolvePath(ctx.Configuration["Svrn7:VcsDbPath"],    "svrn7-vcs.db",    port);
@@ -98,7 +89,7 @@ var host = Host.CreateDefaultBuilder(args)
         // ── 2. TDA Host: five Critical DSA 0.24 components ───────────────────
         services.AddSvrn7Tda(opts =>
         {
-            opts.SocietyDid                        = ctx.Configuration["Tda:SocietyDid"] ?? did;
+            opts.SocietyDid                        = ctx.Configuration["Tda:SocietyDid"] ?? "did:drn:solo.svrn7.net";
             opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
             opts.ListenPort                        = port;
             if (Enum.TryParse(ctx.Configuration["Tda:Role"], ignoreCase: true, out TdaRole cfgRole))
@@ -168,7 +159,7 @@ var host = Host.CreateDefaultBuilder(args)
     Console.WriteLine($"  OS          : {RuntimeInformation.OSDescription}");
     Console.WriteLine(hr);
     Console.WriteLine($"  Role        : {tdaOpts.Role}");
-    Console.WriteLine($"  Society DID : {did}");
+    Console.WriteLine($"  Society DID : {tdaOpts.SocietyDid}");
     Console.WriteLine($"  Listen port : {port}");
     Console.WriteLine($"  LOBEs       : {lobeConfig.Eager.Length} eager  {lobeConfig.Jit.Length} JIT  ({totalProtocols} protocols  {totalCmdlets} cmdlets)");
     // Print eager LOBE names, then JIT LOBE names, each on one indented line.
