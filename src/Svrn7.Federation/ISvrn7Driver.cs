@@ -162,7 +162,7 @@ public interface ISvrn7Driver : IAsyncDisposable
     bool    VerifySecp256k1(byte[] payload, string cesrSig, string publicKeyHex);
     Task<string> Blake3HexAsync(byte[] data, CancellationToken ct = default);
     Task<string> Base58EncodeAsync(byte[] data, CancellationToken ct = default);
-    DidDocument  CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null);
+    DidDocument  CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, TdaRole? role = null);
 
     // ── Wallet admin ───────────────────────────────────────────────────────────
     Task<int> LiftAllWalletRestrictionsAsync(CancellationToken ct = default);

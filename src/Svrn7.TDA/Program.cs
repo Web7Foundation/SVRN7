@@ -113,9 +113,8 @@ if (await driver.DidRegistry.CountAsync() == 0)
     var kp    = driver.GenerateSecp256k1KeyPair();
     agentDid  = $"did:drn:wanderer.testnet.svrn7.net/agent/1.0/{Guid.NewGuid():N}";
 
-    var didDoc  = driver.CreateDidDocument(agentDid, kp.PublicKeyHex, "drn",
-                      $"http://localhost:{port}/didcomm");
-    didDoc.Role = TdaRole.Wanderer;
+    var didDoc = driver.CreateDidDocument(agentDid, kp.PublicKeyHex, "drn",
+                     $"http://localhost:{port}/didcomm", TdaRole.Wanderer);
     await driver.CreateDidAsync(didDoc);
 
     await File.WriteAllTextAsync(identityPath,
