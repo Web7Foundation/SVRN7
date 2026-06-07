@@ -106,16 +106,19 @@ var tdaOpts = host.Services.GetRequiredService<IOptions<TdaOptions>>().Value;
 // secp256k1 key pair, DID derived from the public key, DID Document stored in
 // svrn7-dids.db, and key material persisted to <port>/mem/agent-identity.json.
 var identityPath = Path.Combine(AppContext.BaseDirectory, port.ToString(), "mem", "agent-identity.json");
-string? agentDid = null;
+string? agentDid  = null;
+string? svrn7Name = null;
+bool    isFirstRun;
 
 if (await driver.DidRegistry.CountAsync() == 0)
 {
-    var kp    = driver.GenerateSecp256k1KeyPair();
-    agentDid  = $"did:drn:wanderer.testnet.svrn7.net/agent/1.0/{Guid.NewGuid():N}";
+    isFirstRun = true;
+    var kp   = driver.GenerateSecp256k1KeyPair();
+    agentDid = $"did:drn:wanderer.testnet.svrn7.net/agent/1.0/{Guid.NewGuid():N}";
+    svrn7Name = $"TDA-{port}";
 
-    var tdaName = $"TDA-{port}";
     var didDoc = driver.CreateDidDocument(agentDid, kp.PublicKeyHex, "drn",
-                     $"http://localhost:{port}/didcomm", Svrn7Role.Wanderer, tdaName);
+                     $"http://localhost:{port}/didcomm", Svrn7Role.Wanderer, svrn7Name);
     await driver.CreateDidAsync(didDoc);
 
     await File.WriteAllTextAsync(identityPath,
@@ -130,11 +133,20 @@ if (await driver.DidRegistry.CountAsync() == 0)
 
     kp.ZeroPrivateKey();
 }
-else if (File.Exists(identityPath))
+else
 {
-    var json = await File.ReadAllTextAsync(identityPath);
-    var elem = JsonSerializer.Deserialize<JsonElement>(json);
-    agentDid = elem.GetProperty("did").GetString();
+    isFirstRun = false;
+    var allDids     = await driver.DidRegistry.QueryAsync();
+    var wandererDoc = allDids.FirstOrDefault(d => d.Role == Svrn7Role.Wanderer);
+    agentDid  = wandererDoc?.Did;
+    svrn7Name = wandererDoc?.Svrn7Name;
+
+    if (agentDid is null && File.Exists(identityPath))
+    {
+        var json = await File.ReadAllTextAsync(identityPath);
+        var elem = JsonSerializer.Deserialize<JsonElement>(json);
+        agentDid = elem.GetProperty("did").GetString();
+    }
 }
 
 // ── Startup banner ────────────────────────────────────────────────────────────
@@ -181,6 +193,8 @@ else if (File.Exists(identityPath))
     Console.WriteLine($"  Runtime     : {RuntimeInformation.FrameworkDescription}");
     Console.WriteLine($"  OS          : {RuntimeInformation.OSDescription}");
     Console.WriteLine(hr);
+    Console.WriteLine($"  TDA Name    : {svrn7Name ?? "(unknown)"}");
+    Console.WriteLine($"  First run   : {(isFirstRun ? "yes — Wanderer identity created" : "no — existing TDA")}");
     Console.WriteLine($"  Role        : {tdaOpts.Role}");
     Console.WriteLine($"  Agent DID   : {agentDid ?? tdaOpts.SocietyDid}");
     Console.WriteLine($"  Listen port : {port}");
