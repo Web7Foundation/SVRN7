@@ -29,6 +29,8 @@ using Svrn7.TDA;
 // --port <n>    TCP/IP port to listen on (required — no default).
 //               Databases are stored under "<BaseDir>/{port}/mem/".
 //               LOBEs are loaded from   "<BaseDir>/{port}/lobes/".
+// --reset       Delete all databases and agent-identity.json for this port before
+//               starting, forcing a clean first-run Wanderer bootstrap.
 int port;
 {
     var portIdx = Array.IndexOf(args, "--port");
@@ -41,6 +43,18 @@ int port;
     else
     {
         port = p;
+    }
+}
+
+bool forceReset = Array.IndexOf(args, "--reset") >= 0;
+if (forceReset)
+{
+    var memDir = Path.Combine(AppContext.BaseDirectory, port.ToString(), "mem");
+    if (Directory.Exists(memDir))
+    {
+        foreach (var f in Directory.GetFiles(memDir))
+            File.Delete(f);
+        Console.WriteLine($"--reset: deleted all files in {memDir}");
     }
 }
 
