@@ -1,15 +1,19 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Starts a local SVRN7 testnet with three TDA instances.
+    Starts a local SVRN7 testnet with four Wanderer TDA instances.
 
 .DESCRIPTION
-    Launches four TDA processes in separate windows:
+    Launches four TDA processes in separate windows. Every TDA starts as a
+    Wanderer — role is additive and established after startup via cmdlets.
 
-        Federation1   --port 8441
-        Society2      --port 8442
-        Citizen3      --port 8443
-        Wanderer4     --port 8444
+        Wanderer1   --port 8441
+        Wanderer2   --port 8442
+        Wanderer3   --port 8443
+        Wanderer4   --port 8444
+
+    On first run each TDA auto-generates a Wanderer identity (secp256k1 key pair,
+    DID, DIDDocument) and persists it to <BinDir>/{port}/mem/agent-identity.json.
 
     Each TDA stores its databases under:
         <BinDir>/{port}/mem/
@@ -31,10 +35,10 @@ if (-not (Test-Path $dll)) {
 }
 
 $nodes = @(
-    @{ Name = 'Federation1'; Role = 'Federation'; Port = 8441 }
-    @{ Name = 'Society2';    Role = 'Society';    Port = 8442 }
-    @{ Name = 'Citizen3';    Role = 'Citizen';    Port = 8443 }
-    @{ Name = 'Wanderer4';   Role = 'Wanderer';   Port = 8444 }
+    @{ Name = 'Wanderer1'; Port = 8441 }
+    @{ Name = 'Wanderer2'; Port = 8442 }
+    @{ Name = 'Wanderer3'; Port = 8443 }
+    @{ Name = 'Wanderer4'; Port = 8444 }
 )
 
 $processes = [System.Collections.Generic.List[System.Diagnostics.Process]]::new()
@@ -54,13 +58,13 @@ foreach ($node in $nodes) {
     # On Windows, open each TDA in its own titled console window
     if ($IsWindows) {
         $psi.FileName        = 'cmd.exe'
-        $psi.Arguments       = "/k title $($node.Name) [$($node.Role)] :$($node.Port) && dotnet `"$dll`" --port $($node.Port)"
+        $psi.Arguments       = "/k title $($node.Name) [Wanderer] :$($node.Port) && dotnet `"$dll`" --port $($node.Port)"
         $psi.UseShellExecute = $true
     }
 
     $proc = [System.Diagnostics.Process]::Start($psi)
     $processes.Add($proc)
-    Write-Host "Started $($node.Name)  role=$($node.Role)  port=$($node.Port)  pid=$($proc.Id)"
+    Write-Host "Started $($node.Name)  role=Wanderer  port=$($node.Port)  pid=$($proc.Id)"
 }
 
 Write-Host ""
@@ -68,7 +72,6 @@ Write-Host "Testnet running. Press Ctrl+C to stop all TDAs."
 Write-Host ""
 
 try {
-    # Wait until user interrupts
     while ($true) { Start-Sleep -Seconds 5 }
 }
 finally {
@@ -76,7 +79,7 @@ finally {
     Write-Host "Stopping testnet..."
     foreach ($proc in $processes) {
         if (-not $proc.HasExited) {
-            $proc.Kill($true)   # kill process tree
+            $proc.Kill($true)
             Write-Host "  Stopped pid $($proc.Id)"
         }
     }
