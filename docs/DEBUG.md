@@ -714,12 +714,15 @@ $env:Tda__AcceptSelfSigned    = "true"
 ### A.2 — First-run startup
 
 ```powershell
-dotnet .\Svrn7.TDA.dll
+dotnet .\Svrn7.TDA.dll --port 8443
 ```
 
-On first run the TDA:
-1. Opens (or creates) the five LiteDB files in the current directory.
-2. Registers the `Svrn7SocietyOptions` with `SocietyDid = did:drn:bindloss.svrn7.net`.
+`--port` is the only required argument. On first run the TDA:
+1. Detects an empty DID registry and auto-generates a Wanderer identity: secp256k1
+   key pair, `did:drn:wanderer.testnet.svrn7.net/agent/1.0/{guid}` DID and DIDDocument
+   (`Svrn7Role=Wanderer`, `Svrn7Name="TDA-8443"`), stored in `8443/mem/svrn7-dids.db`.
+   Key material is persisted to `8443/mem/agent-identity.json`.
+2. Registers `Svrn7SocietyOptions` with `SocietyDid = did:drn:bindloss.svrn7.net`.
 3. Loads eager LOBEs: `Svrn7.Common`, `Svrn7.Federation`, `Svrn7.Society`, `Svrn7.UX`.
 4. Starts the Switchboard drain loop and Kestrel on port 8443.
 

@@ -69,29 +69,24 @@ per-instance without affecting other running TDAs.
 
 ---
 
-## TDA-003 — Three-tier TDA role architecture (FYI / Future Design)
+## ~~TDA-003~~ — Wanderer-first additive role architecture ✓ *implemented*
 
-**Area:** `Program.cs`, `TdaOptions`, deployment
+**Area:** `Program.cs`, `TdaOptions`, `Svrn7.Core/Models.cs`, deployment
 
-**Summary:** The TDA host will ultimately support three distinct roles in a hierarchy:
+**Summary:** Every TDA starts as a **Wanderer** (`Svrn7Role.Wanderer`). Role is
+additive — promoting a TDA creates an *additional* DID alongside the primary
+Wanderer DID. The Wanderer DID is always the primary identity.
 
-- **Federation TDA** — one per federation; the root authority node
-- **Society TDA** — zero or more per federation; one per registered society
-- **Citizen TDA** — zero or more per society; one per citizen/member
+- **Wanderer** — base role; every TDA. Auto-bootstrapped on first run.
+- **Federation** — Wanderer + `Initialize-Svrn7Federation` (no params). One per deployment.
+- **Society** — Wanderer + Society DID registered with a Federation TDA via DIDComm.
+- **Citizen** — Wanderer + Citizen DID registered with a Society TDA via DIDComm.
 
-Each role is a fully independent TDA instance (separate `--port`, separate `--did`,
-separate `{port}/mem/` and `{port}/lobes/` data directories).  The current `--port`
-and `--did` CLI arguments already provide the isolation primitives needed.
-
-**What will be needed:**
-
-- A `--role` argument (or convention) to declare `federation | society | citizen`
-- Role-specific LOBE sets loaded from `{port}/lobes/`
-- Role-aware routing in `DIDCommMessageSwitchboard` (e.g. federation messages only
-  accepted by the Federation TDA)
-- Deployment tooling to launch and manage the full hierarchy
-
-**No code change required now** — tracked here for design continuity.
+The `--role` and `--did` CLI arguments have been removed. `--port` is the only
+required startup parameter. Role detection is DB-driven: `GetFederationAsync()`,
+`GetOwnSocietyAsync()`, or equivalent. Each TDA is isolated via its port-scoped
+`{port}/mem/` data directory. `Svrn7Name` is stored in the DIDDocument and
+auto-generated as `"TDA-{port}"` at first-run Wanderer bootstrap.
 
 ---
 

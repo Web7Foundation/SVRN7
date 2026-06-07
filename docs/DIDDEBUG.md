@@ -515,8 +515,8 @@ Initialize-Svrn7Federation / Initialize-Svrn7Society / Register-Svrn7Citizen
 | Cmdlet | Key parameters | LOBE | Requires TDA |
 |--------|---------------|------|:---:|
 | `New-Svrn7KeyPair` | — | Federation | No |
-| `New-Svrn7Did` | `-KeyPair` `-MethodName` `-ServiceEndpointUrl` | Federation | Yes — TDA runspace only |
-| `Initialize-Svrn7Federation` | `-DidDocument` `-KeyPair` `-Name` | Federation | Yes |
+| `New-Svrn7Did` | `-KeyPair` `[-MethodName]` `[-ServiceEndpointUrl]` `[-Svrn7Role]` `[-Svrn7Name]` | Federation | Yes — TDA runspace only |
+| `Initialize-Svrn7Federation` | *(no parameters — reads Wanderer DIDDocument)* | Federation | Yes |
 | `Initialize-Svrn7Citizen` | `-DidDocument` `-KeyPair` | Federation | Yes |
 | `Register-Svrn7Citizen` | `-DidDocument` `-KeyPair` `[-PreferredMethodName]` | Society | Yes |
 | `Initialize-Svrn7Society` | `-DidDocument` `-KeyPair` `-Name` | Federation | Yes |
@@ -555,6 +555,8 @@ Initialize-Svrn7Federation / Initialize-Svrn7Society / Register-Svrn7Citizen
 | `Proof` | Data Integrity | `DidProof?` | `$null` until signed |
 | `DocumentJson` | — | `string` | Canonical W3C JSON; registry-stored |
 | `MethodName` | — | `string` | SVRN7 registry key |
+| `Role` | `role` | `Svrn7Role?` | `Wanderer` \| `Citizen` \| `Society` \| `Federation`; set at creation, carried forward on promotion |
+| `Svrn7Name` | `svrn7Name` | `string?` | Human-readable TDA name; auto-generated as `"TDA-{port}"` at Wanderer bootstrap; carried forward on promotion |
 | `Version` | — | `int` | Monotonically increasing |
 | `Status` | — | `DidStatus` | `Active` \| `Suspended` \| `Deactivated` |
 | `CreatedAt` | — | `DateTimeOffset` | Registry metadata |
