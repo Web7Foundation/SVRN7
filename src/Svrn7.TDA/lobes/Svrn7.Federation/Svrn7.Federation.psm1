@@ -296,6 +296,9 @@ function New-Svrn7Did {
     Added as a DIDCommMessaging service endpoint in the document.
 .PARAMETER Role
     Optional TdaRole to embed in the DIDDocument (Wanderer, Citizen, Society, Federation).
+.PARAMETER TdaName
+    Optional human-readable name for this TDA (e.g. 'Web 7.0 Foundation'). Stored in
+    the DIDDocument and carried forward when the TDA is promoted to a higher role.
 .EXAMPLE
     $kp  = New-Svrn7KeyPair
     $did = New-Svrn7Did -KeyPair $kp
@@ -306,10 +309,11 @@ function New-Svrn7Did {
     [Svrn7.Core.Models.DidDocument]
         Did              [string]
         MethodName       [string]
+        TdaName          [string]   optional human-readable TDA name
         DocumentJson     [string]   W3C DID Document JSON
         ServiceEndpoints [List]     contains one entry when -ServiceEndpointUrl is given
 .NOTES
-    ISvrn7Driver methods: Base58EncodeAsync(byte[]), CreateDidDocument(string,string,string,string?,TdaRole?)
+    ISvrn7Driver methods: Base58EncodeAsync(byte[]), CreateDidDocument(string,string,string,string?,TdaRole?,string?)
     Requires TDA runspace — driver must be initialised.
 #>
     [CmdletBinding()]
@@ -318,7 +322,8 @@ function New-Svrn7Did {
         [Parameter(Mandatory, ValueFromPipeline)] [PSCustomObject] $KeyPair,
         [Parameter()] [ValidatePattern('^[a-z0-9]+$')] [string] $MethodName = 'drn',
         [Parameter()] [string] $ServiceEndpointUrl = '',
-        [Parameter()] [Svrn7.Core.Models.TdaRole] $Role = [Svrn7.Core.Models.TdaRole]::Wanderer
+        [Parameter()] [Svrn7.Core.Models.TdaRole] $Role = [Svrn7.Core.Models.TdaRole]::Wanderer,
+        [Parameter()] [string] $TdaName = ''
     )
     process {
         Assert-FederationDriver
@@ -326,11 +331,12 @@ function New-Svrn7Did {
         if (-not $KeyPair.PublicKeyHex) {
             throw [System.ArgumentException]::new('KeyPair.PublicKeyHex is empty. Use New-Svrn7KeyPair.')
         }
-        $bytes  = [System.Convert]::FromHexString($KeyPair.PublicKeyHex)
-        $id     = $drv.Base58EncodeAsync($bytes).GetAwaiter().GetResult()
-        $did    = "did:${MethodName}:${id}"
-        $svcUrl = if ($ServiceEndpointUrl) { $ServiceEndpointUrl } else { $null }
-        $drv.CreateDidDocument($did, $KeyPair.PublicKeyHex, $MethodName, $svcUrl, $Role)
+        $bytes   = [System.Convert]::FromHexString($KeyPair.PublicKeyHex)
+        $id      = $drv.Base58EncodeAsync($bytes).GetAwaiter().GetResult()
+        $did     = "did:${MethodName}:${id}"
+        $svcUrl  = if ($ServiceEndpointUrl) { $ServiceEndpointUrl } else { $null }
+        $nameVal = if ($TdaName) { $TdaName } else { $null }
+        $drv.CreateDidDocument($did, $KeyPair.PublicKeyHex, $MethodName, $svcUrl, $Role, $nameVal)
     }
 }
 
@@ -944,38 +950,34 @@ function Invoke-Svrn7BatchTransfer {
 function Initialize-Svrn7Federation {
 <#
 .SYNOPSIS
-    Promotes this Wanderer TDA to a Federation by generating a Federation DID and
-    initialising the FederationRecord. Idempotent — returns AlreadyInitialised=$true
-    when the Federation is already set up.
+    Promotes this Wanderer TDA to a Federation. No parameters required — all
+    values are derived from the Wanderer DIDDocument already in the local registry.
+    Idempotent — returns AlreadyInitialised=$true if the Federation is already set up.
 .DESCRIPTION
     Every TDA starts as a Wanderer with a primary Wanderer DID. Calling this cmdlet
     adds a second, Federation-role DID to the same TDA. Both DIDs remain in the local
     registry; the Wanderer DID is the primary identity, the Federation DID is the
     authoritative handle for society/citizen registration.
 
+    The following values are taken directly from the Wanderer DIDDocument:
+      - TdaName            → FederationRecord.FederationName
+      - MethodName         → Federation DID method
+      - ServiceEndpoint    → Federation DIDDocument DIDCommMessaging service entry
+
     Internally:
       1. Asserts the Wanderer DIDDocument is present in the registry.
       2. Generates a new secp256k1 key pair and derives the Federation DID
-         (did:{MethodName}:{Base58(pubKey)}).
-      3. Creates a DIDDocument with Role=Federation.
+         (did:{wanderer.MethodName}:{Base58(pubKey)}).
+      3. Creates a DIDDocument with Role=Federation, same TdaName and service endpoint.
       4. Calls ISvrn7Driver.InitialiseFederationAsync() to persist the record
          and seed the Federation wallet.
-.PARAMETER Name
-    Human-readable Federation name (e.g. 'Web 7.0 Foundation').
-.PARAMETER ServiceEndpointUrl
-    Optional DIDComm service endpoint URL. Embeds a DIDCommMessaging service entry
-    in the Federation DIDDocument so other TDAs can discover the endpoint via DID
-    resolution (e.g. 'http://localhost:8441/didcomm').
-.PARAMETER MethodName
-    DID method name. Must match [a-z0-9]+. Default: 'drn'.
 .EXAMPLE
-    Initialize-Svrn7Federation -Name 'Web 7.0 Foundation' `
-        -ServiceEndpointUrl 'http://localhost:8441/didcomm'
+    Initialize-Svrn7Federation
 .OUTPUTS
     [PSCustomObject] Svrn7.FederationRegistration
         FederationDid      [string]   new Federation DID
-        FederationName     [string]   human-readable name
-        MethodName         [string]   DID method used
+        FederationName     [string]   TdaName from the Wanderer DIDDocument
+        MethodName         [string]   DID method (from Wanderer DIDDocument)
         WandererDid        [string]   the pre-existing Wanderer primary DID
         PublicKeyHex       [string]   Federation secp256k1 public key
         PrivateKeyHex      [string]   Federation secp256k1 private key — STORE SECURELY
@@ -988,11 +990,7 @@ function Initialize-Svrn7Federation {
 #>
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]
-    param(
-        [Parameter(Mandatory)] [string] $Name,
-        [Parameter()] [string] $ServiceEndpointUrl = '',
-        [Parameter()] [ValidatePattern('^[a-z0-9]+$')] [string] $MethodName = 'drn'
-    )
+    param()
     Assert-FederationDriver
     $drv = if ($null -ne $SVRN7) { $SVRN7.Driver } else { $Script:FederationDriver }
 
@@ -1003,7 +1001,7 @@ function Initialize-Svrn7Federation {
             PSTypeName         = $Script:TypeFederationReg
             FederationDid      = $existing.Did
             FederationName     = $existing.FederationName
-            MethodName         = $MethodName
+            MethodName         = $existing.PrimaryDidMethodName
             WandererDid        = $null
             PublicKeyHex       = $null
             PrivateKeyHex      = $null
@@ -1022,9 +1020,15 @@ function Initialize-Svrn7Federation {
             'Initialize-Svrn7Federation: No Wanderer DIDDocument found in the local registry. ' +
             'Start this TDA at least once on its assigned port so its Wanderer identity is bootstrapped.')
     }
-    $wandererDid = $wandererDoc.Did
 
-    if (-not $PSCmdlet.ShouldProcess($wandererDid, "Promote Wanderer to Federation '$Name' (method: $MethodName)")) {
+    $wandererDid = $wandererDoc.Did
+    $methodName  = $wandererDoc.MethodName
+    $tdaName     = $wandererDoc.TdaName
+    $svcUrl      = if ($wandererDoc.ServiceEndpoints.Count -gt 0) {
+                       $wandererDoc.ServiceEndpoints[0].ServiceEndpoint
+                   } else { $null }
+
+    if (-not $PSCmdlet.ShouldProcess($wandererDid, "Promote Wanderer to Federation '$tdaName' (method: $methodName)")) {
         return
     }
 
@@ -1032,14 +1036,13 @@ function Initialize-Svrn7Federation {
     $kp     = $drv.GenerateSecp256k1KeyPair()
     $bytes  = [System.Convert]::FromHexString($kp.PublicKeyHex)
     $id     = $drv.Base58EncodeAsync($bytes).GetAwaiter().GetResult()
-    $fedDid = "did:${MethodName}:${id}"
-    $svcUrl = if ($ServiceEndpointUrl) { $ServiceEndpointUrl } else { $null }
+    $fedDid = "did:${methodName}:${id}"
 
     $fedDoc = $drv.CreateDidDocument(
-        $fedDid, $kp.PublicKeyHex, $MethodName, $svcUrl,
-        [Svrn7.Core.Models.TdaRole]::Federation)
+        $fedDid, $kp.PublicKeyHex, $methodName, $svcUrl,
+        [Svrn7.Core.Models.TdaRole]::Federation, $tdaName)
 
-    $r = $drv.InitialiseFederationAsync($fedDoc, $Name).GetAwaiter().GetResult()
+    $r = $drv.InitialiseFederationAsync($fedDoc, $tdaName).GetAwaiter().GetResult()
     Resolve-OperationResult $r 'InitializeFederation' | Out-Null
 
     # Capture private key before zeroing
@@ -1050,8 +1053,8 @@ function Initialize-Svrn7Federation {
     [PSCustomObject]@{
         PSTypeName         = $Script:TypeFederationReg
         FederationDid      = $fedDid
-        FederationName     = $Name
-        MethodName         = $MethodName
+        FederationName     = $tdaName
+        MethodName         = $methodName
         WandererDid        = $wandererDid
         PublicKeyHex       = $pubHex
         PrivateKeyHex      = $privHex

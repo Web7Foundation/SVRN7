@@ -803,10 +803,10 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, TdaRole? role = null)
-        => BuildMinimalDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role);
+    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, TdaRole? role = null, string? tdaName = null)
+        => BuildMinimalDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role, tdaName);
 
-    private static DidDocument BuildMinimalDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, TdaRole? role = null)
+    private static DidDocument BuildMinimalDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, TdaRole? role = null, string? tdaName = null)
     {
         var keyId = $"{did}#key-1";
         var vm = new DidVerificationMethod
@@ -835,6 +835,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
                 ? new[] { new { id = svc.Id, type = svc.Type, serviceEndpoint = svc.ServiceEndpoint } }
                 : null,
             role            = role?.ToString(),
+            tdaName         = tdaName,
         };
 
         var result = new DidDocument
@@ -846,6 +847,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
             Authentication     = [keyId],
             AssertionMethod    = [keyId],
             Role               = role,
+            TdaName            = tdaName,
             Version            = 1,
             Status             = DidStatus.Active,
             DocumentJson       = JsonSerializer.Serialize(doc, new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }),

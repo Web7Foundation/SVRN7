@@ -504,8 +504,8 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
     public Task<FederationRecord?> GetFederationAsync(CancellationToken ct = default)             => _inner.GetFederationAsync(ct);
     public Task<OperationResult>  UpdateFederationSupplyAsync(long n, string s, string r, CancellationToken ct = default) => _inner.UpdateFederationSupplyAsync(n, s, r, ct);
     public Task<OperationResult>  InitialiseFederationAsync(DidDocument d, string n, CancellationToken ct = default) => _inner.InitialiseFederationAsync(d, n, ct);
-    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, TdaRole? role = null)
-        => _inner.CreateDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role);
+    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, TdaRole? role = null, string? tdaName = null)
+        => _inner.CreateDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role, tdaName);
     public Task CreateDidAsync(DidDocument d, CancellationToken ct = default)                   => _inner.CreateDidAsync(d, ct);
     public Task UpdateDidAsync(DidDocument d, CancellationToken ct = default)                    => _inner.UpdateDidAsync(d, ct);
     public Task<DidResolutionResult> ResolveDidAsync(string d, CancellationToken ct = default)   => _inner.ResolveDidAsync(d, ct);

@@ -285,6 +285,8 @@ public record DidDocument
     /// immutable thereafter. Uses set (not init) for LiteDB compatibility.
     /// </summary>
     public TdaRole?                         Role                   { get; set; }
+    /// <summary>Human-readable name for this TDA (e.g. "Web 7.0 Foundation"). Set at Wanderer creation and carried forward to promoted-role DIDDocuments.</summary>
+    public string?                          TdaName                { get; set; }
     public int                              Version                { get; set; }
     public DidStatus                        Status                 { get; set; } = DidStatus.Active;
     public required string                  DocumentJson           { get; set; }  // canonical W3C JSON
