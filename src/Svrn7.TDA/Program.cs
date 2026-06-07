@@ -111,8 +111,7 @@ string? agentDid = null;
 if (await driver.DidRegistry.CountAsync() == 0)
 {
     var kp    = driver.GenerateSecp256k1KeyPair();
-    var id    = await driver.Base58EncodeAsync(Convert.FromHexString(kp.PublicKeyHex));
-    agentDid  = $"did:drn:{id}";
+    agentDid  = $"did:drn:wanderer.testnet.svrn7.net/agent/1.0/{Guid.NewGuid():N}";
 
     var didDoc  = driver.CreateDidDocument(agentDid, kp.PublicKeyHex, "drn",
                       $"http://localhost:{port}/didcomm");
