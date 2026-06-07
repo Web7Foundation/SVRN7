@@ -24,8 +24,8 @@ public sealed class TdaOptions
 {
     // ── Role ──────────────────────────────────────────────────────────────────
 
-    /// <summary>Functional role of this TDA instance. Default: Federation.</summary>
-    public TdaRole Role { get; set; } = TdaRole.Federation;
+    /// <summary>Functional role of this TDA instance. Always Wanderer at startup.</summary>
+    public TdaRole Role { get; set; } = TdaRole.Wanderer;
 
     // ── Society identity ──────────────────────────────────────────────────────
 

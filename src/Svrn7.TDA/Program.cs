@@ -29,8 +29,6 @@ using Svrn7.TDA;
 // --port <n>    TCP/IP port to listen on (required — no default).
 //               Databases are stored under "<BaseDir>/{port}/mem/".
 //               LOBEs are loaded from   "<BaseDir>/{port}/lobes/".
-// --role <role> Functional role: Federation | Society | Citizen | Wanderer (default Wanderer).
-//               Overridden by Tda:Role in appsettings.json or Tda__Role env var.
 int port;
 {
     var portIdx = Array.IndexOf(args, "--port");
@@ -44,13 +42,6 @@ int port;
     {
         port = p;
     }
-}
-
-TdaRole role = TdaRole.Wanderer;
-{
-    var roleIdx = Array.IndexOf(args, "--role");
-    if (roleIdx >= 0 && roleIdx + 1 < args.Length)
-        Enum.TryParse(args[roleIdx + 1], ignoreCase: true, out role);
 }
 
 var host = Host.CreateDefaultBuilder(args)
@@ -73,13 +64,13 @@ var host = Host.CreateDefaultBuilder(args)
         {
             // In production, load these from environment variables or a secrets manager.
             // These defaults are for development/test only.
-            opts.SocietyDid                      = ctx.Configuration["Svrn7:SocietyDid"]  ?? "did:drn:solo.svrn7.net";
-            opts.FederationDid                   = ctx.Configuration["Svrn7:FederationDid"] ?? "did:drn:solo.svrn7.net";
-            opts.Svrn7DbPath                     = ResolvePath(ctx.Configuration["Svrn7:DbPath"],        "svrn7.db",        port);
-            opts.DidsDbPath                      = ResolvePath(ctx.Configuration["Svrn7:DidsDbPath"],   "svrn7-dids.db",   port);
-            opts.VcsDbPath                       = ResolvePath(ctx.Configuration["Svrn7:VcsDbPath"],    "svrn7-vcs.db",    port);
-            opts.InboxDbPath                     = ResolvePath(ctx.Configuration["Svrn7:InboxDbPath"],  "svrn7-inbox.db",  port);
-            opts.SchemasDbPath                   = ResolvePath(ctx.Configuration["Svrn7:SchemasDbPath"],"svrn7-schemas.db",port);
+            opts.SocietyDid                        = ctx.Configuration["Svrn7:SocietyDid"]   ?? "did:drn:solo.svrn7.net";
+            opts.FederationDid                     = ctx.Configuration["Svrn7:FederationDid"] ?? "did:drn:solo.svrn7.net";
+            opts.Svrn7DbPath                       = ResolvePath(ctx.Configuration["Svrn7:DbPath"],         "svrn7.db",        port);
+            opts.DidsDbPath                        = ResolvePath(ctx.Configuration["Svrn7:DidsDbPath"],     "svrn7-dids.db",   port);
+            opts.VcsDbPath                         = ResolvePath(ctx.Configuration["Svrn7:VcsDbPath"],      "svrn7-vcs.db",    port);
+            opts.InboxDbPath                       = ResolvePath(ctx.Configuration["Svrn7:InboxDbPath"],    "svrn7-inbox.db",  port);
+            opts.SchemasDbPath                     = ResolvePath(ctx.Configuration["Svrn7:SchemasDbPath"],  "svrn7-schemas.db",port);
             opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
         });
 
@@ -92,10 +83,7 @@ var host = Host.CreateDefaultBuilder(args)
             opts.SocietyDid                        = ctx.Configuration["Tda:SocietyDid"] ?? "did:drn:solo.svrn7.net";
             opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
             opts.ListenPort                        = port;
-            if (Enum.TryParse(ctx.Configuration["Tda:Role"], ignoreCase: true, out TdaRole cfgRole))
-                opts.Role = cfgRole;
-            else
-                opts.Role = role;  // from --role command-line argument
+            opts.Role                              = TdaRole.Wanderer;
             opts.TlsCertificatePath                = ctx.Configuration["Tda:TlsCertPath"];
             opts.TlsCertificatePassword            = ctx.Configuration["Tda:TlsCertPassword"];
             opts.RequireMutualTls                  = bool.Parse(
@@ -110,12 +98,48 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .Build();
 
+var driver  = host.Services.GetRequiredService<ISvrn7SocietyDriver>();
+var tdaOpts = host.Services.GetRequiredService<IOptions<TdaOptions>>().Value;
+
+// ── First-run bootstrap ───────────────────────────────────────────────────────
+// On a fresh install (empty DID registry), auto-generate a Wanderer identity:
+// secp256k1 key pair, DID derived from the public key, DID Document stored in
+// svrn7-dids.db, and key material persisted to <port>/mem/agent-identity.json.
+var identityPath = Path.Combine(AppContext.BaseDirectory, port.ToString(), "mem", "agent-identity.json");
+string? agentDid = null;
+
+if (await driver.DidRegistry.CountAsync() == 0)
+{
+    var kp    = driver.GenerateSecp256k1KeyPair();
+    var id    = await driver.Base58EncodeAsync(Convert.FromHexString(kp.PublicKeyHex));
+    agentDid  = $"did:drn:{id}";
+
+    var didDoc  = driver.CreateDidDocument(agentDid, kp.PublicKeyHex, "drn",
+                      $"http://localhost:{port}/didcomm");
+    didDoc.Role = TdaRole.Wanderer;
+    await driver.CreateDidAsync(didDoc);
+
+    await File.WriteAllTextAsync(identityPath,
+        JsonSerializer.Serialize(new
+        {
+            did           = agentDid,
+            publicKeyHex  = kp.PublicKeyHex,
+            privateKeyHex = Convert.ToHexString(kp.PrivateKeyBytes).ToLowerInvariant(),
+            role          = "Wanderer",
+            createdAt     = DateTimeOffset.UtcNow.ToString("O"),
+        }, new JsonSerializerOptions { WriteIndented = true }));
+
+    kp.ZeroPrivateKey();
+}
+else if (File.Exists(identityPath))
+{
+    var json = await File.ReadAllTextAsync(identityPath);
+    var elem = JsonSerializer.Deserialize<JsonElement>(json);
+    agentDid = elem.GetProperty("did").GetString();
+}
+
 // ── Startup banner ────────────────────────────────────────────────────────────
 {
-    var cfg      = host.Services.GetRequiredService<IConfiguration>();
-    var driver   = host.Services.GetRequiredService<Svrn7.Society.ISvrn7SocietyDriver>();
-    var tdaOpts  = host.Services.GetRequiredService<IOptions<TdaOptions>>().Value;
-
     var rawVersion = typeof(Program).Assembly
                          .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
                          ?.InformationalVersion
@@ -159,7 +183,7 @@ var host = Host.CreateDefaultBuilder(args)
     Console.WriteLine($"  OS          : {RuntimeInformation.OSDescription}");
     Console.WriteLine(hr);
     Console.WriteLine($"  Role        : {tdaOpts.Role}");
-    Console.WriteLine($"  Society DID : {tdaOpts.SocietyDid}");
+    Console.WriteLine($"  Agent DID   : {agentDid ?? tdaOpts.SocietyDid}");
     Console.WriteLine($"  Listen port : {port}");
     Console.WriteLine($"  LOBEs       : {lobeConfig.Eager.Length} eager  {lobeConfig.Jit.Length} JIT  ({totalProtocols} protocols  {totalCmdlets} cmdlets)");
     // Print eager LOBE names, then JIT LOBE names, each on one indented line.

@@ -6,10 +6,10 @@
 .DESCRIPTION
     Launches four TDA processes in separate windows:
 
-        Federation1   --role Federation  --port 8441
-        Society2      --role Society     --port 8442
-        Citizen3      --role Citizen     --port 8443
-        Wanderer4     --role Wanderer    --port 8444
+        Federation1   --port 8441
+        Society2      --port 8442
+        Citizen3      --port 8443
+        Wanderer4     --port 8444
 
     Each TDA stores its databases under:
         <BinDir>/{port}/mem/
@@ -45,7 +45,7 @@ foreach ($node in $nodes) {
 
     $psi = [System.Diagnostics.ProcessStartInfo]@{
         FileName               = 'dotnet'
-        Arguments              = "`"$dll`" --role $($node.Role) --port $($node.Port)"
+        Arguments              = "`"$dll`" --port $($node.Port)"
         WorkingDirectory       = $BinDir
         UseShellExecute        = $true
         CreateNoWindow         = $false
@@ -54,7 +54,7 @@ foreach ($node in $nodes) {
     # On Windows, open each TDA in its own titled console window
     if ($IsWindows) {
         $psi.FileName        = 'cmd.exe'
-        $psi.Arguments       = "/k title $($node.Name) [$($node.Role)] :$($node.Port) && dotnet `"$dll`" --role $($node.Role) --port $($node.Port)"
+        $psi.Arguments       = "/k title $($node.Name) [$($node.Role)] :$($node.Port) && dotnet `"$dll`" --port $($node.Port)"
         $psi.UseShellExecute = $true
     }
 
