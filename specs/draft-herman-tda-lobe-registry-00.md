@@ -640,7 +640,7 @@ tooling can identify descriptors that were authored with the MCP-alignment desig
 read verbatim by an AI developer constructing a pipeline. They SHOULD describe:
 
 - Which cmdlet to use for a specific task.
-- Which cmdlets chain naturally (piping `Receive-PandoEmail` output to `Send-Web7Email`).
+- Which cmdlets chain naturally (piping `Receive-PandoEmail` output to `Send-PandoEmail`).
 - Which cmdlets should NOT be chained (fire-and-forget cmdlets that return `$null`).
 - Important precedence or ordering constraints.
 - When to prefer one cmdlet over another.

@@ -112,7 +112,7 @@
       "example": "Receive-PandoEmail -MessageDid \"did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678\""
     },
     {
-      "name": "Send-Web7Email",
+      "name": "Send-PandoEmail",
       "title": "Send Email",
       "description": "Sends an RFC 5322 email to a recipient DID via DIDComm. Returns an OutboundMessage for the Switchboard.",
       "epochRequired": 0,
@@ -175,8 +175,8 @@
         },
         "additionalProperties": false
       },
-      "pipelineExample": "Send-Web7Email -RecipientDid $did -Subject $subj -Body $body | Enqueue-Svrn7Message",
-      "example": "Send-Web7Email -RecipientDid \"did:drn:beta.svrn7.net/citizen/bob\" -Subject \"Hello\" -Body \"Hi Bob\""
+      "pipelineExample": "Send-PandoEmail -RecipientDid $did -Subject $subj -Body $body | Enqueue-Svrn7Message",
+      "example": "Send-PandoEmail -RecipientDid \"did:drn:beta.svrn7.net/citizen/bob\" -Subject \"Hello\" -Body \"Hi Bob\""
     }
   ],
   "dependencies": {
@@ -193,7 +193,7 @@
     ],
     "compositionHints": [
       "Chain Receive-PandoEmail after Dequeue-Svrn7Message for any pipeline handling email/1.0/* types",
-      "Use Send-Web7Email | Enqueue-Svrn7Message to reply to an inbound email",
+      "Use Send-PandoEmail | Enqueue-Svrn7Message to reply to an inbound email",
       "SenderDid in the returned record is authoritative \u2014 not the RFC 5322 From header",
       "Receive-PandoEmail is idempotent: processing the same MessageDid twice is safe"
     ],

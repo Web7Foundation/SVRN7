@@ -95,9 +95,9 @@ function Receive-PandoEmail {
     }
 }
 
-# ── Send-Web7Email ─────────────────────────────────────────────────────────────
+# ── Send-PandoEmail ─────────────────────────────────────────────────────────────
 
-function Send-Web7Email {
+function Send-PandoEmail {
     <#
     .SYNOPSIS
         Sends an RFC 5322 email message to a recipient TDA via DIDComm.
@@ -126,7 +126,7 @@ function Send-Web7Email {
         OutboundMessage — packed DIDComm message ready for Switchboard delivery.
 
     .EXAMPLE
-        Send-Web7Email -RecipientDid "did:drn:beta.svrn7.net/citizen/bob" -Subject "Hello" -Body "Hi Bob"
+        Send-PandoEmail -RecipientDid "did:drn:beta.svrn7.net/citizen/bob" -Subject "Hello" -Body "Hi Bob"
     #>
     [CmdletBinding()]
     param(
@@ -160,7 +160,7 @@ $Body
 
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $RecipientDid
         if (-not $peerEndpoint) {
-            Write-Warning "Send-Web7Email: no DIDComm service endpoint for '$RecipientDid' — reply skipped."
+            Write-Warning "Send-PandoEmail: no DIDComm service endpoint for '$RecipientDid' — reply skipped."
             return
         }
 
@@ -188,5 +188,5 @@ function Get-Rfc5322Header {
 
 Export-ModuleMember -Function @(
     'Receive-PandoEmail',
-    'Send-Web7Email'
+    'Send-PandoEmail'
 )

@@ -15,7 +15,7 @@
 
     FunctionsToExport = @(
         'Receive-PandoEmail',
-        'Send-Web7Email'
+        'Send-PandoEmail'
     )
 
     CmdletsToExport   = @()
