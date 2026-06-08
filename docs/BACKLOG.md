@@ -7,11 +7,12 @@
 **Area:** `DIDCommMessageSwitchboard`, `LobeManager`, `TdaOptions`, LOBE registry/marketplace
 
 **Summary:** When a TDA receives a DIDComm message whose `@type` URI has no
-registered handler, it currently drops the message with a warning.  A future
-capability would allow the TDA to automatically resolve, download, and install
-the required LOBE from a registry — making the LOBE set self-healing and
-removing the need for pre-deployment configuration of every message type a TDA
-will ever encounter.
+registered handler, the Switchboard calls `MarkFailedAsync(retry: false)` —
+the message is dead-lettered immediately.  A future capability would allow the
+TDA to intercept that path, automatically resolve, download, and install the
+required LOBE from a registry, then re-enqueue the message — making the LOBE
+set self-healing and removing the need for pre-deployment configuration of
+every message type a TDA will ever encounter.
 
 **What would be required:**
 
@@ -23,10 +24,11 @@ will ever encounter.
    (`TdaOptions.LobeRegistryUrl`).
 
 2. **Switchboard — "no handler" intercept** — `DIDCommMessageSwitchboard` must
-   detect the "no handler" case before dropping the message and call into
-   `LobeManager.TryResolveAndInstallAsync(messageType)`.  The message should be
-   held in a retry queue (or re-queued to the inbox) while the download is in
-   progress, with a timeout and a dead-letter path.
+   intercept the `reg is null` branch before calling `MarkFailedAsync` and call
+   into `LobeManager.TryResolveAndInstallAsync(messageType)`.  On success the
+   message is re-enqueued to the inbox for a second dispatch attempt; on failure
+   (download error, timeout, policy rejection) it falls through to
+   `MarkFailedAsync(retry: false)` as today.
 
 3. **LobeManager — `TryResolveAndInstallAsync`** — New method:
    - Query the registry index for a package ID matching the protocol URI prefix.

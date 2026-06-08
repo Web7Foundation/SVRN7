@@ -167,7 +167,8 @@ the source files and repackage.
 ## Step 7 — Verify the protocol is NOT yet registered (Terminal B)
 
 Send a `date-query` message to the running TDA.  Because `Pando.Diagnostics`
-is not installed, the Switchboard will log "no handler".
+is not installed, the Switchboard will dead-letter the message immediately
+(`MarkFailedAsync` with `retry: false`).
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
@@ -188,12 +189,13 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log (Terminal A):
 
 ```
-warn: DIDCommMessageSwitchboard[0]
-      DIDCommMessageSwitchboard: no handler for
-      'did:drn:svrn7.net/protocols/diagnostics/1.0/date-query' — message dropped.
+warn: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      Switchboard: no LOBE registered for @type
+      'did:drn:svrn7.net/protocols/diagnostics/1.0/date-query' — failing message.
 ```
 
-This confirms the LOBE is absent.
+The message is dead-lettered, not dropped — it is recorded in the inbox store
+with `Failed` status.  This confirms the LOBE is absent.
 
 ---
 
