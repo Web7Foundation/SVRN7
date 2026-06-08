@@ -95,9 +95,9 @@ function Dequeue-PandoEmail {
     }
 }
 
-# ── Send-PandoEmail ─────────────────────────────────────────────────────────────
+# ── Enqueue-PandoEmail ─────────────────────────────────────────────────────────────
 
-function Send-PandoEmail {
+function Enqueue-PandoEmail {
     <#
     .SYNOPSIS
         Sends an RFC 5322 email message to a recipient TDA via DIDComm.
@@ -126,7 +126,7 @@ function Send-PandoEmail {
         OutboundMessage — packed DIDComm message ready for Switchboard delivery.
 
     .EXAMPLE
-        Send-PandoEmail -RecipientDid "did:drn:beta.svrn7.net/citizen/bob" -Subject "Hello" -Body "Hi Bob"
+        Enqueue-PandoEmail -RecipientDid "did:drn:beta.svrn7.net/citizen/bob" -Subject "Hello" -Body "Hi Bob"
     #>
     [CmdletBinding()]
     param(
@@ -160,7 +160,7 @@ $Body
 
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $RecipientDid
         if (-not $peerEndpoint) {
-            Write-Warning "Send-PandoEmail: no DIDComm service endpoint for '$RecipientDid' — reply skipped."
+            Write-Warning "Enqueue-PandoEmail: no DIDComm service endpoint for '$RecipientDid' — reply skipped."
             return
         }
 
@@ -188,5 +188,5 @@ function Get-Rfc5322Header {
 
 Export-ModuleMember -Function @(
     'Dequeue-PandoEmail',
-    'Send-PandoEmail'
+    'Enqueue-PandoEmail'
 )

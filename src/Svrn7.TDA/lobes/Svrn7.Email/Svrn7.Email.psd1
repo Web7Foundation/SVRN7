@@ -15,7 +15,7 @@
 
     FunctionsToExport = @(
         'Dequeue-PandoEmail',
-        'Send-PandoEmail'
+        'Enqueue-PandoEmail'
     )
 
     CmdletsToExport   = @()
