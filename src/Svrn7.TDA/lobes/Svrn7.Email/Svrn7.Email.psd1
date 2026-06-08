@@ -14,7 +14,7 @@
     RootModule        = 'Svrn7.Email.psm1'
 
     FunctionsToExport = @(
-        'Receive-Web7Email',
+        'Receive-PandoEmail',
         'Send-Web7Email'
     )
 

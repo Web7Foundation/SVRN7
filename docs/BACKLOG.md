@@ -376,7 +376,7 @@ would eliminate the per-dispatch import cost for frequently-used JIT LOBEs.
 
 **Summary:** The Switchboard pipeline calls `Dequeue-Svrn7Message -Did $did` before invoking
 the LOBE cmdlet, then passes only the string `$MessageDid` by name. LOBE cmdlets that
-need the payload (e.g. `Receive-Web7Email`) call `$SVRN7.GetMessageAsync()` again
+need the payload (e.g. `Receive-PandoEmail`) call `$SVRN7.GetMessageAsync()` again
 internally — a second round-trip to the inbox store for the same message.
 
 **Why it is minor:** `GetMessageAsync` caches `InboxMessageView` in `SvrN7RunspaceContext`

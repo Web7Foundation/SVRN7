@@ -66,7 +66,7 @@ function Invoke-EmailAgent {
     param([string] $MessageDid)
     Import-JitLobeIfNeeded -LobeName 'Svrn7.Email'
     try {
-        $result = Receive-Web7Email -MessageDid $MessageDid
+        $result = Receive-PandoEmail -MessageDid $MessageDid
         Write-Verbose "Agent 1 / Email: processed $MessageDid"
         return $result
     } catch {

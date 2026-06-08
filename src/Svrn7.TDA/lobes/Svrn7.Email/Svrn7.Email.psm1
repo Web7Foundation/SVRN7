@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.0
+#Requires -Version 7.0
 <#
 .SYNOPSIS
     SVRN7 Email LOBE — DIDComm-native email using RFC 5322 tunneling.
@@ -24,9 +24,9 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── Receive-Web7Email ──────────────────────────────────────────────────────────
+# ── Receive-PandoEmail ──────────────────────────────────────────────────────────
 
-function Receive-Web7Email {
+function Receive-PandoEmail {
     <#
     .SYNOPSIS
         Processes an inbound DIDComm email/1.0/message and stores it locally.
@@ -48,7 +48,7 @@ function Receive-Web7Email {
         EmailRecord — the stored email record, or $null if processing failed.
 
     .EXAMPLE
-        Receive-Web7Email -MessageDid "did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678"
+        Receive-PandoEmail -MessageDid "did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678"
 
     .NOTES
         The From header in the RFC 5322 payload is treated as display metadata only.
@@ -187,6 +187,6 @@ function Get-Rfc5322Header {
 }
 
 Export-ModuleMember -Function @(
-    'Receive-Web7Email',
+    'Receive-PandoEmail',
     'Send-Web7Email'
 )

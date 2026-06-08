@@ -19,7 +19,7 @@
       "description": "Inbound RFC 5322 email tunneled over DIDComm. Body: { from: did, to: did, rfc5322Body: string }",
       "direction": "inbound",
       "match": "prefix",
-      "entrypoint": "Receive-Web7Email",
+      "entrypoint": "Receive-PandoEmail",
       "epochRequired": 0
     },
     {
@@ -28,13 +28,13 @@
       "description": "Delivery confirmation for a previously sent email.",
       "direction": "inbound",
       "match": "prefix",
-      "entrypoint": "Receive-Web7Email",
+      "entrypoint": "Receive-PandoEmail",
       "epochRequired": 0
     }
   ],
   "cmdlets": [
     {
-      "name": "Receive-Web7Email",
+      "name": "Receive-PandoEmail",
       "title": "Receive Email",
       "description": "Processes an inbound email/1.0/message. Extracts RFC 5322 body, verifies sender DID from DIDComm envelope, returns an email record.",
       "epochRequired": 0,
@@ -108,8 +108,8 @@
           }
         }
       },
-      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Receive-Web7Email",
-      "example": "Receive-Web7Email -MessageDid \"did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678\""
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Receive-PandoEmail",
+      "example": "Receive-PandoEmail -MessageDid \"did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678\""
     },
     {
       "name": "Send-Web7Email",
@@ -192,10 +192,10 @@
       "Cross-Society correspondence between TDA operators"
     ],
     "compositionHints": [
-      "Chain Receive-Web7Email after Dequeue-Svrn7Message for any pipeline handling email/1.0/* types",
+      "Chain Receive-PandoEmail after Dequeue-Svrn7Message for any pipeline handling email/1.0/* types",
       "Use Send-Web7Email | Enqueue-Svrn7Message to reply to an inbound email",
       "SenderDid in the returned record is authoritative \u2014 not the RFC 5322 From header",
-      "Receive-Web7Email is idempotent: processing the same MessageDid twice is safe"
+      "Receive-PandoEmail is idempotent: processing the same MessageDid twice is safe"
     ],
     "limitations": [
       "Epoch 0 only: plain text body. No MIME multipart, no attachments.",

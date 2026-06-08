@@ -323,12 +323,12 @@ entry with a protocol prefix covers all message subtypes in a protocol family:
 {
   "uri":       "did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/",
   "match":     "prefix",
-  "entrypoint":"Receive-Web7Email"
+  "entrypoint":"Receive-PandoEmail"
 }
 ```
 
 This routes `email/1.0/message`, `email/1.0/receipt`, and any future `email/1.0/*`
-subtypes to `Receive-Web7Email`.
+subtypes to `Receive-PandoEmail`.
 
 ### 6.2 `match: "exact"`
 
@@ -539,7 +539,7 @@ pattern mandated by DSA 0.24:
 
 ```powershell
 Dequeue-Svrn7Message -Did "did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678" |
-    Receive-Web7Email |
+    Receive-PandoEmail |
     Enqueue-Svrn7Message
 ```
 
@@ -640,16 +640,16 @@ tooling can identify descriptors that were authored with the MCP-alignment desig
 read verbatim by an AI developer constructing a pipeline. They SHOULD describe:
 
 - Which cmdlet to use for a specific task.
-- Which cmdlets chain naturally (piping `Receive-Web7Email` output to `Send-Web7Email`).
+- Which cmdlets chain naturally (piping `Receive-PandoEmail` output to `Send-Web7Email`).
 - Which cmdlets should NOT be chained (fire-and-forget cmdlets that return `$null`).
 - Important precedence or ordering constraints.
 - When to prefer one cmdlet over another.
 
 Example:
 ```
-"Chain Receive-Web7Email after Dequeue-Svrn7Message for any pipeline handling email/1.0/* types."
+"Chain Receive-PandoEmail after Dequeue-Svrn7Message for any pipeline handling email/1.0/* types."
 "SenderDid in the returned record is authoritative — not the RFC 5322 From header."
-"Receive-Web7Email is idempotent: processing the same MessageDid twice is safe."
+"Receive-PandoEmail is idempotent: processing the same MessageDid twice is safe."
 ```
 
 ### 11.4 `inputSchema` and `outputSchema` Guidelines
@@ -742,7 +742,7 @@ handling in the Switchboard before being routed to the registered cmdlet:
 | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order`             | Svrn7.Society       | Invoke-Svrn7IncomingTransfer  | 1     |
 | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order-receipt`     | Svrn7.Society       | Confirm-Svrn7Settlement       | 1     |
 | `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/`                   | Svrn7.Onboarding    | ConvertFrom-Web7OnboardRequest| 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/`                     | Svrn7.Email         | Receive-Web7Email             | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/`                     | Svrn7.Email         | Receive-PandoEmail             | 0     |
 | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/invite`            | Svrn7.Calendar      | Receive-Web7MeetingRequest    | 0     |
 | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/`                  | Svrn7.Calendar      | Import-Web7CalendarEvent      | 0     |
 | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/subscribe`         | Svrn7.Presence      | Add-Web7PresenceSubscription  | 0     |
