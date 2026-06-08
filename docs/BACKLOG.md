@@ -2,6 +2,72 @@
 
 ---
 
+## TDA-006 — On-demand LOBE download when an unknown message type arrives
+
+**Area:** `DIDCommMessageSwitchboard`, `LobeManager`, `TdaOptions`, LOBE registry/marketplace
+
+**Summary:** When a TDA receives a DIDComm message whose `@type` URI has no
+registered handler, it currently drops the message with a warning.  A future
+capability would allow the TDA to automatically resolve, download, and install
+the required LOBE from a registry — making the LOBE set self-healing and
+removing the need for pre-deployment configuration of every message type a TDA
+will ever encounter.
+
+**What would be required:**
+
+1. **LOBE registry / index** — A service (or well-known URL convention) that
+   maps a protocol URI prefix to a NuGet package ID and version.  Example:
+   `did:drn:svrn7.net/protocols/email/1.0/*` → `Svrn7.Email 0.8.0` on
+   `https://packages.svrn7.net/v3/index.json`.  The registry itself is a design
+   deliverable; the TDA only needs to know the registry base URL
+   (`TdaOptions.LobeRegistryUrl`).
+
+2. **Switchboard — "no handler" intercept** — `DIDCommMessageSwitchboard` must
+   detect the "no handler" case before dropping the message and call into
+   `LobeManager.TryResolveAndInstallAsync(messageType)`.  The message should be
+   held in a retry queue (or re-queued to the inbox) while the download is in
+   progress, with a timeout and a dead-letter path.
+
+3. **LobeManager — `TryResolveAndInstallAsync`** — New method:
+   - Query the registry index for a package ID matching the protocol URI prefix.
+   - Call `dotnet nuget download` (or use `HttpClient` directly against the
+     NuGet v3 API) to fetch the `.nupkg` to a temp path.
+   - Validate the package (reuse `Test-LOBEPackage` logic or a C# equivalent).
+   - Extract to the lobes directory (reuse `Install-LOBEPackage` extraction
+     logic).
+   - The FileSystemWatcher picks up the new `.lobe.json` and calls
+     `RegisterFromDescriptor` — this is already implemented.
+   - Return success/failure to the Switchboard.
+
+4. **Trust / signature verification** — Downloaded LOBEs should be signed and
+   the signature verified before installation.  The signing key for each
+   package should be pinned in `TdaOptions` or fetched from the registry
+   alongside the package.  Without this, on-demand download is a remote code
+   execution surface.
+
+5. **Policy gate** — `TdaOptions.AutoInstallLobes` (bool, default `false`).
+   Auto-download should be opt-in.  When disabled, the "no handler" path
+   continues to drop with a warning.  When enabled, auto-install is gated by
+   an allowed-list (`TdaOptions.AllowedLobeAuthors` or a signed registry
+   manifest).
+
+6. **Retry queue** — The message that triggered the download cannot be
+   re-processed until the LOBE is installed and `RegisterFromDescriptor` has
+   run.  A simple approach: re-enqueue the raw message bytes to the TDA inbox
+   after a configurable delay (`TdaOptions.AutoInstallRetryDelayMs`).  Requires
+   the inbox to tolerate duplicate delivery (idempotent handlers).
+
+7. **Per-instance lobes directory** — This feature is only safe if each TDA
+   instance has its own lobes directory (see TDA-004).  Downloading a LOBE into
+   a shared directory while another instance is running can cause partial reads.
+
+**Dependencies:** TDA-004 (per-instance lobes dir), LOBE registry design (not
+yet started).
+
+**No code change required now** — tracked here for design continuity.
+
+---
+
 ## TDA-005 — TDA-to-TDA transport without HTTPS/TLS (FYI / Future Design)
 
 **Area:** `KestrelListenerService`, `TdaOptions`, deployment
