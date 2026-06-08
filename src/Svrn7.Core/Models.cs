@@ -14,7 +14,7 @@ public enum DidMethodStatus{ Active, Dormant }   // Available = not in registry
 /// Functional role of a TDA instance in the Web 7.0 network.
 /// Stored on DidDocument to identify what role the owning TDA plays.
 /// </summary>
-public enum Svrn7Role { Federation, Society, Citizen, Wanderer }
+public enum Svrn7Role { Federation, Society, Citizen, Wanderer, LOBEPackageManager, LOBEMarketplace }
 
 // ── Core monetary models ───────────────────────────────────────────────────────
 
