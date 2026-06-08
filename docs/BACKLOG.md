@@ -392,3 +392,41 @@ parameter for all LOBE cmdlets; that would need to be dropped from the non-.ps1 
 
 **Decision:** Deferred — the cache makes this cosmetic at Epoch 0 throughput. Revisit if
 profiling shows inbox-store reads appearing under load.
+
+## TDA-008 — Version-less protocol URI fallback ("pick highest installed LOBE version")
+
+**Area:** `LobeManager.TryResolveProtocol`, `LobeProtocolRegistration`
+
+**Summary:** When a DIDComm message arrives with a version-less `@type` URI
+(e.g. `did:drn:svrn7.net/protocols/Svrn7.Email/signal-message` instead of
+`did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/signal-message`), the
+Switchboard currently dead-letters it — no registration matches.  A possible
+convenience feature would add a third fallback tier to `TryResolveProtocol`
+that strips the version segment from all registered URIs, matches on LOBE name
++ action suffix, and routes to the highest installed version.
+
+**What implementation would require:**
+- Add `string LobeVersion` to `LobeProtocolRegistration` (already available
+  from `descriptor.Lobe.Version` at registration time — just not carried through).
+- Add ~30-40 lines to `TryResolveProtocol`: detect version-less incoming URI,
+  collect candidate registrations by `LobeName` + action suffix, pick highest semver.
+- Gate behind `TdaOptions.AllowVersionlessFallback` (default: `false`).
+
+**⚠ WARNING — do not enable by default.**
+
+The version segment in a protocol URI is a contract identifier.  Sender and
+receiver must agree on the same message schema.  "Pick highest" silently breaks
+that agreement:
+
+- A message built against `0.8.0`'s schema arrives version-less.
+- `0.9.0` is installed with a renamed or required field.
+- The LOBE misparses the body — no routing error, silent data loss or panic
+  inside the handler.
+
+This is exactly the failure mode that protocol versioning prevents.
+Version-less routing trades correctness for convenience and must never be the
+default.  Dead-lettering version-less messages (P-006) is the correct default.
+
+**Acceptable use:** opt-in for development tooling and single-version
+deployments where "highest" is always "only".  Never in production with
+multiple versions installed.
