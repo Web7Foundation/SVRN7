@@ -36,6 +36,24 @@
     <ProjectReference Include="..\Svrn7.DIDComm\Svrn7.DIDComm.csproj" />
     <ProjectReference Include="..\Svrn7.Society\Svrn7.Society.csproj" />
   </ItemGroup>
+  <!-- LOBE NuGet packaging — runs after Build, skipped when no LOBE source has changed -->
+  <PropertyGroup>
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..'))</RepoRoot>
+    <LobeDistDir>$(RepoRoot)\dist</LobeDistDir>
+    <LobePackagesStamp>$(MSBuildProjectDirectory)\obj\lobe-packages.stamp</LobePackagesStamp>
+  </PropertyGroup>
+  <ItemGroup>
+    <_LobeSource Include="$(MSBuildProjectDirectory)\lobes\**\*.lobe.json" />
+    <_LobeSource Include="$(MSBuildProjectDirectory)\lobes\**\*.psm1" />
+    <_LobeSource Include="$(MSBuildProjectDirectory)\lobes\**\*.psd1" />
+  </ItemGroup>
+  <Target Name="BuildLOBEPackages" AfterTargets="Build"
+          Inputs="@(_LobeSource)"
+          Outputs="$(LobePackagesStamp)">
+    <Exec Command="pwsh -NoProfile -File &quot;$(RepoRoot)\tools\Build-LOBEPackages.ps1&quot; -LobesDir &quot;$(MSBuildProjectDirectory)\lobes&quot; -OutDir &quot;$(LobeDistDir)&quot;" />
+    <Touch Files="$(LobePackagesStamp)" AlwaysCreate="true" />
+  </Target>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting"                     Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Http"                        Version="8.0.1" />
