@@ -1,4 +1,4 @@
-﻿{
+{
   "lobe": {
     "id": "svrn7.onboarding",
     "name": "Svrn7.Onboarding",
@@ -93,7 +93,7 @@
           }
         }
       },
-      "pipelineExample": "Get-Web7Message -Did $MessageDid | ConvertFrom-Web7OnboardRequest | Register-Svrn7CitizenInSociety | New-Web7OnboardReceipt | Send-Web7Message"
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | ConvertFrom-Web7OnboardRequest | Register-Svrn7CitizenInSociety | New-Web7OnboardReceipt | Enqueue-Svrn7Message"
     },
     {
       "name": "New-Web7OnboardReceipt",
@@ -158,7 +158,7 @@
         },
         "additionalProperties": false
       },
-      "pipelineExample": "$registrationResult | New-Web7OnboardReceipt | Send-Web7Message"
+      "pipelineExample": "$registrationResult | New-Web7OnboardReceipt | Enqueue-Svrn7Message"
     },
     {
       "name": "Send-Web7OnboardError",
@@ -212,7 +212,7 @@
         },
         "additionalProperties": false
       },
-      "pipelineExample": "Send-Web7OnboardError -CitizenDid $did -ErrorMessage $_ | Send-Web7Message"
+      "pipelineExample": "Send-Web7OnboardError -CitizenDid $did -ErrorMessage $_ | Enqueue-Svrn7Message"
     }
   ],
   "dependencies": {
@@ -229,7 +229,7 @@
       "Issuing the CitizenEndowmentCredential VC as part of onboarding"
     ],
     "compositionHints": [
-      "Full pipeline: Get-Web7Message | ConvertFrom-Web7OnboardRequest | Register-Svrn7CitizenInSociety | New-Web7OnboardReceipt | Send-Web7Message",
+      "Full pipeline: Dequeue-Svrn7Message | ConvertFrom-Web7OnboardRequest | Register-Svrn7CitizenInSociety | New-Web7OnboardReceipt | Enqueue-Svrn7Message",
       "Always wrap in try/catch and call Send-Web7OnboardError if any step throws",
       "ConvertFrom-Web7OnboardRequest may return null \u2014 check before piping further",
       "Register-Svrn7CitizenInSociety is in Svrn7.Society.psm1 (eager) \u2014 no JIT import needed"

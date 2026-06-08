@@ -1,4 +1,4 @@
-﻿{
+{
   "lobe": {
     "id": "svrn7.presence",
     "name": "Svrn7.Presence",
@@ -100,7 +100,7 @@
           }
         }
       },
-      "pipelineExample": "Get-Web7Message -Did $MessageDid | Update-Web7Presence"
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Update-Web7Presence"
     },
     {
       "name": "Add-Web7PresenceSubscription",
@@ -128,7 +128,7 @@
         },
         "additionalProperties": false
       },
-      "pipelineExample": "Get-Web7Message -Did $MessageDid | Add-Web7PresenceSubscription"
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Add-Web7PresenceSubscription"
     },
     {
       "name": "Publish-Web7Presence",
@@ -194,7 +194,7 @@
         },
         "description": "One OutboundMessage per subscribed peer TDA."
       },
-      "pipelineExample": "Publish-Web7Presence -Status Available | Send-Web7Message"
+      "pipelineExample": "Publish-Web7Presence -Status Available | Enqueue-Svrn7Message"
     },
     {
       "name": "Get-Web7Presence",
@@ -275,7 +275,7 @@
     ],
     "compositionHints": [
       "Call Get-Web7Presence before routing a time-sensitive message to verify the peer is Available",
-      "Publish-Web7Presence returns an array \u2014 pipe to foreach { $_ | Send-Web7Message } or use Send-Web7Message with ValueFromPipeline",
+      "Publish-Web7Presence returns an array \u2014 pipe to foreach { $_ | Enqueue-Svrn7Message } or use Enqueue-Svrn7Message with ValueFromPipeline",
       "Add-Web7PresenceSubscription returns nothing \u2014 it is a side-effect cmdlet"
     ],
     "limitations": [

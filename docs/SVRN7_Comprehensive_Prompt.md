@@ -1,4 +1,4 @@
-﻿# SVRN7 / SOVRON — Comprehensive Project Prompt
+# SVRN7 / SOVRON — Comprehensive Project Prompt
 ## Parchment Programming Modeling Language (PPML)
 
 The PPML Legend is the formal visual grammar of the DSA Parchment Diagram. Starting with
@@ -633,7 +633,7 @@ JIT (Import-Module on first use):
   Svrn7.Invoicing.psm1     — Svrn7.Invoicing/0.8.0/* (wraps Invoke-Svrn7IncomingTransfer)
 
 ### Agent Scripts (lobes/)
-  Agent1-Coordinator.ps1  — dispatch via Get-Web7Message / Send-Web7Message
+  Agent1-Coordinator.ps1  — dispatch via Dequeue-Svrn7Message / Enqueue-Svrn7Message
   Agent2-Onboarding.ps1   — Svrn7.Onboarding/0.8.0/register-citizen → ConvertFrom-Web7OnboardRequest
   AgentN-Invoicing.ps1    — Svrn7.Invoicing/0.8.0/request → ConvertFrom-Web7InvoiceRequest
 

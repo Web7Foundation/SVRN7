@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.0
+#Requires -Version 7.0
 <#
 .SYNOPSIS
     SVRN7 Onboarding LOBE — citizen registration via DIDComm onboard protocol.
@@ -16,8 +16,8 @@
         did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/receipt — outbound registration receipt
 
     Pipeline:
-        Get-Web7Message | ConvertFrom-Web7OnboardRequest |
-        Register-Svrn7CitizenInSociety | New-Web7OnboardReceipt | Send-Web7Message
+        Dequeue-Svrn7Message | ConvertFrom-Web7OnboardRequest |
+        Register-Svrn7CitizenInSociety | New-Web7OnboardReceipt | Enqueue-Svrn7Message
 #>
 
 Set-StrictMode -Version Latest
@@ -40,7 +40,7 @@ function ConvertFrom-Web7OnboardRequest {
         Hashtable — { MessageDid, CitizenDid, PublicKeyHex, RequestedAt }
 
     .EXAMPLE
-        Get-Web7Message -Did $msgDid | ConvertFrom-Web7OnboardRequest
+        Dequeue-Svrn7Message -Did $msgDid | ConvertFrom-Web7OnboardRequest
     #>
     [CmdletBinding()]
     [OutputType([hashtable])]

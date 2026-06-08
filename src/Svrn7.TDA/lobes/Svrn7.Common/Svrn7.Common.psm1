@@ -96,7 +96,7 @@ function Assert-SocietyDriver {
 
 # ── TDA inbox message accessor ───────────────────────────────────────────────
 
-function Get-Web7Message {
+function Dequeue-Svrn7Message {
     <#
     .SYNOPSIS
         Retrieves an InboxMessageView from the TDA inbox by its DID URL.
@@ -114,12 +114,12 @@ function Get-Web7Message {
     process {
         if ($null -eq $SVRN7) {
             throw [System.InvalidOperationException]::new(
-                'Get-Web7Message requires a TDA runspace ($SVRN7 not set).')
+                'Dequeue-Svrn7Message requires a TDA runspace ($SVRN7 not set).')
         }
         $view = $SVRN7.GetMessageAsync($Did).GetAwaiter().GetResult()
         if (-not $view) {
             throw [System.InvalidOperationException]::new(
-                "Get-Web7Message: no inbox message found for '$Did'.")
+                "Dequeue-Svrn7Message: no inbox message found for '$Did'.")
         }
         $view
     }

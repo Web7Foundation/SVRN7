@@ -328,7 +328,7 @@ public sealed class DIDCommMessageSwitchboard
     /// concurrent dispatch.
     ///
     /// Pipeline pattern (PowerShell, pass-by-reference):
-    ///   Get-Web7Message -Did $did | Invoke-{Lobe}Cmdlet -MessageDid $did
+    ///   Dequeue-Svrn7Message -Did $did | Invoke-{Lobe}Cmdlet -MessageDid $did
     /// </summary>
     private async Task InvokeCmdletPipelineAsync(
         string cmdletOrScript, string modulePath, string didUrl, CancellationToken ct)
@@ -351,8 +351,8 @@ public sealed class DIDCommMessageSwitchboard
         }
         else
         {
-            // LOBE cmdlet pipeline: Get-Web7Message | cmdlet (pass-by-reference).
-            ps.AddCommand("Get-Web7Message")
+            // LOBE cmdlet pipeline: Dequeue-Svrn7Message | cmdlet (pass-by-reference).
+            ps.AddCommand("Dequeue-Svrn7Message")
               .AddParameter("Did", didUrl)
               .AddStatement()
               .AddCommand(cmdletOrScript)
@@ -451,7 +451,7 @@ public sealed class DIDCommMessageSwitchboard
 
     /// <summary>
     /// Enqueues a packed outbound DIDComm message for delivery.
-    /// Called by LOBE cmdlets via the <c>Send-Web7Message</c> cmdlet wrapper,
+    /// Called by LOBE cmdlets via the <c>Enqueue-Svrn7Message</c> cmdlet wrapper,
     /// which posts an <see cref="OutboundMessage"/> to this queue.
     /// </summary>
     public void EnqueueOutbound(string peerEndpoint, string packedMessage)

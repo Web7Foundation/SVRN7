@@ -1,4 +1,4 @@
-﻿{
+{
   "lobe": {
     "id": "svrn7.email",
     "name": "Svrn7.Email",
@@ -108,7 +108,7 @@
           }
         }
       },
-      "pipelineExample": "Get-Web7Message -Did $MessageDid | Receive-Web7Email",
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Receive-Web7Email",
       "example": "Receive-Web7Email -MessageDid \"did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678\""
     },
     {
@@ -175,7 +175,7 @@
         },
         "additionalProperties": false
       },
-      "pipelineExample": "Send-Web7Email -RecipientDid $did -Subject $subj -Body $body | Send-Web7Message",
+      "pipelineExample": "Send-Web7Email -RecipientDid $did -Subject $subj -Body $body | Enqueue-Svrn7Message",
       "example": "Send-Web7Email -RecipientDid \"did:drn:beta.svrn7.net/citizen/bob\" -Subject \"Hello\" -Body \"Hi Bob\""
     }
   ],
@@ -192,8 +192,8 @@
       "Cross-Society correspondence between TDA operators"
     ],
     "compositionHints": [
-      "Chain Receive-Web7Email after Get-Web7Message for any pipeline handling email/1.0/* types",
-      "Use Send-Web7Email | Send-Web7Message to reply to an inbound email",
+      "Chain Receive-Web7Email after Dequeue-Svrn7Message for any pipeline handling email/1.0/* types",
+      "Use Send-Web7Email | Enqueue-Svrn7Message to reply to an inbound email",
       "SenderDid in the returned record is authoritative \u2014 not the RFC 5322 From header",
       "Receive-Web7Email is idempotent: processing the same MessageDid twice is safe"
     ],

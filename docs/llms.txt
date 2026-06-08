@@ -385,13 +385,13 @@ LOBE modules (lobes/ — per-LOBE subfolders, e.g. lobes/Svrn7.Common/):
                       Svrn7.Notifications.psm1, Svrn7.Onboarding.psm1, Svrn7.Invoicing.psm1
 
 Agent scripts (lobes/):
-  Agent1-Coordinator.ps1 — JIT LOBE dispatch via Get-Web7Message / Send-Web7Message
+  Agent1-Coordinator.ps1 — JIT LOBE dispatch via Dequeue-Svrn7Message / Enqueue-Svrn7Message
   Agent2-Onboarding.ps1  — onboard/1.0/request pipeline → ConvertFrom-Web7OnboardRequest
   AgentN-Invoicing.ps1   — invoice/1.0/request pipeline → ConvertFrom-Web7InvoiceRequest
 
 LOBE cmdlet naming convention (v0.8.0):
   DIDComm handler cmdlets use the -Web7 infix: Invoke-Web7*, Receive-Web7*, Send-Web7*,
-  Get-Web7Message, Send-Web7Message, ConvertFrom-Web7*, Render-Web7*, etc.
+  Dequeue-Svrn7Message, Enqueue-Svrn7Message, ConvertFrom-Web7*, Render-Web7*, etc.
   Federation-specific handlers: Invoke-Web7FederationQuery, Invoke-Web7FederationInit,
     Invoke-Web7RegisterSociety.
   Society-specific handlers: Invoke-Web7SocietyQuery, Invoke-Web7MemberQuery,

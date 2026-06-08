@@ -1,4 +1,4 @@
-﻿# Web 7.0 Decentralized System Architecture (DSA)
+# Web 7.0 Decentralized System Architecture (DSA)
 ## Citizen/Society Trusted Digital Assistant (TDA) — v0.8.0
 
 > **Epoch 0 — Endowment Phase** | .NET 8 | DIDComm V2 | PowerShell LOBEs | W3C DID + VC | LiteDB | PPML
@@ -301,7 +301,7 @@ Derived from: "Citizen/Society TDA (Host)" — element type Host — DSA 0.24 Ep
 │  POWERSHELL RUNSPACE  (per invocation, isolated)              │
 │                                                              │
 │  Two dispatch patterns:                                      │
-│  a) LOBE cmdlet: Get-Web7Message -Did $did                   │
+│  a) LOBE cmdlet: Dequeue-Svrn7Message -Did $did                   │
 │                  | Invoke-{Lobe}Cmdlet -MessageDid $did      │
 │                                                              │
 │  b) Agent script: AgentN-Invoicing.ps1 -MessageDid $did      │

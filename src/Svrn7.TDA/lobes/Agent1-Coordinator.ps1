@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh
 #Requires -Version 7.0
 <#
 .SYNOPSIS
@@ -79,7 +79,7 @@ function Invoke-CalendarAgent {
     Import-JitLobeIfNeeded -LobeName 'Svrn7.Calendar'
     try {
         $result = if ($MessageType -like '*/invite') {
-            Get-Web7Message -Did $MessageDid |
+            Dequeue-Svrn7Message -Did $MessageDid |
                 Receive-Web7MeetingRequest |
                 New-Web7CalendarResponse -Accept
         } else {
@@ -153,10 +153,10 @@ function Invoke-IdentityAgent {
     }
 }
 
-# ── Get-Web7Message (pass-by-reference resolution) ────────────────────────────
+# ── Dequeue-Svrn7Message (pass-by-reference resolution) ────────────────────────────
 # Exposed as a cmdlet for use by all LOBE pipelines in this runspace.
 
-function Get-Web7Message {
+function Dequeue-Svrn7Message {
     <#
     .SYNOPSIS
         Resolves an inbox message by its TDA resource DID URL.
@@ -168,15 +168,15 @@ function Get-Web7Message {
     param([Parameter(Mandatory)] [string] $Did)
     process {
         $msg = $SVRN7.GetMessageAsync($Did).GetAwaiter().GetResult()
-        if (-not $msg) { throw "Get-Web7Message: message '$Did' not found." }
+        if (-not $msg) { throw "Dequeue-Svrn7Message: message '$Did' not found." }
         # Pass through with the DID URL attached for downstream pipeline use
         $msg | Add-Member -NotePropertyName 'MessageDid' -NotePropertyValue $Did -PassThru
     }
 }
 
-# ── Send-Web7Message (outbound queue entry point) ──────────────────────────────
+# ── Enqueue-Svrn7Message (outbound queue entry point) ──────────────────────────────
 
-function Send-Web7Message {
+function Enqueue-Svrn7Message {
     <#
     .SYNOPSIS
         Posts an outbound DIDComm message to the Switchboard's outbound queue.
@@ -186,6 +186,8 @@ function Send-Web7Message {
     [CmdletBinding()]
     param([Parameter(Mandatory, ValueFromPipeline)] [Svrn7.TDA.OutboundMessage] $OutboundMessage)
     process {
+        # Emits the OutboundMessage to the pipeline. The Switchboard collects it
+        # from the pipeline result set and calls _outboundQueue.Enqueue() in C#.
         $OutboundMessage
     }
 }

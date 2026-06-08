@@ -1,4 +1,4 @@
-﻿{
+{
   "lobe": {
     "id": "svrn7.notifications",
     "name": "Svrn7.Notifications",
@@ -96,7 +96,7 @@
           }
         }
       },
-      "pipelineExample": "Get-Web7Message -Did $MessageDid | Invoke-Web7Notification"
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Invoke-Web7Notification"
     },
     {
       "name": "Send-Web7Alert",
@@ -176,7 +176,7 @@
         },
         "additionalProperties": false
       },
-      "pipelineExample": "Send-Web7Alert -RecipientDid $did -AlertType BalanceChange -Severity Info -Message '...' | Send-Web7Message"
+      "pipelineExample": "Send-Web7Alert -RecipientDid $did -AlertType BalanceChange -Severity Info -Message '...' | Enqueue-Svrn7Message"
     },
     {
       "name": "Test-Web7InboxDepth",

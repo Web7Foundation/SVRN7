@@ -1,4 +1,4 @@
-﻿{
+{
   "lobe": {
     "id": "svrn7.calendar",
     "name": "Svrn7.Calendar",
@@ -129,7 +129,7 @@
           }
         }
       },
-      "pipelineExample": "Get-Web7Message -Did $MessageDid | Import-Web7CalendarEvent"
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Import-Web7CalendarEvent"
     },
     {
       "name": "Receive-Web7MeetingRequest",
@@ -218,7 +218,7 @@
           }
         }
       },
-      "pipelineExample": "Get-Web7Message -Did $MessageDid | Receive-Web7MeetingRequest | New-Web7CalendarResponse -Accept | Send-Web7Message"
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Receive-Web7MeetingRequest | New-Web7CalendarResponse -Accept | Enqueue-Svrn7Message"
     },
     {
       "name": "New-Web7CalendarResponse",
@@ -277,7 +277,7 @@
         },
         "additionalProperties": false
       },
-      "pipelineExample": "$invite | New-Web7CalendarResponse -Accept | Send-Web7Message"
+      "pipelineExample": "$invite | New-Web7CalendarResponse -Accept | Enqueue-Svrn7Message"
     }
   ],
   "dependencies": {
@@ -293,7 +293,7 @@
       "Processing RSVP replies and updating local event records"
     ],
     "compositionHints": [
-      "For invite handling, chain: Get-Web7Message | Receive-Web7MeetingRequest | New-Web7CalendarResponse | Send-Web7Message",
+      "For invite handling, chain: Dequeue-Svrn7Message | Receive-Web7MeetingRequest | New-Web7CalendarResponse | Enqueue-Svrn7Message",
       "For event publication, use Import-Web7CalendarEvent which handles both events and RSVP replies",
       "Check MessageType before routing: calendar/1.0/invite \u2192 Receive-Web7MeetingRequest; all others \u2192 Import-Web7CalendarEvent"
     ],

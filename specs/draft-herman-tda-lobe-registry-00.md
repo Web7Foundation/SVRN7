@@ -1,4 +1,4 @@
-﻿# TDA LOBE Registry and Descriptor Format
+# TDA LOBE Registry and Descriptor Format
 # draft-herman-tda-lobe-registry-00
 # Author: M. Herman, Web 7.0 Foundation
 # Published: April 2026
@@ -507,7 +507,7 @@ the following dispatch protocol:
 7. PIPELINE INVOCATION:
    Call IsolatedRunspaceFactory.CreateIsolatedPipeline() to open a fresh Runspace from the
    shared ISS template. Execute within the IsolatedPipeline:
-     Get-Web7Message -Did $msg.Id | {registration.Entrypoint} | Send-Web7Message
+     Dequeue-Svrn7Message -Did $msg.Id | {registration.Entrypoint} | Enqueue-Svrn7Message
    (Pass-by-reference: msg.Id is the DID URL, not the payload.)
    The IsolatedPipeline is disposed after the invocation completes or times out.
    Invocation timeout: TdaOptions.LobeInvocationTimeoutSeconds (default 30s); exceeded → ps.Stop().
@@ -538,12 +538,12 @@ the LOBE entry-point cmdlet, not the message payload. This is the pass-by-refere
 pattern mandated by DSA 0.24:
 
 ```powershell
-Get-Web7Message -Did "did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678" |
+Dequeue-Svrn7Message -Did "did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678" |
     Receive-Web7Email |
-    Send-Web7Message
+    Enqueue-Svrn7Message
 ```
 
-The `Get-Web7Message` cmdlet (defined in `Agent1-Coordinator.ps1`) resolves the message
+The `Dequeue-Svrn7Message` cmdlet (defined in `Agent1-Coordinator.ps1`) resolves the message
 from `IMemoryCache` (hot path) or `IInboxStore` (cold path) via
 `$SVRN7.GetMessageAsync($messageDid)`.
 
@@ -647,7 +647,7 @@ read verbatim by an AI developer constructing a pipeline. They SHOULD describe:
 
 Example:
 ```
-"Chain Receive-Web7Email after Get-Web7Message for any pipeline handling email/1.0/* types."
+"Chain Receive-Web7Email after Dequeue-Svrn7Message for any pipeline handling email/1.0/* types."
 "SenderDid in the returned record is authoritative — not the RFC 5322 From header."
 "Receive-Web7Email is idempotent: processing the same MessageDid twice is safe."
 ```
@@ -826,7 +826,7 @@ hypothetical health domain extension developed by an independent third party.
         }
       },
       "outputSchema": null,
-      "pipelineExample": "Get-Web7Message -Did $MessageDid | Receive-HealthPrescriptionRequest"
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Receive-HealthPrescriptionRequest"
     }
   ],
   "dependencies": {

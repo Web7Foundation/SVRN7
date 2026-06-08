@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh
 #Requires -Version 7.0
 <#
 .SYNOPSIS
@@ -15,12 +15,12 @@
     Routing: Switchboard → Invoke-AgentRunspace Invoicing $msgDid
 
     Full pipeline:
-        Get-Web7Message -Did $msgDid
+        Dequeue-Svrn7Message -Did $msgDid
             | ConvertFrom-Web7InvoiceRequest     ← Svrn7.Invoicing.psm1 (JIT)
             | Resolve-InvoiceAmount             ← Svrn7.Invoicing.psm1 (JIT)
             | Invoke-Svrn7Transfer              ← Svrn7.Society.psm1 (eager, same-Society)
             | New-Web7InvoiceReceipt             ← Svrn7.Invoicing.psm1 (JIT)
-            | Send-Web7Message
+            | Enqueue-Svrn7Message
 
     Cross-Society invoices use Invoke-Svrn7ExternalTransfer instead.
     On failure: Send-Web7InvoiceError is called.
@@ -55,7 +55,7 @@ $invoiceId  = $null
 
 try {
     # Step 1: Resolve and parse the invoice request
-    $invoice = Get-Web7Message -Did $MessageDid |
+    $invoice = Dequeue-Svrn7Message -Did $MessageDid |
                ConvertFrom-Web7InvoiceRequest |
                Resolve-InvoiceAmount
 

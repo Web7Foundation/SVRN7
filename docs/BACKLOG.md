@@ -1,4 +1,4 @@
-﻿# SVRN7 TDA — Backlog
+# SVRN7 TDA — Backlog
 
 ---
 
@@ -368,3 +368,27 @@ The fix is to dynamically add a JIT LOBE to the ISS template the first time it i
 needed (requires rebuilding the ISS or maintaining a secondary ISS per LOBE set).
 This is closely related to TDA-001 (hot-reload) — the same ISS rebuild mechanism
 would eliminate the per-dispatch import cost for frequently-used JIT LOBEs.
+
+## TDA-001c — Double GetMessageAsync call in LOBE cmdlets (FYI / Minor Performance Note)
+
+**Area:** `DIDCommMessageSwitchboard`, `Svrn7.Email.psm1`, all LOBE cmdlets that call
+`$SVRN7.GetMessageAsync()` internally
+
+**Summary:** The Switchboard pipeline calls `Dequeue-Svrn7Message -Did $did` before invoking
+the LOBE cmdlet, then passes only the string `$MessageDid` by name. LOBE cmdlets that
+need the payload (e.g. `Receive-Web7Email`) call `$SVRN7.GetMessageAsync()` again
+internally — a second round-trip to the inbox store for the same message.
+
+**Why it is minor:** `GetMessageAsync` caches `InboxMessageView` in `SvrN7RunspaceContext`
+with a 24-hour TTL. The second call for the same DID URL is a dictionary lookup — no I/O.
+The redundancy is structural but the practical cost is near-zero today.
+
+**Potential fix:** Change LOBE cmdlet signatures to accept `[Parameter(Mandatory,
+ValueFromPipeline)] [Svrn7.TDA.InboxMessageView] $Message` and let the pipeline carry
+the already-fetched view. The Switchboard currently passes `-MessageDid $didUrl` as a named
+parameter for all LOBE cmdlets; that would need to be dropped from the non-.ps1 branch of
+`InvokeCmdletPipelineAsync` when changing a cmdlet to this signature. The redundant
+`$MessageDid` parameter would need to be kept (optional, unused) or the Switchboard updated.
+
+**Decision:** Deferred — the cache makes this cosmetic at Epoch 0 throughput. Revisit if
+profiling shows inbox-store reads appearing under load.

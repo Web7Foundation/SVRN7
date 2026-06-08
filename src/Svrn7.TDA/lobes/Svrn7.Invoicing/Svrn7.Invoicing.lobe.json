@@ -1,4 +1,4 @@
-﻿{
+{
   "lobe": {
     "id": "svrn7.invoicing",
     "name": "Svrn7.Invoicing",
@@ -118,7 +118,7 @@
           }
         }
       },
-      "pipelineExample": "Get-Web7Message -Did $MessageDid | ConvertFrom-Web7InvoiceRequest | Resolve-InvoiceAmount"
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | ConvertFrom-Web7InvoiceRequest | Resolve-InvoiceAmount"
     },
     {
       "name": "Resolve-InvoiceAmount",
@@ -289,7 +289,7 @@
         },
         "additionalProperties": false
       },
-      "pipelineExample": "$transferResult | New-Web7InvoiceReceipt | Send-Web7Message"
+      "pipelineExample": "$transferResult | New-Web7InvoiceReceipt | Enqueue-Svrn7Message"
     },
     {
       "name": "Send-Web7InvoiceError",
@@ -364,7 +364,7 @@
       "Returning a TransferReceiptCredential VC to the payer"
     ],
     "compositionHints": [
-      "Full pipeline: Get-Web7Message | ConvertFrom-Web7InvoiceRequest | Resolve-InvoiceAmount | (transfer cmdlet) | New-Web7InvoiceReceipt | Send-Web7Message",
+      "Full pipeline: Dequeue-Svrn7Message | ConvertFrom-Web7InvoiceRequest | Resolve-InvoiceAmount | (transfer cmdlet) | New-Web7InvoiceReceipt | Enqueue-Svrn7Message",
       "Use Test-Svrn7SocietyMember to decide between Invoke-Svrn7IncomingTransfer (same-Society) and Invoke-Svrn7ExternalTransfer (cross-Society)",
       "Resolve-InvoiceAmount is a pure transform \u2014 it adds TotalGrana to the invoice hashtable and passes it through",
       "Always wrap in try/catch and call Send-Web7InvoiceError if any step throws"

@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.0
+#Requires -Version 7.0
 <#
 .SYNOPSIS
     SVRN7 Calendar LOBE — DIDComm-native calendar using iCalendar (RFC 5545) tunneling.
@@ -98,7 +98,7 @@ function Receive-Web7MeetingRequest {
         Hashtable — invite record with UID, organizer, summary, attendees.
 
     .EXAMPLE
-        Get-Web7Message -Did $msgDid | Receive-Web7MeetingRequest | New-Web7CalendarResponse -Accept
+        Dequeue-Svrn7Message -Did $msgDid | Receive-Web7MeetingRequest | New-Web7CalendarResponse -Accept
     #>
     [CmdletBinding()]
     [OutputType([hashtable])]

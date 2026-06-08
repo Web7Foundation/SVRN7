@@ -1,4 +1,4 @@
-﻿{
+{
   "lobe": {
     "id": "svrn7.ux",
     "name": "Svrn7.UX",
@@ -239,7 +239,7 @@
     ],
     "compositionHints": [
       "Render-Web7BalanceUpdate is called after any Invoke-Svrn7IncomingTransfer that changes a citizen balance",
-      "New-Svrn7TransferIntent is the entry point for citizen-initiated transfers from a UI; pipe its output to Send-Web7Message",
+      "New-Svrn7TransferIntent is the entry point for citizen-initiated transfers from a UI; pipe its output to Enqueue-Svrn7Message",
       "Render-Web7RegistrationComplete should be called after receiving an Svrn7.Onboarding/0.8.0/receipt with success=true"
     ],
     "limitations": [

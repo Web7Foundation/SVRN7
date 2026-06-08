@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh
 #Requires -Version 7.0
 <#
 .SYNOPSIS
@@ -15,11 +15,11 @@
     Routing: Switchboard → Invoke-AgentRunspace Onboarding $msgDid
 
     Full pipeline:
-        Get-Web7Message -Did $msgDid
+        Dequeue-Svrn7Message -Did $msgDid
             | ConvertFrom-Web7OnboardRequest
             | Register-Svrn7CitizenInSociety   ← Svrn7.Society.psm1 (eager)
             | New-Web7OnboardReceipt             ← Svrn7.Onboarding.psm1 (JIT)
-            | Send-Web7Message
+            | Enqueue-Svrn7Message
 
     On failure: Send-Web7OnboardError is called with the error message.
 
@@ -52,7 +52,7 @@ $citizenDid = $null
 
 try {
     # Step 1: Resolve and parse the onboard request
-    $request = Get-Web7Message -Did $MessageDid | ConvertFrom-Web7OnboardRequest
+    $request = Dequeue-Svrn7Message -Did $MessageDid | ConvertFrom-Web7OnboardRequest
     if (-not $request) {
         throw "ConvertFrom-Web7OnboardRequest returned null for $MessageDid"
     }

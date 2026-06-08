@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.0
+#Requires -Version 7.0
 <#
 .SYNOPSIS
     SVRN7 Invoicing LOBE — invoice processing via DIDComm invoice protocol.
@@ -17,9 +17,9 @@
         did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/receipt — outbound transfer receipt
 
     Pipeline:
-        Get-Web7Message | ConvertFrom-Web7InvoiceRequest |
+        Dequeue-Svrn7Message | ConvertFrom-Web7InvoiceRequest |
         Resolve-InvoiceAmount | Invoke-Svrn7Transfer |
-        New-Web7InvoiceReceipt | Send-Web7Message
+        New-Web7InvoiceReceipt | Enqueue-Svrn7Message
 #>
 
 Set-StrictMode -Version Latest
@@ -39,7 +39,7 @@ function ConvertFrom-Web7InvoiceRequest {
         Hashtable — { MessageDid, PayerDid, PayeeDid, LineItems[], DueDate, Currency }
 
     .EXAMPLE
-        Get-Web7Message -Did $msgDid | ConvertFrom-Web7InvoiceRequest
+        Dequeue-Svrn7Message -Did $msgDid | ConvertFrom-Web7InvoiceRequest
     #>
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -138,7 +138,7 @@ function New-Web7InvoiceReceipt {
 
     .EXAMPLE
         ConvertFrom-Web7InvoiceRequest | Resolve-InvoiceAmount |
-            Invoke-Svrn7Transfer | New-Web7InvoiceReceipt | Send-Web7Message
+            Invoke-Svrn7Transfer | New-Web7InvoiceReceipt | Enqueue-Svrn7Message
     #>
     [CmdletBinding()]
     param(

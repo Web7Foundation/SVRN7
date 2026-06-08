@@ -156,7 +156,7 @@ public sealed class LobeProtocol
     /// <summary>
     /// PowerShell cmdlet name to invoke for this @type URI.
     /// The Switchboard opens a runspace from the pool and runs:
-    ///   Get-Web7Message -Did $messageDid | {Entrypoint} | Send-Web7Message
+    ///   Dequeue-Svrn7Message -Did $messageDid | {Entrypoint} | Enqueue-Svrn7Message
     /// </summary>
     [JsonPropertyName("entrypoint")]
     public string Entrypoint   { get; init; } = string.Empty;
@@ -218,7 +218,7 @@ public sealed class LobeCmdlet
 
     /// <summary>
     /// Illustrative pipeline usage string.
-    /// Example: "Get-Web7Message -Did $MessageDid | Receive-Web7Email"
+    /// Example: "Dequeue-Svrn7Message -Did $MessageDid | Receive-Web7Email"
     /// </summary>
     [JsonPropertyName("pipelineExample")]
     public string? PipelineExample { get; init; }
@@ -267,7 +267,7 @@ public sealed class LobeCmdletAnnotations
     /// Suggested position in a PowerShell pipeline.
     /// "source" = produces output, no pipeline input required.
     /// "transform" = receives pipeline input, produces pipeline output.
-    /// "sink" = receives pipeline input, no useful pipeline output (e.g., Send-Web7Message).
+    /// "sink" = receives pipeline input, no useful pipeline output (e.g., Enqueue-Svrn7Message).
     /// null = position not specified.
     /// </summary>
     [JsonPropertyName("pipelinePosition")]
