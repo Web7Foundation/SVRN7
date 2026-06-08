@@ -48,6 +48,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{842588EC-833A-4EF0-9ACA-4DE56C45F995}"
 	ProjectSection(SolutionItems) = preProject
 		tools\Build-LOBEPackages.ps1 = tools\Build-LOBEPackages.ps1
+		tools\gen-keypairs.ps1 = tools\gen-keypairs.ps1
+		tools\Initialize-Testnet.ps1 = tools\Initialize-Testnet.ps1
+		tools\Invoke-SetStaticKeypairs.ps1 = tools\Invoke-SetStaticKeypairs.ps1
 		tools\Pando.Packaging.psm1 = tools\Pando.Packaging.psm1
 	EndProjectSection
 EndProject
