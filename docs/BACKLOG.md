@@ -1,8 +1,8 @@
-# SVRN7 TDA — Backlog
+﻿# SVRN7 TDA — Backlog
 
 ---
 
-## TDA-007 — Rationalize protocol URI naming and versioning around LOBE names
+## TDA-007 — Rationalize protocol URI naming and versioning around LOBE names ✓ DONE
 
 **Area:** all `.lobe.json` descriptors, agent scripts, DIDComm integration guide, BACKLOG TDA-006
 
@@ -80,7 +80,7 @@ version.  The full before/after for every LOBE:
 Two LOBEs currently own protocols that belong in separate LOBEs.  A LOBE must
 own exactly one URI segment (its own name):
 
-- **`Svrn7.Identity`** owns `did/1.0/*` and `vc/1.0/*`.  These are unrelated
+- **`Svrn7.Identity`** owns `did/1.0/*` and `Svrn7.Identity/0.8/vc-*`.  These are unrelated
   concerns.  Options: (A) consolidate all under `Svrn7.Identity/0.8/*` and
   rename actions accordingly; (B) split into `Svrn7.DID` and `Svrn7.VC`
   (separate LOBEs, separate packages).  Decision required.
@@ -137,10 +137,16 @@ every message type a TDA will ever encounter.
    package ID is read directly from the URI: the second path segment after
    `/protocols/` is the package ID verbatim (e.g.
    `did:drn:svrn7.net/protocols/Svrn7.Email/0.8/message` → package
-   `Svrn7.Email`).  The registry is still needed for one thing: the feed URL
-   (`https://packages.svrn7.net/v3/index.json`).  The minimum version
+   `Svrn7.Email`).  The registry is still needed for one thing: the NuGet feed
+   URL (`https://packages.svrn7.net/v3/index.json`).  The minimum version
    constraint is also read directly from the URI (`0.8` → `>= 0.8.0`).
-   `TdaOptions.LobeRegistryUrl` holds the feed URL.
+
+   **The registry is another TDA with a specific Role.**  It is not a
+   traditional HTTP service — it is a TDA whose Role includes serving LOBE
+   package metadata and feed URLs via DIDComm.  `TdaOptions.LobeRegistryDid`
+   holds the DID of the registry TDA (e.g. `did:drn:registry.svrn7.net`).
+   The feed URL is fetched from the registry TDA via a DIDComm request rather
+   than being hardcoded.
 
 2. **Switchboard — "no handler" intercept** — `DIDCommMessageSwitchboard` must
    intercept the `reg is null` branch before calling `MarkFailedAsync` and call

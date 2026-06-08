@@ -1,4 +1,4 @@
-{
+﻿{
   "lobe": {
     "id": "svrn7.society",
     "name": "Svrn7.Society",
@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/transfer/1.0/request",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-request",
       "title": "Transfer Request",
       "description": "Citizen-initiated intra-Society SVRN7 transfer. Handled by Switchboard special case (Option A: idempotency checked before routing).",
       "direction": "inbound",
@@ -23,7 +23,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/transfer/1.0/order",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order",
       "title": "Cross-Society Transfer Order",
       "description": "TransferOrderCredential from a peer Society. Switchboard checks IProcessedOrderStore for idempotency before routing.",
       "direction": "inbound",
@@ -32,7 +32,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/transfer/1.0/order-receipt",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order-receipt",
       "title": "Transfer Order Receipt",
       "description": "Settlement confirmation from a receiving Society.",
       "direction": "inbound",
@@ -41,7 +41,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/society-query",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/society-query",
       "title": "Society Query",
       "description": "Returns this Society's own record (DID, epoch, Federation DID). Reply: society/1.0/society-query-result.",
       "direction": "inbound",
@@ -50,7 +50,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/member-query",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/member-query",
       "title": "Member Query",
       "description": "Tests membership for a specific DID or lists all member DIDs when no DID is supplied. Reply: society/1.0/member-query-result.",
       "direction": "inbound",
@@ -59,7 +59,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/overdraft-query",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-query",
       "title": "Overdraft Query",
       "description": "Returns the full overdraft accounting record for this Society. Reply: society/1.0/overdraft-query-result.",
       "direction": "inbound",
@@ -68,7 +68,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/did-methods-query",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-methods-query",
       "title": "DID Methods Query",
       "description": "Returns all DID method names registered to this Society. Reply: society/1.0/did-methods-query-result.",
       "direction": "inbound",
@@ -77,7 +77,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/did-method-register",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-method-register",
       "title": "DID Method Register",
       "description": "Registers a new DID method name for this Society. Body: { methodName }. Reply: society/1.0/did-method-register-result.",
       "direction": "inbound",
@@ -86,7 +86,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/citizen-did-add",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/citizen-did-add",
       "title": "Citizen DID Add",
       "description": "Issues a secondary DID under an additional method name for an existing citizen. Body: { citizenPrimaryDid, methodName }. Reply: society/1.0/citizen-did-add-result.",
       "direction": "inbound",
@@ -95,7 +95,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/society-query-result",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/society-query-result",
       "title": "Society Query Result",
       "description": "Inbound reply to a society-query request. Body: societyDid, federationDid, currentEpoch, queriedAt. Terminal — no reply is sent.",
       "direction": "inbound",
@@ -104,7 +104,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/member-query-result",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/member-query-result",
       "title": "Member Query Result",
       "description": "Inbound reply to a member-query request. Body: { societyDid, did, isMember } or { societyDid, memberCount, memberDids[] }. Terminal — no reply is sent.",
       "direction": "inbound",
@@ -113,7 +113,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/overdraft-query-result",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-query-result",
       "title": "Overdraft Query Result",
       "description": "Inbound reply to an overdraft-query request. Body: societyDid, status, totalOverdrawnGrana, overdraftCeilingGrana, lifetimeDrawsGrana, drawCount, drawAmountGrana, lastDrawAt, queriedAt. Terminal — no reply is sent.",
       "direction": "inbound",
@@ -122,7 +122,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/did-methods-query-result",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-methods-query-result",
       "title": "DID Methods Query Result",
       "description": "Inbound reply to a did-methods-query request. Body: societyDid, methods[], queriedAt. Terminal — no reply is sent.",
       "direction": "inbound",
@@ -131,7 +131,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/did-method-register-result",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-method-register-result",
       "title": "DID Method Register Result",
       "description": "Inbound reply to a did-method-register request. Body: societyDid, methodName, status, success. Terminal — no reply is sent.",
       "direction": "inbound",
@@ -140,7 +140,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/society/1.0/citizen-did-add-result",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/citizen-did-add-result",
       "title": "Citizen DID Add Result",
       "description": "Inbound reply to a citizen-did-add request. Body: citizenPrimaryDid, secondaryDid, methodName, success. Terminal — no reply is sent.",
       "direction": "inbound",

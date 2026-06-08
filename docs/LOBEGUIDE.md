@@ -1,4 +1,4 @@
-# Designing a New SVRN7 LOBE
+﻿# Designing a New SVRN7 LOBE
 
 A LOBE (Lightweight Operational Behaviour Engine) is a PowerShell module that the TDA
 Switchboard loads into an isolated runspace and invokes when a DIDComm message arrives.
@@ -18,8 +18,8 @@ did:drn:svrn7.net/protocols/{domain}/{version}/{action}
 ```
 
 Examples:
-- `did:drn:svrn7.net/protocols/onboard/1.0/register-citizen`
-- `did:drn:svrn7.net/protocols/invoice/1.0/request`
+- `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen`
+- `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/request`
 - `did:drn:svrn7.net/protocols/payments/1.0/request`
 
 One URI maps to exactly one entrypoint cmdlet.  If the LOBE handles multiple message
@@ -35,39 +35,39 @@ only when none of these apply.
 
 | Action | Meaning | Example URI |
 |---|---|---|
-| `request` | Initiate an operation; expects a receipt or result in return | `transfer/1.0/request` |
-| `order` | Issue a formal cross-Society instruction | `transfer/1.0/order` |
+| `request` | Initiate an operation; expects a receipt or result in return | `Svrn7.Society/0.8/transfer-request` |
+| `order` | Issue a formal cross-Society instruction | `Svrn7.Society/0.8/transfer-order` |
 | `init` | One-time initialisation of a resource | `federation/1.0/initialize-federation` |
 | `register` | Register a new entity in a registry | `federation/1.0/register-society` |
 | `add` | Add a sub-entity to an existing resource | `society/1.0/citizen-did-add` |
 | `update` | Modify fields of an existing entity | `identity/1.0/did-update` |
-| `revoke` | Permanently revoke a credential or permission | `vc/1.0/revoke` |
-| `cancel` | Cancel an in-progress operation | `invoice/1.0/cancel` |
+| `revoke` | Permanently revoke a credential or permission | `Svrn7.Identity/0.8/vc-revoke` |
+| `cancel` | Cancel an in-progress operation | `Svrn7.Invoicing/0.8/cancel` |
 
 #### Confirmations and responses
 
 | Action | Meaning | Example URI |
 |---|---|---|
-| `receipt` | Acknowledge completion of a transaction | `transfer/1.0/order-receipt` |
+| `receipt` | Acknowledge completion of a transaction | `Svrn7.Society/0.8/transfer-order-receipt` |
 | `result` | Return the outcome of a request or query | `federation/1.0/initialize-federation-result` |
 | `response` | Reply to an invite or proposal (accept / decline encoded in body) | `calendar/1.0/response` |
 | `confirm` | Confirm a pending two-phase action | `transfer/1.0/settlement-confirm` |
-| `reject` | Explicitly decline a request | `invoice/1.0/reject` |
-| `error` | Signal a protocol-level error | `onboard/1.0/error` |
+| `reject` | Explicitly decline a request | `Svrn7.Invoicing/0.8/reject` |
+| `error` | Signal a protocol-level error | `Svrn7.Onboarding/0.8/error` |
 
 #### Queries — read-only, no state change
 
 | Action | Meaning | Example URI |
 |---|---|---|
 | `query` | Ask for information; expects a `result` in return | `society/1.0/member-query` |
-| `resolve-request` | Resolve a specific named resource (DID, VC, schema) | `did/1.0/resolve-request` |
+| `resolve-request` | Resolve a specific named resource (DID, VC, schema) | `Svrn7.Identity/0.8/did-resolve-request` |
 
 #### Events and notifications — fire-and-forget, no reply expected
 
 | Action | Meaning | Example URI |
 |---|---|---|
 | `notify` / `notification` | Push a general notification | `ux/1.0/notification` |
-| `alert` | Push an urgent or high-priority notification | `notification/1.0/alert` |
+| `alert` | Push an urgent or high-priority notification | `Svrn7.Notifications/0.8/alert` |
 | `event` | Announce a domain event | `calendar/1.0/event` |
 | `status` | Push current status of a resource | `presence/1.0/status` |
 | `balance-update` | Push an updated balance figure | `ux/1.0/balance-update` |
@@ -426,7 +426,7 @@ It is returned by `$SVRN7.GetMessageAsync(messageDid)`.
 | Property | Type | Description |
 |---|---|---|
 | `Id` | `string` | TDA resource DID URL — `did:drn:{network}/inbox/msg/{objectId}`. This is the value of `$MessageDid` passed to the entrypoint. |
-| `MessageType` | `string` | The `@type` value from the DIDComm envelope (e.g. `did:drn:svrn7.net/protocols/invoice/1.0/request`). |
+| `MessageType` | `string` | The `@type` value from the DIDComm envelope (e.g. `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/request`). |
 | `PackedPayload` | `string` | The raw JSON string of the DIDComm `body` field. Parse with `ConvertFrom-Json`. |
 | `FromDid` | `string?` | The `from` field of the DIDComm envelope. `$null` if the sender omitted it. Check before calling `Resolve-SocietySenderEndpoint`. |
 | `AttemptCount` | `int` | Number of processing attempts so far (0 on first delivery). |
@@ -714,35 +714,35 @@ understand existing patterns; confirm that any new URI is unique before register
 
 | LOBE | Protocol URI | Direction | Entrypoint |
 |---|---|---|---|
-| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/federation/1.0/initialize-federation` | inbound | `Invoke-PandoFederationInit` |
-| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/federation/1.0/federation-query` | inbound | `Invoke-PandoFederationQuery` |
-| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/federation/1.0/register-society` | inbound | `Invoke-PandoRegisterSociety` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/society/1.0/member-query` | inbound | `Invoke-PandoMemberQuery` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/society/1.0/society-query` | inbound | `Invoke-PandoSocietyQuery` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/society/1.0/overdraft-query` | inbound | `Invoke-PandoOverdraftQuery` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/society/1.0/did-method-register` | inbound | `Invoke-PandoDidMethodRegister` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/society/1.0/did-methods-query` | inbound | `Invoke-PandoDidMethodsQuery` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/society/1.0/citizen-did-add` | inbound | `Invoke-PandoCitizenDidAdd` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/transfer/1.0/request` | inbound | `Invoke-Svrn7IncomingTransfer` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/transfer/1.0/order` | inbound | `Invoke-Svrn7IncomingTransfer` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/transfer/1.0/order-receipt` | inbound | `Confirm-Svrn7Settlement` |
-| `Svrn7.Onboarding` | `did:drn:svrn7.net/protocols/onboard/1.0/register-citizen` | inbound | `ConvertFrom-PandoOnboardRequest` |
-| `Svrn7.Onboarding` | `did:drn:svrn7.net/protocols/onboard/1.0/receipt` | outbound | — |
-| `Svrn7.Invoicing` | `did:drn:svrn7.net/protocols/invoice/1.0/request` | inbound | `ConvertFrom-PandoInvoiceRequest` |
-| `Svrn7.Invoicing` | `did:drn:svrn7.net/protocols/invoice/1.0/receipt` | outbound | — |
-| `Svrn7.Identity` | `did:drn:svrn7.net/protocols/did/1.0/resolve-request` | inbound | *(see lobe.json)* |
-| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/calendar/1.0/event` | inbound | *(see lobe.json)* |
-| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/calendar/1.0/invite` | inbound | *(see lobe.json)* |
-| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/calendar/1.0/response` | inbound | *(see lobe.json)* |
-| `Svrn7.Email` | `did:drn:svrn7.net/protocols/email/1.0/message` | inbound | *(see lobe.json)* |
-| `Svrn7.Email` | `did:drn:svrn7.net/protocols/email/1.0/receipt` | outbound | — |
-| `Svrn7.Notifications` | `did:drn:svrn7.net/protocols/notification/1.0/alert` | inbound | *(see lobe.json)* |
-| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/presence/1.0/status` | inbound | *(see lobe.json)* |
-| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/presence/1.0/subscribe` | inbound | *(see lobe.json)* |
-| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/presence/1.0/unsubscribe` | inbound | *(see lobe.json)* |
-| `Svrn7.UX` | `did:drn:svrn7.net/protocols/ux/1.0/notification` | inbound | *(see lobe.json)* |
-| `Svrn7.UX` | `did:drn:svrn7.net/protocols/ux/1.0/balance-update` | inbound | *(see lobe.json)* |
-| `Svrn7.UX` | `did:drn:svrn7.net/protocols/ux/1.0/registration-complete` | inbound | *(see lobe.json)* |
+| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/initialize-federation` | inbound | `Invoke-PandoFederationInit` |
+| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/federation-query` | inbound | `Invoke-PandoFederationQuery` |
+| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/register-society` | inbound | `Invoke-PandoRegisterSociety` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/member-query` | inbound | `Invoke-PandoMemberQuery` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/society-query` | inbound | `Invoke-PandoSocietyQuery` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-query` | inbound | `Invoke-PandoOverdraftQuery` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-method-register` | inbound | `Invoke-PandoDidMethodRegister` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-methods-query` | inbound | `Invoke-PandoDidMethodsQuery` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/citizen-did-add` | inbound | `Invoke-PandoCitizenDidAdd` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-request` | inbound | `Invoke-Svrn7IncomingTransfer` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order` | inbound | `Invoke-Svrn7IncomingTransfer` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order-receipt` | inbound | `Confirm-Svrn7Settlement` |
+| `Svrn7.Onboarding` | `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen` | inbound | `ConvertFrom-PandoOnboardRequest` |
+| `Svrn7.Onboarding` | `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/receipt` | outbound | — |
+| `Svrn7.Invoicing` | `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/request` | inbound | `ConvertFrom-PandoInvoiceRequest` |
+| `Svrn7.Invoicing` | `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/receipt` | outbound | — |
+| `Svrn7.Identity` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-request` | inbound | *(see lobe.json)* |
+| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/event` | inbound | *(see lobe.json)* |
+| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/invite` | inbound | *(see lobe.json)* |
+| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/response` | inbound | *(see lobe.json)* |
+| `Svrn7.Email` | `did:drn:svrn7.net/protocols/Svrn7.Email/0.8/message` | inbound | *(see lobe.json)* |
+| `Svrn7.Email` | `did:drn:svrn7.net/protocols/Svrn7.Email/0.8/receipt` | outbound | — |
+| `Svrn7.Notifications` | `did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8/alert` | inbound | *(see lobe.json)* |
+| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/status` | inbound | *(see lobe.json)* |
+| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/subscribe` | inbound | *(see lobe.json)* |
+| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/unsubscribe` | inbound | *(see lobe.json)* |
+| `Svrn7.UX` | `did:drn:svrn7.net/protocols/Svrn7.UX/0.8/notification` | inbound | *(see lobe.json)* |
+| `Svrn7.UX` | `did:drn:svrn7.net/protocols/Svrn7.UX/0.8/balance-update` | inbound | *(see lobe.json)* |
+| `Svrn7.UX` | `did:drn:svrn7.net/protocols/Svrn7.UX/0.8/registration-complete` | inbound | *(see lobe.json)* |
 
 ---
 

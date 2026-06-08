@@ -1,4 +1,4 @@
-# Svrn7.Email LOBE — Debug & Testing Guide
+﻿# Svrn7.Email LOBE — Debug & Testing Guide
 
 This guide covers building, running, and testing the `Svrn7.Email` LOBE end-to-end
 against a live TDA.  It is self-contained from the point of starting the TDA in debug
@@ -113,7 +113,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/email/1.0/message"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Email/0.8/message"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -127,7 +127,7 @@ Expected response: `Status: Accepted`
 Expected TDA log (timestamps vary):
 
 ```
-20:49:13.432 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing did:drn:alpha.svrn7.net/inbox/msg/<id> (type=did:drn:svrn7.net/protocols/email/1.0/message) → Receive-Web7Email [Svrn7.Email]
+20:49:13.432 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing did:drn:alpha.svrn7.net/inbox/msg/<id> (type=did:drn:svrn7.net/protocols/Svrn7.Email/0.8/message) → Receive-Web7Email [Svrn7.Email]
 20:49:13.441 dbug: Svrn7.TDA.LobeManager[0] LobeManager: EnsureLoadedAsync - JIT 'C:\...\lobes\Svrn7.Email\Svrn7.Email.psm1'.
 20:49:13.512 info: Svrn7.TDA.LobeManager[0] LobeManager: import complete - ...\Svrn7.Email.psm1
 20:49:13.518 dbug: Svrn7.TDA.DIDCommMessageSwitchboard[0]   [PS Verbose] Email LOBE: stored email from did:drn:foundation.svrn7.net — 'Hello from the Foundation'
@@ -153,7 +153,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/email/1.0/message"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Email/0.8/message"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -183,7 +183,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/email/1.0/receipt"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Email/0.8/receipt"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -195,7 +195,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-20:49:14.101 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=did:drn:svrn7.net/protocols/email/1.0/receipt) → Receive-Web7Email [Svrn7.Email]
+20:49:14.101 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Email/0.8/receipt) → Receive-Web7Email [Svrn7.Email]
 20:49:14.104 dbug: ...   [PS Verbose] Email LOBE: stored email from did:drn:foundation.svrn7.net — 'Delivery receipt'
 ```
 
@@ -238,7 +238,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/email/1.0/message"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Email/0.8/message"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body

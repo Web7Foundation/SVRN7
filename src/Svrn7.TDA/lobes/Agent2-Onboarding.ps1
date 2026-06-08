@@ -1,17 +1,17 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 #Requires -Version 7.0
 <#
 .SYNOPSIS
     Web 7.0 TDA — Agent 2 Onboarding Runspace Script.
 
 .DESCRIPTION
-    Task runspace opened on demand by the Switchboard for onboard/1.0/register-citizen messages.
+    Task runspace opened on demand by the Switchboard for Svrn7.Onboarding/0.8/register-citizen messages.
     Returned to the RunspacePool after each task completes.
 
     Derived from: Agent 2 — Onboarding (PowerShell Runspace) — DSA 0.24 Epoch 0 (PPML).
 
 .NOTES
-    DIDComm protocol: did:drn:svrn7.net/protocols/onboard/1.0/register-citizen
+    DIDComm protocol: did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen
     Routing: Switchboard → Invoke-AgentRunspace Onboarding $msgDid
 
     Full pipeline:

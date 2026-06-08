@@ -1,9 +1,9 @@
-{
+﻿{
   "lobe": {
     "id": "svrn7.onboarding",
     "name": "Svrn7.Onboarding",
     "title": "SVRN7 Onboarding LOBE",
-    "description": "Citizen registration via DIDComm onboard/1.0/* protocol. Wraps Register-Svrn7CitizenInSociety (Svrn7.Society.psm1) as a DIDComm-driven pipeline including endowment, overdraft draw, and receipt credential issuance.",
+    "description": "Citizen registration via DIDComm Svrn7.Onboarding/0.8/* protocol. Wraps Register-Svrn7CitizenInSociety (Svrn7.Society.psm1) as a DIDComm-driven pipeline including endowment, overdraft draw, and receipt credential issuance.",
     "version": "0.8.0",
     "author": "Michael Herman",
     "organization": "Web 7.0 Foundation",
@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/onboard/1.0/register-citizen",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen",
       "title": "Onboarding Request",
       "description": "Citizen requests Society registration. Body: { citizenDid, publicKeyHex, displayName }",
       "direction": "inbound",
@@ -23,7 +23,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/onboard/1.0/receipt",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/receipt",
       "title": "Onboarding Receipt",
       "description": "Society confirms registration and endowment. Body: { success, citizenDid, societyDid, endowmentGrana, endowmentVcId }",
       "direction": "outbound",
@@ -98,7 +98,7 @@
     {
       "name": "New-Web7OnboardReceipt",
       "title": "Build Onboard Receipt",
-      "description": "Builds a DIDComm onboard/1.0/receipt OutboundMessage from a successful registration result. Pipe from Register-Svrn7CitizenInSociety.",
+      "description": "Builds a DIDComm Svrn7.Onboarding/0.8/receipt OutboundMessage from a successful registration result. Pipe from Register-Svrn7CitizenInSociety.",
       "epochRequired": 0,
       "annotations": {
         "idempotent": false,
@@ -163,7 +163,7 @@
     {
       "name": "Send-Web7OnboardError",
       "title": "Send Onboard Error",
-      "description": "Sends an onboard/1.0/receipt with success=false. Call in catch blocks when registration fails.",
+      "description": "Sends an Svrn7.Onboarding/0.8/receipt with success=false. Call in catch blocks when registration fails.",
       "epochRequired": 0,
       "annotations": {
         "idempotent": false,

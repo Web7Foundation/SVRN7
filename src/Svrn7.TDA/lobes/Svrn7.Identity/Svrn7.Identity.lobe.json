@@ -1,9 +1,9 @@
-{
+﻿{
   "lobe": {
     "id": "svrn7.identity",
     "name": "Svrn7.Identity",
     "title": "SVRN7 Identity LOBE",
-    "description": "DID Document and Verifiable Credential resolution via DIDComm. Handles inbound did/1.0/resolve-request and vc/1.0/resolve-by-subject-request messages. Delegates to ISvrn7SocietyDriver for local resolution and FederationDidDocumentResolver / FederationVcDocumentResolver for cross-Society resolution.",
+    "description": "DID Document and Verifiable Credential resolution via DIDComm. Handles inbound Svrn7.Identity/0.8/did-resolve-request and Svrn7.Identity/0.8/vc-resolve-by-subject-request messages. Delegates to ISvrn7SocietyDriver for local resolution and FederationDidDocumentResolver / FederationVcDocumentResolver for cross-Society resolution.",
     "version": "0.8.0",
     "author": "Michael Herman",
     "organization": "Web 7.0 Foundation",
@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/did/1.0/resolve-request",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-request",
       "title": "DID Resolve Request",
       "description": "Inbound DID Document resolution request from a peer TDA. Body: { from, did }",
       "direction": "inbound",
@@ -23,7 +23,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/vc/1.0/",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-",
       "title": "VC Resolution",
       "description": "Inbound VC resolution request by subject DID. Body: { from, subjectDid }",
       "direction": "inbound",
@@ -32,18 +32,18 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/did/1.0/resolve-response",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-response",
       "title": "DID Resolve Response",
-      "description": "Inbound reply to a did/1.0/resolve-request. Body: from, to, requestedDid, found, didDocument, resolvedAt. Terminal — no reply is sent.",
+      "description": "Inbound reply to a Svrn7.Identity/0.8/did-resolve-request. Body: from, to, requestedDid, found, didDocument, resolvedAt. Terminal — no reply is sent.",
       "direction": "inbound",
       "match": "exact",
       "entrypoint": "Invoke-Svrn7DidResolveResponse",
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/vc/1.0/resolve-by-subject-response",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-resolve-by-subject-response",
       "title": "VC Resolve by Subject Response",
-      "description": "Inbound reply to a vc/1.0/resolve-by-subject-request. Body: from, to, subjectDid, found, credentials[], resolvedAt. Terminal — no reply is sent.",
+      "description": "Inbound reply to a Svrn7.Identity/0.8/vc-resolve-by-subject-request. Body: from, to, subjectDid, found, credentials[], resolvedAt. Terminal — no reply is sent.",
       "direction": "inbound",
       "match": "exact",
       "entrypoint": "Invoke-Svrn7VcResolveResponse",
@@ -54,7 +54,7 @@
     {
       "name": "Resolve-Svrn7Did",
       "title": "Resolve DID Document",
-      "description": "Resolves a DID Document for a requested DID and returns a did/1.0/resolve-response. Handles both local and cross-Society resolution transparently.",
+      "description": "Resolves a DID Document for a requested DID and returns a Svrn7.Identity/0.8/did-resolve-response. Handles both local and cross-Society resolution transparently.",
       "epochRequired": 0,
       "annotations": {
         "idempotent": true,
@@ -90,7 +90,7 @@
           },
           "MessageType": {
             "type": "string",
-            "const": "did:drn:svrn7.net/protocols/did/1.0/resolve-response"
+            "const": "did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-response"
           }
         }
       }
@@ -98,7 +98,7 @@
     {
       "name": "Get-Svrn7VcById",
       "title": "Get VCs by Subject",
-      "description": "Resolves all active Verifiable Credentials for a subject DID and returns a vc/1.0/resolve-by-subject-response.",
+      "description": "Resolves all active Verifiable Credentials for a subject DID and returns a Svrn7.Identity/0.8/vc-resolve-by-subject-response.",
       "epochRequired": 0,
       "annotations": {
         "idempotent": true,
@@ -190,7 +190,7 @@
   },
   "ai": {
     "_note": "Epoch 0: these fields are informational for human and AI developers. inputSchema/outputSchema on each cmdlet are optional in Epoch 0.",
-    "summary": "Handles all DIDComm-based identity resolution: DID Documents (did/1.0/*) and Verifiable Credentials (vc/1.0/*). Transparent local/cross-Society routing via ISvrn7SocietyDriver.",
+    "summary": "Handles all DIDComm-based identity resolution: DID Documents (did/1.0/*) and Verifiable Credentials (Svrn7.Identity/0.8/vc-*). Transparent local/cross-Society routing via ISvrn7SocietyDriver.",
     "useCases": [
       "Responding to cross-Society DID Document resolution requests",
       "Providing VC fan-out results to peer Societies",
@@ -198,7 +198,7 @@
     ],
     "compositionHints": [
       "Resolve-Svrn7CitizenIdentity is a local utility \u2014 use it in Onboarding/Invoicing pipelines before acting on a citizen DID",
-      "Resolve-Svrn7Did handles the full did/1.0/resolve-request \u2192 response pipeline including cross-Society routing",
+      "Resolve-Svrn7Did handles the full Svrn7.Identity/0.8/did-resolve-request \u2192 response pipeline including cross-Society routing",
       "Depends on Svrn7.Society (Find-Svrn7VcsBySubject) \u2014 ensure Society is loaded first"
     ],
     "limitations": [

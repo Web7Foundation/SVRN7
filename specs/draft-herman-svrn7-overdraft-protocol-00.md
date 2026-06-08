@@ -1,4 +1,4 @@
-# SOVRON (SVRN7) Society Overdraft Facility
+﻿# SOVRON (SVRN7) Society Overdraft Facility
 # draft-herman-svrn7-overdraft-protocol-00
 # Author: M. Herman, Web 7.0 Foundation
 # Published: April 2026
@@ -191,7 +191,7 @@ The Society MUST construct an `OverdraftDrawRequest` DIDComm message [DRAFT-DIDC
 
 ```json
 {
-  "type": "did:drn:svrn7.net/protocols/endowment/1.0/overdraft-draw-request",
+  "type": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-draw-request",
   "id":   "<uuid>",
   "from": "<societyDid>",
   "to":   "<federationDid>",
@@ -286,7 +286,7 @@ The Federation MUST send an `EndowmentTopUp` DIDComm message [DRAFT-DIDCOMM-TRAN
 
 ```json
 {
-  "type": "did:drn:svrn7.net/protocols/endowment/1.0/top-up",
+  "type": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/endowment-top-up",
   "from": "<federationDid>",
   "to":   "<societyDid>",
   "body": {

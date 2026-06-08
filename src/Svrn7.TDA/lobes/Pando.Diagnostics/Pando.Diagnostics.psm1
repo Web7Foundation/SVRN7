@@ -1,4 +1,4 @@
-#Requires -Version 7.2
+﻿#Requires -Version 7.2
 #Requires -PSEdition Core
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -51,7 +51,7 @@ function Invoke-PandoDiagnosticsDateQuery {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/diagnostics/1.0/date-result'
+            type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-result'
             from = $SVRN7.Driver.SocietyDid
             to   = @($msg.FromDid)
             body = $payload

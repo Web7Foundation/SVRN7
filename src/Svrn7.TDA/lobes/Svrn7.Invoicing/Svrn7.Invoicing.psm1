@@ -1,20 +1,20 @@
-#Requires -Version 7.0
+﻿#Requires -Version 7.0
 <#
 .SYNOPSIS
     SVRN7 Invoicing LOBE — invoice processing via DIDComm invoice protocol.
 
 .DESCRIPTION
-    Implements the did:drn:svrn7.net/protocols/invoice/1.0/* DIDComm protocol.
+    Implements the did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/* DIDComm protocol.
     Computes SVRN7 transfer amounts from invoice line items, executes transfers
     via Invoke-Svrn7Transfer or Invoke-Svrn7ExternalTransfer, and issues a
-    TransferReceiptCredential VC as a DIDComm invoice/1.0/receipt.
+    TransferReceiptCredential VC as a DIDComm Svrn7.Invoicing/0.8/receipt.
 
     Derived from: Agent N — Invoicing (PowerShell Runspace) — DSA 0.24 Epoch 0 (PPML).
 
 .NOTES
     Protocol URIs:
-        did:drn:svrn7.net/protocols/invoice/1.0/request — inbound invoice request
-        did:drn:svrn7.net/protocols/invoice/1.0/receipt — outbound transfer receipt
+        did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/request — inbound invoice request
+        did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/receipt — outbound transfer receipt
 
     Pipeline:
         Get-Web7Message | ConvertFrom-Web7InvoiceRequest |
@@ -30,7 +30,7 @@ $ErrorActionPreference = 'Stop'
 function ConvertFrom-Web7InvoiceRequest {
     <#
     .SYNOPSIS
-        Extracts invoice fields from an inbound invoice/1.0/request message.
+        Extracts invoice fields from an inbound Svrn7.Invoicing/0.8/request message.
 
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
@@ -57,9 +57,9 @@ function ConvertFrom-Web7InvoiceRequest {
 
         $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
 
-        Assert-BodyFields $body @('payerDid','payeeDid','lineItems') 'Invoicing LOBE: invoice/1.0/request'
+        Assert-BodyFields $body @('payerDid','payeeDid','lineItems') 'Invoicing LOBE: Svrn7.Invoicing/0.8/request'
         if ($body.lineItems.Count -eq 0) {
-            throw "Invoicing LOBE: invoice/1.0/request has no lineItems."
+            throw "Invoicing LOBE: Svrn7.Invoicing/0.8/request has no lineItems."
         }
 
         return @{
@@ -122,7 +122,7 @@ function Resolve-InvoiceAmount {
 function New-Web7InvoiceReceipt {
     <#
     .SYNOPSIS
-        Builds an invoice/1.0/receipt OutboundMessage after a successful transfer.
+        Builds an Svrn7.Invoicing/0.8/receipt OutboundMessage after a successful transfer.
 
     .DESCRIPTION
         Accepts the transfer result hashtable (pipeline input) and constructs
@@ -173,7 +173,7 @@ function New-Web7InvoiceReceipt {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/invoice/1.0/receipt'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/receipt'
             from = $mySocietyDid
             to   = @($TransferResult.PayerDid)
             body = $payload
@@ -188,7 +188,7 @@ function New-Web7InvoiceReceipt {
 function Send-Web7InvoiceError {
     <#
     .SYNOPSIS
-        Sends an invoice/1.0/receipt with success=false on transfer failure.
+        Sends an Svrn7.Invoicing/0.8/receipt with success=false on transfer failure.
 
     .PARAMETER PayerDid
         The requesting payer's DID.
@@ -230,7 +230,7 @@ function Send-Web7InvoiceError {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/invoice/1.0/receipt'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/receipt'
             from = $mySocietyDid
             to   = @($PayerDid)
             body = $payload

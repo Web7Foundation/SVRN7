@@ -1,4 +1,4 @@
-{
+﻿{
   "lobe": {
     "id": "svrn7.notifications",
     "name": "Svrn7.Notifications",
@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/notification/1.0/alert",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8/alert",
       "title": "Alert Notification",
       "description": "Typed alert message sent to a citizen or Society endpoint. Body: { alertType, severity, message, resourceDid }",
       "direction": "bidirectional",
@@ -27,7 +27,7 @@
     {
       "name": "Invoke-Web7Notification",
       "title": "Process Inbound Notification",
-      "description": "Processes an inbound notification/1.0/alert and returns an alert record for logging or further handling.",
+      "description": "Processes an inbound Svrn7.Notifications/0.8/alert and returns an alert record for logging or further handling.",
       "epochRequired": 0,
       "annotations": {
         "idempotent": true,
@@ -101,7 +101,7 @@
     {
       "name": "Send-Web7Alert",
       "title": "Send Alert",
-      "description": "Dispatches a typed notification/1.0/alert to a recipient DID. Returns an OutboundMessage.",
+      "description": "Dispatches a typed Svrn7.Notifications/0.8/alert to a recipient DID. Returns an OutboundMessage.",
       "epochRequired": 0,
       "annotations": {
         "idempotent": false,

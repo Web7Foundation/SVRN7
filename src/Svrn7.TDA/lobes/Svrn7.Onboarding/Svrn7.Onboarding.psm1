@@ -1,10 +1,10 @@
-#Requires -Version 7.0
+﻿#Requires -Version 7.0
 <#
 .SYNOPSIS
     SVRN7 Onboarding LOBE — citizen registration via DIDComm onboard protocol.
 
 .DESCRIPTION
-    Implements the did:drn:svrn7.net/protocols/onboard/1.0/* DIDComm protocol.
+    Implements the did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/* DIDComm protocol.
     Wraps Register-Svrn7CitizenInSociety (Svrn7.Society.psm1) as a DIDComm-driven
     pipeline. Handles endowment, overdraft draw, and receipt credential issuance.
 
@@ -12,8 +12,8 @@
 
 .NOTES
     Protocol URIs:
-        did:drn:svrn7.net/protocols/onboard/1.0/register-citizen — inbound registration request
-        did:drn:svrn7.net/protocols/onboard/1.0/receipt — outbound registration receipt
+        did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen — inbound registration request
+        did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/receipt — outbound registration receipt
 
     Pipeline:
         Get-Web7Message | ConvertFrom-Web7OnboardRequest |
@@ -28,7 +28,7 @@ $ErrorActionPreference = 'Stop'
 function ConvertFrom-Web7OnboardRequest {
     <#
     .SYNOPSIS
-        Extracts the citizen DID and public key from an onboard/1.0/register-citizen message.
+        Extracts the citizen DID and public key from an Svrn7.Onboarding/0.8/register-citizen message.
 
     .DESCRIPTION
         Resolves the inbox message DID URL and deserialises the onboarding request body.
@@ -58,7 +58,7 @@ function ConvertFrom-Web7OnboardRequest {
 
         $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
 
-        Assert-BodyFields $body @('citizenDid') 'Onboarding LOBE: onboard/1.0/register-citizen'
+        Assert-BodyFields $body @('citizenDid') 'Onboarding LOBE: Svrn7.Onboarding/0.8/register-citizen'
 
         $citizenDid   = $body.citizenDid
         $publicKeyHex = Get-BodyField $body 'publicKeyHex' ''
@@ -86,7 +86,7 @@ function ConvertFrom-Web7OnboardRequest {
 function New-Web7OnboardReceipt {
     <#
     .SYNOPSIS
-        Builds an onboard/1.0/receipt OutboundMessage after successful registration.
+        Builds an Svrn7.Onboarding/0.8/receipt OutboundMessage after successful registration.
 
     .DESCRIPTION
         Accepts the registration result hashtable from Register-Svrn7CitizenInSociety
@@ -133,7 +133,7 @@ function New-Web7OnboardReceipt {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/onboard/1.0/receipt'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/receipt'
             from = $mySocietyDid
             to   = @($RegistrationResult.CitizenDid)
             body = $payload
@@ -148,7 +148,7 @@ function New-Web7OnboardReceipt {
 function Send-Web7OnboardError {
     <#
     .SYNOPSIS
-        Sends an onboard/1.0/receipt with success=false on registration failure.
+        Sends an Svrn7.Onboarding/0.8/receipt with success=false on registration failure.
 
     .PARAMETER CitizenDid
         The requesting citizen's DID.
@@ -185,7 +185,7 @@ function Send-Web7OnboardError {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/onboard/1.0/receipt'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/receipt'
             from = $mySocietyDid
             to   = @($CitizenDid)
             body = $payload

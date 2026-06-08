@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Svrn7.Core;
@@ -291,7 +291,7 @@ public sealed class FederationVcDocumentResolver : IVcDocumentResolver
         {
             // Build and dispatch DIDComm vc-resolve-request
             var requestMsg = _didComm.NewMessage()
-                .Type("did:drn:svrn7.net/protocols/vc/1.0/resolve-by-subject-request")
+                .Type("did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-resolve-by-subject-request")
                 .From(_opts.SocietyDid)
                 .To(societyDid)
                 .Body(new { subjectDid, requestedAt = DateTimeOffset.UtcNow })

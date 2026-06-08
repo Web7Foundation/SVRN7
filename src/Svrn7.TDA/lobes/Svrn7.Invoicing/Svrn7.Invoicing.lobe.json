@@ -1,9 +1,9 @@
-{
+﻿{
   "lobe": {
     "id": "svrn7.invoicing",
     "name": "Svrn7.Invoicing",
     "title": "SVRN7 Invoicing LOBE",
-    "description": "Invoice processing via DIDComm invoice/1.0/* protocol. Computes transfer amounts from line items, executes same-Society or cross-Society transfers, and issues a TransferReceiptCredential as a DIDComm receipt.",
+    "description": "Invoice processing via DIDComm Svrn7.Invoicing/0.8/* protocol. Computes transfer amounts from line items, executes same-Society or cross-Society transfers, and issues a TransferReceiptCredential as a DIDComm receipt.",
     "version": "0.8.0",
     "author": "Michael Herman",
     "organization": "Web 7.0 Foundation",
@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/invoice/1.0/request",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/request",
       "title": "Invoice Request",
       "description": "Payer submits a payment request with line items. Body: { payerDid, payeeDid, lineItems[], invoiceId, dueDate }",
       "direction": "inbound",
@@ -23,7 +23,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/invoice/1.0/receipt",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/receipt",
       "title": "Invoice Receipt",
       "description": "Society confirms transfer settlement. Body: { success, invoiceId, transferId, amountGrana, receiptVcId }",
       "direction": "outbound",
@@ -218,7 +218,7 @@
     {
       "name": "New-Web7InvoiceReceipt",
       "title": "Build Invoice Receipt",
-      "description": "Builds a DIDComm invoice/1.0/receipt OutboundMessage from a transfer result. Pipe from Invoke-Svrn7IncomingTransfer or Invoke-Svrn7ExternalTransfer.",
+      "description": "Builds a DIDComm Svrn7.Invoicing/0.8/receipt OutboundMessage from a transfer result. Pipe from Invoke-Svrn7IncomingTransfer or Invoke-Svrn7ExternalTransfer.",
       "epochRequired": 0,
       "annotations": {
         "idempotent": false,
@@ -294,7 +294,7 @@
     {
       "name": "Send-Web7InvoiceError",
       "title": "Send Invoice Error",
-      "description": "Sends an invoice/1.0/receipt with success=false. Call in catch blocks when the transfer fails.",
+      "description": "Sends an Svrn7.Invoicing/0.8/receipt with success=false. Call in catch blocks when the transfer fails.",
       "epochRequired": 0,
       "annotations": {
         "idempotent": false,

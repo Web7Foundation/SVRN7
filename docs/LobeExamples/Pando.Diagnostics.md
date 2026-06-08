@@ -1,4 +1,4 @@
-# LOBE Specification — Pando.Diagnostics
+﻿# LOBE Specification — Pando.Diagnostics
 
 > See `docs/LOBEGUIDE.md` for full guidance on each step.
 
@@ -24,7 +24,7 @@
 
 | Field | Value |
 |---|---|
-| URI | `did:drn:svrn7.net/protocols/diagnostics/1.0/date-query` |
+| URI | `did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query` |
 | Title | Diagnostics Date Query |
 | Description | Requests the current server UTC date/time from the target TDA. Adapter calls the pre-existing `Get-TDADate` cmdlet unchanged. No required body fields. Optional: `replyEndpoint`. |
 | Direction | `inbound` |
@@ -86,7 +86,7 @@ Pando-aware piece of code; all business logic is delegated to the existing cmdle
 
 | Field | Value |
 |---|---|
-| URI | `did:drn:svrn7.net/protocols/diagnostics/1.0/date-result` |
+| URI | `did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-result` |
 | Title | Diagnostics Date Result |
 
 ### Reply body fields
@@ -177,7 +177,7 @@ function Invoke-PandoDiagnosticsDateQuery {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/diagnostics/1.0/date-result'
+            type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-result'
             from = $SVRN7.Driver.SocietyDid
             to   = @($msg.FromDid)
             body = $payload
@@ -194,7 +194,7 @@ Export-ModuleMember -Function @('Invoke-PandoDiagnosticsDateQuery')
 
 ```json
 {
-  "@type": "did:drn:svrn7.net/protocols/diagnostics/1.0/date-query",
+  "@type": "did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query",
   "replyEndpoint": "http://client-tda.example.net:8443/didcomm"
 }
 ```
@@ -203,7 +203,7 @@ Script-tool variant (no reply expected — omit `replyEndpoint`):
 
 ```json
 {
-  "@type": "did:drn:svrn7.net/protocols/diagnostics/1.0/date-query"
+  "@type": "did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query"
 }
 ```
 
@@ -226,7 +226,7 @@ Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/diagnostics/1.0/date-query"
+    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = "{}"
@@ -239,7 +239,7 @@ Expected TDA log (LogLevel.Information):
 
 ```
 Switchboard: routing did:drn:bindloss.svrn7.net/inbox/msg/<id>
-    (type=did:drn:svrn7.net/protocols/diagnostics/1.0/date-query)
+    (type=did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query)
     → Invoke-PandoDiagnosticsDateQuery [Pando.Diagnostics]
 [PS Verbose] Pando.Diagnostics: serverUtc=2026-05-29T22:47:13.4521830Z epoch=0
 [PS Warning] Pando.Diagnostics: no reply endpoint — result not delivered.

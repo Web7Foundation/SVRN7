@@ -1,4 +1,4 @@
-{
+﻿{
   "lobe": {
     "id": "svrn7.ux",
     "name": "Svrn7.UX",
@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/ux/1.0/balance-update",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.UX/0.8/balance-update",
       "title": "Balance Update",
       "description": "Inbound notification that a citizen wallet balance has changed. Body: { citizenDid, balanceGrana }",
       "direction": "inbound",
@@ -23,7 +23,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/ux/1.0/notification",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.UX/0.8/notification",
       "title": "UX Notification",
       "description": "Inbound alert to surface to the citizen. Body: { alertType, severity, message, resourceDid }",
       "direction": "inbound",
@@ -32,7 +32,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/ux/1.0/registration-complete",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.UX/0.8/registration-complete",
       "title": "Registration Complete",
       "description": "Inbound confirmation of successful citizen onboarding. Body: { success, citizenDid, societyDid, endowmentGrana, endowmentVcId }",
       "direction": "inbound",
@@ -171,7 +171,7 @@
     {
       "name": "New-Svrn7TransferIntent",
       "title": "Package Transfer Intent",
-      "description": "Packages a citizen-initiated transfer into a DIDComm transfer/1.0/request OutboundMessage for the Switchboard to deliver.",
+      "description": "Packages a citizen-initiated transfer into a DIDComm Svrn7.Society/0.8/transfer-request OutboundMessage for the Switchboard to deliver.",
       "epochRequired": 0,
       "annotations": {
         "idempotent": false,
@@ -240,7 +240,7 @@
     "compositionHints": [
       "Render-Web7BalanceUpdate is called after any Invoke-Svrn7IncomingTransfer that changes a citizen balance",
       "New-Svrn7TransferIntent is the entry point for citizen-initiated transfers from a UI; pipe its output to Send-Web7Message",
-      "Render-Web7RegistrationComplete should be called after receiving an onboard/1.0/receipt with success=true"
+      "Render-Web7RegistrationComplete should be called after receiving an Svrn7.Onboarding/0.8/receipt with success=true"
     ],
     "limitations": [
       "Epoch 0: rendering is console output only. Replace Render-* function bodies with platform-specific UI calls.",

@@ -1,4 +1,4 @@
-# Web 7.0 Decentralized System Architecture (DSA)
+﻿# Web 7.0 Decentralized System Architecture (DSA)
 ## Citizen/Society Trusted Digital Assistant (TDA) — v0.8.0
 
 > **Epoch 0 — Endowment Phase** | .NET 8 | DIDComm V2 | PowerShell LOBEs | W3C DID + VC | LiteDB | PPML
@@ -393,10 +393,10 @@ layer of the TDA. Every LOBE ships three files:
 |  5 | `Svrn7.Email`             | JIT     | email/1.0/*              | RFC 5322 over DIDComm       |
 |  6 | `Svrn7.Calendar`          | JIT     | calendar/1.0/*           | iCalendar over DIDComm      |
 |  7 | `Svrn7.Presence`          | JIT     | presence/1.0/*           | TDA availability status     |
-|  8 | `Svrn7.Notifications`     | JIT     | notification/1.0/*       | Typed alert dispatch        |
-|  9 | `Svrn7.Onboarding`        | JIT     | onboard/1.0/*            | Citizen registration        |
-| 10 | `Svrn7.Invoicing`         | JIT     | invoice/1.0/*            | Invoice-to-payment          |
-| 11 | `Svrn7.Identity`          | JIT     | did/1.0/*, vc/1.0/*      | DID Document + VC resolution|
+|  8 | `Svrn7.Notifications`     | JIT     | Svrn7.Notifications/0.8/*       | Typed alert dispatch        |
+|  9 | `Svrn7.Onboarding`        | JIT     | Svrn7.Onboarding/0.8/*            | Citizen registration        |
+| 10 | `Svrn7.Invoicing`         | JIT     | Svrn7.Invoicing/0.8/*            | Invoice-to-payment          |
+| 11 | `Svrn7.Identity`          | JIT     | did/1.0/*, Svrn7.Identity/0.8/vc-*      | DID Document + VC resolution|
 
 **Eager**: pre-loaded into `InitialSessionState` at TDA startup.
 **JIT**: imported on first inbound message of a matching `@type` via `LobeManager.EnsureLoadedAsync()`.
@@ -747,32 +747,32 @@ All SVRN7 `@type` URIs follow: `did:drn:svrn7.net/protocols/{family}/{version}/{
 
 | Constant             | URI                                                                    |
 |----------------------|------------------------------------------------------------------------|
-| `TransferRequest`    | `did:drn:svrn7.net/protocols/transfer/1.0/request`                    |
-| `TransferReceipt`    | `did:drn:svrn7.net/protocols/transfer/1.0/receipt`                    |
-| `TransferOrder`      | `did:drn:svrn7.net/protocols/transfer/1.0/order`                      |
-| `TransferOrderReceipt`| `did:drn:svrn7.net/protocols/transfer/1.0/order-receipt`             |
-| `OverdraftDrawRequest`| `did:drn:svrn7.net/protocols/endowment/1.0/overdraft-draw-request`   |
-| `OverdraftDrawReceipt`| `did:drn:svrn7.net/protocols/endowment/1.0/overdraft-draw-receipt`   |
-| `EndowmentTopUp`     | `did:drn:svrn7.net/protocols/endowment/1.0/top-up`                    |
-| `SupplyUpdate`       | `did:drn:svrn7.net/protocols/supply/1.0/update`                       |
-| `DidResolveRequest`  | `did:drn:svrn7.net/protocols/did/1.0/resolve-request`                 |
-| `DidResolveResponse` | `did:drn:svrn7.net/protocols/did/1.0/resolve-response`                |
-| `OnboardRequest`     | `did:drn:svrn7.net/protocols/onboard/1.0/register-citizen`                     |
-| `OnboardReceipt`     | `did:drn:svrn7.net/protocols/onboard/1.0/receipt`                     |
-| `InvoiceRequest`     | `did:drn:svrn7.net/protocols/invoice/1.0/request`                     |
-| `InvoiceReceipt`     | `did:drn:svrn7.net/protocols/invoice/1.0/receipt`                     |
+| `TransferRequest`    | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-request`                    |
+| `TransferReceipt`    | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-receipt`                    |
+| `TransferOrder`      | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order`                      |
+| `TransferOrderReceipt`| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order-receipt`             |
+| `OverdraftDrawRequest`| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-draw-request`   |
+| `OverdraftDrawReceipt`| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-draw-receipt`   |
+| `EndowmentTopUp`     | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/endowment-top-up`                    |
+| `SupplyUpdate`       | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/supply-update`                       |
+| `DidResolveRequest`  | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-request`                 |
+| `DidResolveResponse` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-response`                |
+| `OnboardRequest`     | `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen`                     |
+| `OnboardReceipt`     | `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/receipt`                     |
+| `InvoiceRequest`     | `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/request`                     |
+| `InvoiceReceipt`     | `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/receipt`                     |
 
 **LOBE protocol families** (declared in `.lobe.json` descriptors):
 
 | Family          | URI prefix                                      | LOBE                   |
 |-----------------|-------------------------------------------------|------------------------|
-| Email           | `did:drn:svrn7.net/protocols/email/1.0/`        | `Svrn7.Email`          |
-| Calendar        | `did:drn:svrn7.net/protocols/calendar/1.0/`     | `Svrn7.Calendar`       |
-| Presence        | `did:drn:svrn7.net/protocols/presence/1.0/`     | `Svrn7.Presence`       |
-| Notification    | `did:drn:svrn7.net/protocols/notification/1.0/` | `Svrn7.Notifications`  |
-| UX              | `did:drn:svrn7.net/protocols/ux/1.0/`           | `Svrn7.UX`             |
-| DID resolution  | `did:drn:svrn7.net/protocols/did/1.0/`          | `Svrn7.Identity`       |
-| VC resolution   | `did:drn:svrn7.net/protocols/vc/1.0/`           | `Svrn7.Identity`       |
+| Email           | `did:drn:svrn7.net/protocols/Svrn7.Email/0.8/`        | `Svrn7.Email`          |
+| Calendar        | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/`     | `Svrn7.Calendar`       |
+| Presence        | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/`     | `Svrn7.Presence`       |
+| Notification    | `did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8/` | `Svrn7.Notifications`  |
+| UX              | `did:drn:svrn7.net/protocols/Svrn7.UX/0.8/`           | `Svrn7.UX`             |
+| DID resolution  | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-` | `Svrn7.Identity`       |
+| VC resolution   | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-`           | `Svrn7.Identity`       |
 
 ---
 

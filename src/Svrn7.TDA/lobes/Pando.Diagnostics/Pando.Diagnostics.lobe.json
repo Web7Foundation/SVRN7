@@ -1,4 +1,4 @@
-{
+﻿{
   "lobe": {
     "id":            "pando.diagnostics",
     "name":          "Pando.Diagnostics",
@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri":           "did:drn:svrn7.net/protocols/diagnostics/1.0/date-query",
+      "uri":           "did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query",
       "title":         "Diagnostics Date Query",
       "description":   "Requests the current server UTC date/time from the target TDA. Delegates to Get-TDADate from Pando.Diagnostics.Impl.psm1. Body: no required fields. Optional: { replyEndpoint }.",
       "direction":     "inbound",
@@ -23,7 +23,7 @@
       "epochRequired": 0
     },
     {
-      "uri":           "did:drn:svrn7.net/protocols/diagnostics/1.0/date-result",
+      "uri":           "did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-result",
       "title":         "Diagnostics Date Result",
       "description":   "Inbound reply to a date-query request. Body: serverUtc, serverUtcOffset, currentEpoch, respondedAt. Terminal — no reply is sent.",
       "direction":     "inbound",

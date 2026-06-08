@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using FluentAssertions;
 using Svrn7.Core.Interfaces;
@@ -419,14 +419,14 @@ public class LobeDescriptorTests
         d.Protocols.Should().HaveCount(2);
 
         var prefix = d.Protocols[0];
-        prefix.Uri.Should().Be("https://test.example/protocols/email/1.0/message");
+        prefix.Uri.Should().Be("https://test.example/protocols/Svrn7.Email/0.8/message");
         prefix.Match.Should().Be("prefix");
         prefix.Entrypoint.Should().Be("Receive-TestEmail");
         prefix.Direction.Should().Be("inbound");
         prefix.EpochRequired.Should().Be(0);
 
         var exact = d.Protocols[1];
-        exact.Uri.Should().Be("https://test.example/protocols/email/1.0/receipt");
+        exact.Uri.Should().Be("https://test.example/protocols/Svrn7.Email/0.8/receipt");
         exact.Match.Should().Be("exact");
         exact.Entrypoint.Should().Be("Receive-TestEmailReceipt");
     }
@@ -589,9 +589,9 @@ public class LobeManagerRegistryTests : IDisposable
         var path = Path.Combine(_tmpDir, "Test.Email.lobe.json");
         _manager.RegisterFromDescriptor(path);
 
-        // Prefix match: "https://test.example/protocols/email/1.0/message" prefix
+        // Prefix match: "https://test.example/protocols/Svrn7.Email/0.8/message" prefix
         var reg = _manager.TryResolveProtocol(
-            "https://test.example/protocols/email/1.0/message");
+            "https://test.example/protocols/Svrn7.Email/0.8/message");
         reg.Should().NotBeNull();
         reg!.Entrypoint.Should().Be("Receive-TestEmail");
         reg.LobeName.Should().Be("Test.Email");
@@ -605,7 +605,7 @@ public class LobeManagerRegistryTests : IDisposable
         _manager.RegisterFromDescriptor(path);
 
         var reg = _manager.TryResolveProtocol(
-            "https://test.example/protocols/email/1.0/receipt");
+            "https://test.example/protocols/Svrn7.Email/0.8/receipt");
         reg.Should().NotBeNull();
         reg!.Entrypoint.Should().Be("Receive-TestEmailReceipt");
         reg.Match.Should().Be("exact");
@@ -632,7 +632,7 @@ public class LobeManagerRegistryTests : IDisposable
 
         // Registry should still have exactly one entry per URI
         _manager.ExactRegistrations.Keys
-            .Count(k => k == "https://test.example/protocols/email/1.0/receipt")
+            .Count(k => k == "https://test.example/protocols/Svrn7.Email/0.8/receipt")
             .Should().Be(1);
     }
 
@@ -667,11 +667,11 @@ public class LobeManagerRegistryTests : IDisposable
         _manager.RegisterFromDescriptor(Path.Combine(_tmpDir, "Test.Email.lobe.json"));
 
         // The receipt URI matches both:
-        //   prefix: "https://test.example/protocols/email/1.0/message" (prefix of receipt? no)
-        //   exact:  "https://test.example/protocols/email/1.0/receipt"
+        //   prefix: "https://test.example/protocols/Svrn7.Email/0.8/message" (prefix of receipt? no)
+        //   exact:  "https://test.example/protocols/Svrn7.Email/0.8/receipt"
         // Exact should win
         var reg = _manager.TryResolveProtocol(
-            "https://test.example/protocols/email/1.0/receipt");
+            "https://test.example/protocols/Svrn7.Email/0.8/receipt");
         reg!.Entrypoint.Should().Be("Receive-TestEmailReceipt");
     }
 
@@ -680,10 +680,10 @@ public class LobeManagerRegistryTests : IDisposable
     {
         _manager.RegisterFromDescriptor(Path.Combine(_tmpDir, "Test.Email.lobe.json"));
 
-        // The prefix "https://test.example/protocols/email/1.0/message" should match
+        // The prefix "https://test.example/protocols/Svrn7.Email/0.8/message" should match
         // any URI starting with that string
         var reg = _manager.TryResolveProtocol(
-            "https://test.example/protocols/email/1.0/message/extended");
+            "https://test.example/protocols/Svrn7.Email/0.8/message/extended");
         reg.Should().NotBeNull();
         reg!.Entrypoint.Should().Be("Receive-TestEmail");
     }

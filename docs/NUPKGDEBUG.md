@@ -1,4 +1,4 @@
-# Pando.Packaging — JIT LOBE Lifecycle Debug Guide
+﻿# Pando.Packaging — JIT LOBE Lifecycle Debug Guide
 
 This guide walks the complete lifecycle of a JIT LOBE: packaging from source,
 validating, installing into a running TDA, verifying hot-load via the
@@ -177,7 +177,7 @@ Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = 'did:drn:svrn7.net/protocols/diagnostics/1.0/date-query'
+    type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query'
     from = 'did:drn:solo.svrn7.net'
     to   = @('did:drn:solo.svrn7.net')
     body = '{}'
@@ -191,7 +191,7 @@ Expected TDA log (Terminal A):
 ```
 warn: Svrn7.TDA.DIDCommMessageSwitchboard[0]
       Switchboard: no LOBE registered for @type
-      'did:drn:svrn7.net/protocols/diagnostics/1.0/date-query' — failing message.
+      'did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query' — failing message.
 ```
 
 The message is dead-lettered, not dropped — it is recorded in the inbox store
@@ -263,7 +263,7 @@ info: Svrn7.TDA.LobeManager[0]
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = 'did:drn:svrn7.net/protocols/diagnostics/1.0/date-query'
+    type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query'
     from = 'did:drn:solo.svrn7.net'
     to   = @('did:drn:solo.svrn7.net')
     body = '{}'
@@ -315,7 +315,7 @@ Save the file.
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = 'did:drn:svrn7.net/protocols/diagnostics/1.0/date-query'
+    type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query'
     from = 'did:drn:solo.svrn7.net'
     to   = @('did:drn:solo.svrn7.net')
     body = '{}'

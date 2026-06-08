@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+﻿#Requires -Version 7.0
 <#
 .SYNOPSIS
     SVRN7 UX LOBE — Platform-specific user interface adapter for TDA interactions.
@@ -17,13 +17,13 @@
 
 .NOTES
     Protocol URIs handled (outbound — TDA → UX layer):
-        did:drn:svrn7.net/protocols/ux/1.0/balance-update     — wallet balance changed
-        did:drn:svrn7.net/protocols/ux/1.0/notification       — surface an alert to the citizen
-        did:drn:svrn7.net/protocols/ux/1.0/registration-complete — onboarding confirmed
+        did:drn:svrn7.net/protocols/Svrn7.UX/0.8/balance-update     — wallet balance changed
+        did:drn:svrn7.net/protocols/Svrn7.UX/0.8/notification       — surface an alert to the citizen
+        did:drn:svrn7.net/protocols/Svrn7.UX/0.8/registration-complete — onboarding confirmed
 
     Protocol URIs handled (inbound — UX layer → TDA):
-        did:drn:svrn7.net/protocols/ux/1.0/transfer-intent     — citizen initiated a transfer
-        did:drn:svrn7.net/protocols/ux/1.0/registration-intent — citizen initiated onboarding
+        did:drn:svrn7.net/protocols/Svrn7.UX/0.8/transfer-intent     — citizen initiated a transfer
+        did:drn:svrn7.net/protocols/Svrn7.UX/0.8/registration-intent — citizen initiated onboarding
 
     Epoch 0: platform-specific rendering is stubbed. Implementors replace
     the Render-* functions with platform-appropriate UI calls (CLI, web, mobile).
@@ -44,7 +44,7 @@ function Render-Web7BalanceUpdate {
         surfaces the new balance to the citizen via the platform-specific UI layer.
 
         Derived from: UX LOBE — DSA 0.24 Epoch 0 (PPML).
-        Protocol: did:drn:svrn7.net/protocols/ux/1.0/balance-update
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.UX/0.8/balance-update
 
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
@@ -95,11 +95,11 @@ function Render-Web7Notification {
         Surfaces a TDA alert notification to the citizen UX device.
 
     .DESCRIPTION
-        Translates a notification/1.0/alert or ux/1.0/notification message into
+        Translates a Svrn7.Notifications/0.8/alert or ux/1.0/notification message into
         a platform-specific UI notification. The UX LOBE is the adapter boundary;
         the rendering implementation is platform-specific.
 
-        Protocol: did:drn:svrn7.net/protocols/ux/1.0/notification
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.UX/0.8/notification
 
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
@@ -152,10 +152,10 @@ function Render-Web7RegistrationComplete {
         Renders a successful citizen registration confirmation to the UX device.
 
     .DESCRIPTION
-        Called when onboard/1.0/receipt arrives with success=true.
+        Called when Svrn7.Onboarding/0.8/receipt arrives with success=true.
         Surfaces the citizen's new DID, Society membership, and endowment amount.
 
-        Protocol: did:drn:svrn7.net/protocols/ux/1.0/registration-complete
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.UX/0.8/registration-complete
 
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
@@ -212,15 +212,15 @@ function Render-Web7RegistrationComplete {
 function New-Svrn7TransferIntent {
     <#
     .SYNOPSIS
-        Packages a citizen-initiated transfer into a DIDComm transfer/1.0/request.
+        Packages a citizen-initiated transfer into a DIDComm Svrn7.Society/0.8/transfer-request.
 
     .DESCRIPTION
         Called by the UX layer when a citizen submits a transfer via the UI.
         Constructs the outbound DIDComm message for the Switchboard to deliver
         to the Society TDA for execution.
 
-        Protocol: did:drn:svrn7.net/protocols/ux/1.0/transfer-intent (inbound UX)
-                  → did:drn:svrn7.net/protocols/transfer/1.0/request (outbound DIDComm)
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.UX/0.8/transfer-intent (inbound UX)
+                  → did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-request (outbound DIDComm)
 
     .PARAMETER PayerDid
         Payer citizen DID.
@@ -271,7 +271,7 @@ function New-Svrn7TransferIntent {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/transfer/1.0/request'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-request'
             from = $PayerDid
             to   = @($PayeeDid)
             body = $bodyJson

@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -207,7 +207,7 @@ public class DIDCommTests
         var crypto = new CryptoService();
         var kp     = crypto.GenerateEd25519KeyPair();
         var msg    = _svc.NewMessage()
-            .Type("did:drn:svrn7.net/protocols/transfer/1.0/request")
+            .Type("did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-request")
             .Body(new { amount = 1000 })
             .Build();
         var packed = await _svc.PackEncryptedAsync(msg, kp.PrivateKeyBytes, kp.PrivateKeyBytes);
