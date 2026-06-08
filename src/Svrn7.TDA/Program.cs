@@ -229,22 +229,20 @@ else
     Console.WriteLine($"  Role        : {tdaOpts.Role}");
     Console.WriteLine($"  Agent DID   : {agentDid ?? tdaOpts.SocietyDid}");
     Console.WriteLine($"  Listen port : {port}");
-    Console.WriteLine($"  LOBEs       : {lobeConfig.Eager.Length} eager  {lobeConfig.Jit.Length} JIT  ({totalProtocols} protocols  {totalCmdlets} cmdlets)");
-    // Print eager LOBE names, then JIT LOBE names, each on one indented line.
-    var lobeNameOf = descriptors.ToDictionary(d => d.Lobe.Name, d => d);
+    // JIT = all discovered descriptors whose module is not in the eager list.
+    var eagerModuleNames = lobeConfig.Eager
+        .Select(f => Path.GetFileNameWithoutExtension(f))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var jitDescriptors  = descriptors.Where(d => !eagerModuleNames.Contains(d.Lobe.Name)).ToList();
+    Console.WriteLine($"  LOBEs       : {lobeConfig.Eager.Length} eager  {jitDescriptors.Count} JIT  ({totalProtocols} protocols  {totalCmdlets} cmdlets)");
     if (lobeConfig.Eager.Length > 0)
     {
-        var eagerNames = lobeConfig.Eager
-            .Select(f => Path.GetFileNameWithoutExtension(f))
-            .Select(n => lobeNameOf.TryGetValue(n, out var d) ? d.Lobe.Name : n);
+        var eagerNames = lobeConfig.Eager.Select(f => Path.GetFileNameWithoutExtension(f));
         Console.WriteLine($"    Eager     : {string.Join("  ", eagerNames)}");
     }
-    if (lobeConfig.Jit.Length > 0)
+    if (jitDescriptors.Count > 0)
     {
-        var jitNames = lobeConfig.Jit
-            .Select(f => Path.GetFileNameWithoutExtension(f))
-            .Select(n => lobeNameOf.TryGetValue(n, out var d) ? d.Lobe.Name : n);
-        Console.WriteLine($"    JIT       : {string.Join("  ", jitNames)}");
+        Console.WriteLine($"    JIT       : {string.Join("  ", jitDescriptors.Select(d => d.Lobe.Name))}");
     }
     Console.WriteLine(hr);
     if (federation is not null)

@@ -363,7 +363,8 @@ function Install-LOBEPackage {
     Installs a LOBE NuGet package into a TDA lobes directory.
 .DESCRIPTION
     Extracts tools/<LobeName>/* from a .nupkg into LobesDirectory/<LobeName>/.
-    Optional -LoadMode registers the LOBE in lobes.config.json.
+    JIT LOBEs are auto-discovered by the TDA from their .lobe.json — no config registration needed.
+    Use -LoadMode Eager only to pre-load a LOBE at TDA startup (requires restart).
 .PARAMETER Path
     Path to a specific .nupkg file to install.
 .PARAMETER PackageId
@@ -375,15 +376,18 @@ function Install-LOBEPackage {
 .PARAMETER LobesDirectory
     Destination parent directory. Defaults to .\lobes.
 .PARAMETER LoadMode
-    If specified (Eager or JIT), registers the LOBE in lobes.config.json.
+    Eager: adds the LOBE to lobes.config.json eager list (TDA restart required).
+    JIT: files are dropped only; auto-discovered by the TDA FileSystemWatcher.
 .PARAMETER Force
     Overwrite an existing LOBE installation.
 .OUTPUTS
     [string] Path to the installed LOBE directory.
 .EXAMPLE
-    Install-LOBEPackage -Path .\dist\Svrn7.Email.0.8.0.nupkg -LobesDirectory .\src\Svrn7.TDA\lobes -LoadMode JIT
+    Install-LOBEPackage -Path .\dist\Svrn7.Email.0.8.0.nupkg -LobesDirectory .\src\Svrn7.TDA\lobes
 .EXAMPLE
-    Install-LOBEPackage -PackageId Svrn7.Email -Source .\dist -LobesDirectory .\src\Svrn7.TDA\lobes -LoadMode JIT
+    Install-LOBEPackage -Path .\dist\Svrn7.Common.0.8.0.nupkg -LobesDirectory .\src\Svrn7.TDA\lobes -LoadMode Eager
+.EXAMPLE
+    Install-LOBEPackage -PackageId Svrn7.Email -Source .\dist -LobesDirectory .\src\Svrn7.TDA\lobes
 #>
     [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'File')]
     param(
@@ -481,7 +485,7 @@ function Install-LOBEPackage {
 
             Write-Host "Installed: $lobeName -> $lobeDestDir" -ForegroundColor Green
 
-            if ($LoadMode) {
+            if ($LoadMode -eq 'Eager') {
                 $configPath = Join-Path $lobesDir 'lobes.config.json'
                 if (-not (Test-Path $configPath)) { throw "lobes.config.json not found at '$configPath'." }
 
@@ -490,25 +494,21 @@ function Install-LOBEPackage {
                 $lobeModule  = (Get-Content $lobeJsonFile.FullName -Raw | ConvertFrom-Json).lobe.module
                 $configEntry = "$lobeName/$lobeModule"
 
-                $config      = Get-Content $configPath -Raw | ConvertFrom-Json
-                $sectionKey  = $LoadMode.ToLower()
-                $otherKey    = if ($sectionKey -eq 'eager') { 'jit' } else { 'eager' }
-                $sectionList = @($config.$sectionKey)
-                $otherList   = @($config.$otherKey)
+                $config    = Get-Content $configPath -Raw | ConvertFrom-Json
+                $eagerList = @($config.eager)
 
-                if ($sectionList -contains $configEntry) {
-                    Write-Verbose "'$configEntry' already in $sectionKey — no change."
+                if ($eagerList -contains $configEntry) {
+                    Write-Verbose "'$configEntry' already in eager list — no change."
                 } else {
-                    if ($otherList -contains $configEntry) {
-                        Write-Warning "'$configEntry' is currently in '$otherKey'. Moving to '$sectionKey'."
-                        $config.$otherKey = @($otherList | Where-Object { $_ -ne $configEntry })
-                    }
-                    $config.$sectionKey = @($sectionList) + $configEntry
-                    if ($PSCmdlet.ShouldProcess($configPath, "Register '$configEntry' as $LoadMode")) {
+                    $config.eager = @($eagerList) + $configEntry
+                    if ($PSCmdlet.ShouldProcess($configPath, "Register '$configEntry' as Eager")) {
                         $config | ConvertTo-Json -Depth 5 | Set-Content $configPath -Encoding UTF8
-                        Write-Host "Registered: $configEntry as $LoadMode in lobes.config.json" -ForegroundColor Green
+                        Write-Host "Registered: $configEntry as Eager in lobes.config.json" -ForegroundColor Green
+                        Write-Warning "TDA restart required to apply eager loading for '$lobeName'."
                     }
                 }
+            } elseif ($LoadMode -eq 'JIT') {
+                Write-Verbose "LoadMode=JIT: '$lobeName' auto-discovered by TDA FileSystemWatcher — no config change needed."
             }
 
             $lobeDestDir
