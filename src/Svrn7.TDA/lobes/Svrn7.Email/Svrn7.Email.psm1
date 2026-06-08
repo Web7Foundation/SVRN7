@@ -24,9 +24,9 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── Receive-PandoEmail ──────────────────────────────────────────────────────────
+# ── Dequeue-PandoEmail ──────────────────────────────────────────────────────────
 
-function Receive-PandoEmail {
+function Dequeue-PandoEmail {
     <#
     .SYNOPSIS
         Processes an inbound DIDComm email/1.0/message and stores it locally.
@@ -48,7 +48,7 @@ function Receive-PandoEmail {
         EmailRecord — the stored email record, or $null if processing failed.
 
     .EXAMPLE
-        Receive-PandoEmail -MessageDid "did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678"
+        Dequeue-PandoEmail -MessageDid "did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678"
 
     .NOTES
         The From header in the RFC 5322 payload is treated as display metadata only.
@@ -187,6 +187,6 @@ function Get-Rfc5322Header {
 }
 
 Export-ModuleMember -Function @(
-    'Receive-PandoEmail',
+    'Dequeue-PandoEmail',
     'Send-PandoEmail'
 )

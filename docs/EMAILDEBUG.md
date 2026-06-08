@@ -127,7 +127,7 @@ Expected response: `Status: Accepted`
 Expected TDA log (timestamps vary):
 
 ```
-20:49:13.432 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing did:drn:alpha.svrn7.net/inbox/msg/<id> (type=did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message) → Receive-PandoEmail [Svrn7.Email]
+20:49:13.432 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing did:drn:alpha.svrn7.net/inbox/msg/<id> (type=did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message) → Dequeue-PandoEmail [Svrn7.Email]
 20:49:13.441 dbug: Svrn7.TDA.LobeManager[0] LobeManager: EnsureLoadedAsync - JIT 'C:\...\lobes\Svrn7.Email\Svrn7.Email.psm1'.
 20:49:13.512 info: Svrn7.TDA.LobeManager[0] LobeManager: import complete - ...\Svrn7.Email.psm1
 20:49:13.518 dbug: Svrn7.TDA.DIDCommMessageSwitchboard[0]   [PS Verbose] Email LOBE: stored email from did:drn:foundation.svrn7.net — 'Hello from the Foundation'
@@ -168,7 +168,7 @@ The `LobeManager: EnsureLoadedAsync` and import lines will not appear this time.
 
 ## Step 6 — Send an email delivery receipt
 
-The `email/1.0/receipt` protocol is also handled by `Receive-PandoEmail`.  A receipt
+The `email/1.0/receipt` protocol is also handled by `Dequeue-PandoEmail`.  A receipt
 body conventionally carries `originalMessageId` and `deliveredAt`:
 
 ```powershell
@@ -195,18 +195,18 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-20:49:14.101 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/receipt) → Receive-PandoEmail [Svrn7.Email]
+20:49:14.101 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/receipt) → Dequeue-PandoEmail [Svrn7.Email]
 20:49:14.104 dbug: ...   [PS Verbose] Email LOBE: stored email from did:drn:foundation.svrn7.net — 'Delivery receipt'
 ```
 
-Both `email/1.0/message` and `email/1.0/receipt` route to `Receive-PandoEmail` —
+Both `email/1.0/message` and `email/1.0/receipt` route to `Dequeue-PandoEmail` —
 the handler stores whichever arrives and returns the record for pipeline chaining.
 
 ---
 
 ## Step 7 — Inspect the email record
 
-`Receive-PandoEmail` returns a hashtable with these fields:
+`Dequeue-PandoEmail` returns a hashtable with these fields:
 
 | Field | Value |
 |---|---|

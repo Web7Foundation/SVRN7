@@ -178,7 +178,7 @@ public sealed class LobeProtocol
 /// </summary>
 public sealed class LobeCmdlet
 {
-    /// <summary>PowerShell cmdlet name (e.g., "Receive-PandoEmail"). Unique within the LOBE.</summary>
+    /// <summary>PowerShell cmdlet name (e.g., "Dequeue-PandoEmail"). Unique within the LOBE.</summary>
     [JsonPropertyName("name")]
     public string Name          { get; init; } = string.Empty;
 
@@ -218,7 +218,7 @@ public sealed class LobeCmdlet
 
     /// <summary>
     /// Illustrative pipeline usage string.
-    /// Example: "Dequeue-Svrn7Message -Did $MessageDid | Receive-PandoEmail"
+    /// Example: "Dequeue-Svrn7Message -Did $MessageDid | Dequeue-PandoEmail"
     /// </summary>
     [JsonPropertyName("pipelineExample")]
     public string? PipelineExample { get; init; }
