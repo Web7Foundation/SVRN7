@@ -1,4 +1,4 @@
-# SVRN7 Design Principles
+﻿# SVRN7 Design Principles
 
 These principles govern architectural and protocol decisions in the SVRN7 / Web 7.0 platform.
 New design decisions must be consistent with these principles.
@@ -28,13 +28,12 @@ not have the URL hardcoded.
 DIDComm `@type` protocol URIs follow the convention:
 
 ```
-did:drn:svrn7.net/protocols/{LobeName}/{major}.{minor}/{action}
+did:drn:svrn7.net/protocols/{LobeName}/{lobe.version}/{action}
 ```
 
 - `{LobeName}` — the full LOBE name exactly as it appears in `lobe.name` in the
   `.lobe.json` descriptor (e.g. `Svrn7.Email`, `Pando.Diagnostics`).  Case-preserved.
-- `{major}.{minor}` — the LOBE's major and minor version from `lobe.version`.
-  Patch releases do not change the URI.
+- `{lobe.version}` — the full three-part version from `lobe.version` (e.g. `0.8.0`).
 - `{action}` — the message action name (e.g. `message`, `register-citizen`).
 
 **Rationale:** The LOBE name is the single source of truth.  URI segments are not invented
@@ -45,9 +44,9 @@ URIs diverge from the code that handles them.
 **Examples:**
 
 ```
-Svrn7.Email 0.8.0          did:drn:svrn7.net/protocols/Svrn7.Email/0.8/message
-Svrn7.Onboarding 0.8.0     did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen
-Pando.Diagnostics 0.1.0    did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query
+Svrn7.Email 0.8.0          did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message
+Svrn7.Onboarding 0.8.0     did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen
+Pando.Diagnostics 0.1.0    did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query
 ```
 
 See `docs/BACKLOG.md` TDA-007 for the full before/after table and version bump rules.

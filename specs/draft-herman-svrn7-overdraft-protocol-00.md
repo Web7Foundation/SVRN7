@@ -191,7 +191,7 @@ The Society MUST construct an `OverdraftDrawRequest` DIDComm message [DRAFT-DIDC
 
 ```json
 {
-  "type": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-draw-request",
+  "type": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-draw-request",
   "id":   "<uuid>",
   "from": "<societyDid>",
   "to":   "<federationDid>",
@@ -286,7 +286,7 @@ The Federation MUST send an `EndowmentTopUp` DIDComm message [DRAFT-DIDCOMM-TRAN
 
 ```json
 {
-  "type": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/endowment-top-up",
+  "type": "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/endowment-top-up",
   "from": "<federationDid>",
   "to":   "<societyDid>",
   "body": {

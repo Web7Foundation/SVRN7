@@ -1107,7 +1107,7 @@ Derivation rule: LOBE -> PowerShell module (.psm1); exports named cmdlets (35 cm
 
 **Register-Svrn7CitizenInSociety** (cmdlet in Svrn7.Society.psm1)
 Derived from: "SVRN7 LOBE" (-> Svrn7.Society.psm1) and the Switchboard routing rule for
-"Svrn7.Onboarding/0.8/register-citizen" -> Agent 2 Onboarding -> Register-Svrn7CitizenInSociety pipeline.
+"Svrn7.Onboarding/0.8.0/register-citizen" -> Agent 2 Onboarding -> Register-Svrn7CitizenInSociety pipeline.
 
 ### 11.4 The Parchment Programming Loop: One Iteration
 
@@ -1156,25 +1156,25 @@ a single element type (LOBE) producing multiple artefact categories (Module + Pr
 | LOBE Instance       | Module File             | DIDComm Protocol URIs                     |
 |---------------------|-------------------------|-------------------------------------------|
 | Common LOBE         | Svrn7.Common.psm1       | — (shared helpers, eager)                 |
-| Federation LOBE     | Svrn7.Federation.psm1   | did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/*|
-| Society LOBE        | Svrn7.Society.psm1      | did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-*|
-|                     |                         | did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/* |
-| UX LOBE             | Svrn7.UX.psm1           | did:drn:svrn7.net/protocols/Svrn7.UX/0.8/*      |
-| Email LOBE          | Svrn7.Email.psm1        | did:drn:svrn7.net/protocols/Svrn7.Email/0.8/*   |
-| Calendar LOBE       | Svrn7.Calendar.psm1     | did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/*|
-| Presence LOBE       | Svrn7.Presence.psm1     | did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/*|
-| Notifications LOBE  | Svrn7.Notifications.psm1| did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8/*|
-| Onboarding LOBE     | Svrn7.Onboarding.psm1   | did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/* |
-| Invoicing LOBE      | Svrn7.Invoicing.psm1    | did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/* |
-| Identity LOBE       | Svrn7.Identity.psm1     | did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-*|
-|                     |                         | did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-*|
+| Federation LOBE     | Svrn7.Federation.psm1   | did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/*|
+| Society LOBE        | Svrn7.Society.psm1      | did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-*|
+|                     |                         | did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/* |
+| UX LOBE             | Svrn7.UX.psm1           | did:drn:svrn7.net/protocols/Svrn7.UX/0.8.0/*      |
+| Email LOBE          | Svrn7.Email.psm1        | did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/*   |
+| Calendar LOBE       | Svrn7.Calendar.psm1     | did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/*|
+| Presence LOBE       | Svrn7.Presence.psm1     | did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/*|
+| Notifications LOBE  | Svrn7.Notifications.psm1| did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/*|
+| Onboarding LOBE     | Svrn7.Onboarding.psm1   | did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/* |
+| Invoicing LOBE      | Svrn7.Invoicing.psm1    | did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/* |
+| Identity LOBE       | Svrn7.Identity.psm1     | did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-*|
+|                     |                         | did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/vc-*|
 
 Each LOBE either defines a net-new DIDComm protocol or tunnels an existing industry standard
 inside a DIDComm envelope:
 
 - **Net-new**: Presence (presence/1.0/status, presence/1.0/subscribe), Notifications
-  (Svrn7.Notifications/0.8/alert), Onboarding (Svrn7.Onboarding/0.8/register-citizen, Svrn7.Onboarding/0.8/receipt), Invoicing
-  (Svrn7.Invoicing/0.8/request, Svrn7.Invoicing/0.8/receipt).
+  (Svrn7.Notifications/0.8.0/alert), Onboarding (Svrn7.Onboarding/0.8.0/register-citizen, Svrn7.Onboarding/0.8.0/receipt), Invoicing
+  (Svrn7.Invoicing/0.8.0/request, Svrn7.Invoicing/0.8.0/receipt).
 - **Tunneling**: Email LOBE tunnels RFC 5322 (email message format) inside a DIDComm body.
   Calendar LOBE tunnels iCalendar (RFC 5545) inside a DIDComm body.
 

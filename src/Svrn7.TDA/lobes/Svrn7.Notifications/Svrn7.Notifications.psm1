@@ -4,7 +4,7 @@
     SVRN7 Notifications LOBE — net-new DIDComm notification protocol.
 
 .DESCRIPTION
-    Implements the did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8/* DIDComm protocol.
+    Implements the did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/* DIDComm protocol.
     Dispatches alerts to the UX LOBE when internal TDA events fire.
     Fired by internal events, not by inbound DIDComm messages.
 
@@ -12,7 +12,7 @@
 
 .NOTES
     Protocol URIs:
-        did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8/alert — outbound alert to citizen UX
+        did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/alert — outbound alert to citizen UX
 
     Trigger events (Epoch 0):
         BalanceChange        — citizen SVRN7 balance changed
@@ -33,13 +33,13 @@ $script:VcExpiryWarningDays   = 7
 function Invoke-Web7Notification {
     <#
     .SYNOPSIS
-        Processes an inbound Svrn7.Notifications/0.8/alert message.
+        Processes an inbound Svrn7.Notifications/0.8.0/alert message.
 
     .DESCRIPTION
         Resolves the inbox message and logs the alert. Inbound notifications
         are rare (peer TDAs alerting this TDA). Most notifications flow outbound.
 
-        Protocol: did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8/alert
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/alert
 
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
@@ -80,7 +80,7 @@ function Invoke-Web7Notification {
 function Send-Web7Alert {
     <#
     .SYNOPSIS
-        Dispatches a Svrn7.Notifications/0.8/alert to a citizen's UX endpoint.
+        Dispatches a Svrn7.Notifications/0.8.0/alert to a citizen's UX endpoint.
 
     .PARAMETER RecipientDid
         The citizen or society DID to notify.
@@ -141,7 +141,7 @@ function Send-Web7Alert {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8/alert'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/alert'
             from = $mySocietyDid
             to   = @($RecipientDid)
             body = $payload

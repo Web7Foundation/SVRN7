@@ -1479,7 +1479,7 @@ function Invoke-Web7SocietyQuery {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8/society-query-result'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/society-query-result'
             from = $SVRN7.Driver.SocietyDid
             to   = @($msg.FromDid)
             body = $payload
@@ -1539,7 +1539,7 @@ function Invoke-Web7MemberQuery {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8/member-query-result'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/member-query-result'
             from = $SVRN7.Driver.SocietyDid
             to   = @($msg.FromDid)
             body = $payload
@@ -1593,7 +1593,7 @@ function Invoke-Web7OverdraftQuery {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-query-result'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-query-result'
             from = $SVRN7.Driver.SocietyDid
             to   = @($msg.FromDid)
             body = $payload
@@ -1650,7 +1650,7 @@ function Invoke-Web7DidMethodsQuery {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-methods-query-result'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-methods-query-result'
             from = $SVRN7.Driver.SocietyDid
             to   = @($msg.FromDid)
             body = $payload
@@ -1703,7 +1703,7 @@ function Invoke-Web7DidMethodRegister {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-method-register-result'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-method-register-result'
             from = $SVRN7.Driver.SocietyDid
             to   = @($msg.FromDid)
             body = $payload
@@ -1760,7 +1760,7 @@ function Invoke-Web7CitizenDidAdd {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8/citizen-did-add-result'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/citizen-did-add-result'
             from = $SVRN7.Driver.SocietyDid
             to   = @($msg.FromDid)
             body = $payload
@@ -1905,16 +1905,16 @@ function Invoke-Web7CitizenDidAddResult {
 #endregion
 
 ###############################################################################
-#region SETTLEMENT CONFIRMATION — Svrn7.Society/0.8/transfer-order-receipt
+#region SETTLEMENT CONFIRMATION — Svrn7.Society/0.8.0/transfer-order-receipt
 ###############################################################################
 
 function Confirm-Svrn7Settlement {
     <#
     .SYNOPSIS
-        Handles Svrn7.Society/0.8/transfer-order-receipt — records settlement confirmation from a receiving Society.
+        Handles Svrn7.Society/0.8.0/transfer-order-receipt — records settlement confirmation from a receiving Society.
     .DESCRIPTION
         Called by the Switchboard when a target Society sends back a
-        Svrn7.Society/0.8/transfer-order-receipt acknowledging receipt and credit of a
+        Svrn7.Society/0.8.0/transfer-order-receipt acknowledging receipt and credit of a
         cross-Society TransferOrderCredential. Logs the confirmation.
         No reply is sent — the receipt is a terminal message in the protocol.
 

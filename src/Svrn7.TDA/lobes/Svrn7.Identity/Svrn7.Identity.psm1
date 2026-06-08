@@ -13,10 +13,10 @@
 
 .NOTES
     Protocol URIs:
-        did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-request     — inbound DID resolve
-        did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-response    — outbound DID response
-        did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-resolve-by-subject-request   — inbound VC query
-        did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-resolve-by-subject-response  — outbound VC response
+        did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-request     — inbound DID resolve
+        did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-response    — outbound DID response
+        did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/vc-resolve-by-subject-request   — inbound VC query
+        did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/vc-resolve-by-subject-response  — outbound VC response
 #>
 
 Set-StrictMode -Version Latest
@@ -27,21 +27,21 @@ $ErrorActionPreference = 'Stop'
 function Resolve-Svrn7Did {
     <#
     .SYNOPSIS
-        Processes an inbound Svrn7.Identity/0.8/did-resolve-request and returns a
-        Svrn7.Identity/0.8/did-resolve-response OutboundMessage.
+        Processes an inbound Svrn7.Identity/0.8.0/did-resolve-request and returns a
+        Svrn7.Identity/0.8.0/did-resolve-response OutboundMessage.
 
     .DESCRIPTION
         Resolves the requested DID via ISvrn7SocietyDriver.ResolveDidAsync().
         If the DID belongs to this Society it is resolved locally; if cross-Society,
         the FederationDidDocumentResolver performs a DIDComm round-trip.
 
-        Protocol: did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-request
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-request
 
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
 
     .OUTPUTS
-        Hashtable — OutboundMessage with packed Svrn7.Identity/0.8/did-resolve-response.
+        Hashtable — OutboundMessage with packed Svrn7.Identity/0.8.0/did-resolve-response.
 
     .EXAMPLE
         Resolve-Svrn7Did -MessageDid "did:drn:alpha.svrn7.net/inbox/msg/5f43a2..."
@@ -84,7 +84,7 @@ function Resolve-Svrn7Did {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-response'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-response'
             from = $SVRN7.Driver.SocietyDid
             to   = @($body.from)
             body = $responsePayload
@@ -105,9 +105,9 @@ function Get-Svrn7VcById {
 
     .DESCRIPTION
         Looks up a Verifiable Credential by its jti (VC ID / UUID) in the
-        local VC registry. Returns a Svrn7.Identity/0.8/vc-resolve-by-subject-response.
+        local VC registry. Returns a Svrn7.Identity/0.8.0/vc-resolve-by-subject-response.
 
-        Protocol: did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-resolve-by-subject-request
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/vc-resolve-by-subject-request
 
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
@@ -157,7 +157,7 @@ function Get-Svrn7VcById {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-resolve-by-subject-response'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/vc-resolve-by-subject-response'
             from = $SVRN7.Driver.SocietyDid
             to   = @($body.from)
             body = $responsePayload
@@ -221,9 +221,9 @@ function Resolve-Svrn7CitizenIdentity {
 function Invoke-Svrn7DidResolveResponse {
     <#
     .SYNOPSIS
-        Handles Svrn7.Identity/0.8/did-resolve-response — receives the DID resolution reply.
+        Handles Svrn7.Identity/0.8.0/did-resolve-response — receives the DID resolution reply.
     .DESCRIPTION
-        Inbound reply to a previously-sent Svrn7.Identity/0.8/did-resolve-request.
+        Inbound reply to a previously-sent Svrn7.Identity/0.8.0/did-resolve-request.
         Body: { from, to, requestedDid, found, didDocument, resolvedAt }
         Logs the resolution outcome. No reply is sent — response messages are terminal.
     .PARAMETER MessageDid
@@ -245,9 +245,9 @@ function Invoke-Svrn7DidResolveResponse {
 function Invoke-Svrn7VcResolveResponse {
     <#
     .SYNOPSIS
-        Handles Svrn7.Identity/0.8/vc-resolve-by-subject-response — receives the VC resolution reply.
+        Handles Svrn7.Identity/0.8.0/vc-resolve-by-subject-response — receives the VC resolution reply.
     .DESCRIPTION
-        Inbound reply to a previously-sent Svrn7.Identity/0.8/vc-resolve-by-subject-request.
+        Inbound reply to a previously-sent Svrn7.Identity/0.8.0/vc-resolve-by-subject-request.
         Body: { from, to, subjectDid, found, credentials[], resolvedAt }
         Logs the resolution outcome. No reply is sent — response messages are terminal.
     .PARAMETER MessageDid

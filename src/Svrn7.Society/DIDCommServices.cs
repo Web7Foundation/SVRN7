@@ -18,9 +18,9 @@ namespace Svrn7.Society;
 /// All transfers — same-Society and cross-Society — arrive here after DIDComm unpack.
 ///
 /// Protocol URIs handled:
-///   Svrn7.Society/0.8/transfer-request      — citizen-initiated transfer
-///   Svrn7.Society/0.8/transfer-order        — cross-Society TransferOrderCredential from another Society
-///   Svrn7.Society/0.8/transfer-order-receipt— settlement confirmation from receiving Society
+///   Svrn7.Society/0.8.0/transfer-request      — citizen-initiated transfer
+///   Svrn7.Society/0.8.0/transfer-order        — cross-Society TransferOrderCredential from another Society
+///   Svrn7.Society/0.8.0/transfer-order-receipt— settlement confirmation from receiving Society
 /// </summary>
 public sealed class DIDCommTransferHandler : IDIDCommTransferHandler
 {

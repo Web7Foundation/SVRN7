@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/status",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/status",
       "title": "Presence Status Update",
       "description": "Publishes or receives a TDA availability status. Body: { did, status, since, ttlSeconds }",
       "direction": "bidirectional",
@@ -23,7 +23,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/subscribe",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/subscribe",
       "title": "Presence Subscription Request",
       "description": "Registers the requesting TDA as a subscriber to this TDA's presence updates.",
       "direction": "inbound",
@@ -32,7 +32,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/unsubscribe",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/unsubscribe",
       "title": "Presence Unsubscription",
       "description": "Cancels a presence subscription.",
       "direction": "inbound",

@@ -14,56 +14,56 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/federation-query",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/federation-query",
       "title": "Federation Query",
       "description": "Returns the current Federation record (DID, name, supply, epoch, status). No body required. Returns found=false if the federation has not yet been initialised.",
       "entrypoint": "Invoke-Web7FederationQuery",
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/society-list",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/society-list",
       "title": "Society List",
       "description": "Returns all societies registered in the federation. No body fields required. Include replyEndpoint in the body to override endpoint resolution.",
       "entrypoint": "Invoke-Web7SocietyList",
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/society-list-result",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/society-list-result",
       "title": "Society List Result",
       "description": "Inbound reply to a society-list request. Body: count, activeCount, societies[], queriedAt. Terminal — no reply is sent.",
       "entrypoint": "Invoke-Web7SocietyListResult",
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/initialize-federation",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/initialize-federation",
       "title": "Initialize Federation",
       "description": "Initialises the Federation record (idempotent — no-op if already initialised). Body: federationDid, federationName, publicKeyHex, primaryDidMethodName.",
       "entrypoint": "Invoke-Web7FederationInit",
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/register-society",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society",
       "title": "Register Society",
       "description": "Registers a new Society with the Federation. Body: societyDid, publicKeyHex, societyName, primaryDidMethodName, drawAmountGrana, overdraftCeilingGrana.",
       "entrypoint": "Invoke-Web7RegisterSociety",
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/federation-query-result",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/federation-query-result",
       "title": "Federation Query Result",
       "description": "Inbound reply to a federation-query request. Body: found, federationDid, federationName, primaryDidMethodName, totalSupplyGrana, currentEpoch, isActive, queriedAt. Terminal — no reply is sent.",
       "entrypoint": "Invoke-Web7FederationQueryResult",
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/initialize-federation-result",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/initialize-federation-result",
       "title": "Initialize Federation Result",
       "description": "Inbound reply to an initialize-federation request. Body: federationDid, federationName, primaryDidMethodName, totalSupplyGrana, alreadyInitialised, initialisedAt. Terminal — no reply is sent.",
       "entrypoint": "Invoke-Web7FederationInitResult",
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/register-society-result",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society-result",
       "title": "Register Society Result",
       "description": "Inbound reply to a register-society request. Body: societyDid, societyName, primaryDidMethodName, drawAmountGrana, overdraftCeilingGrana, success, registeredAt. Terminal — no reply is sent.",
       "entrypoint": "Invoke-Web7RegisterSocietyResult",

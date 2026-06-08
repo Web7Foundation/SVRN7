@@ -249,7 +249,7 @@ A conformant resolver MUST route DID Document resolution by method name:
 - **Local method names** (in the deployment's configured `DidMethodNames`): Resolved from the
   local DID Document registry without any network hop.
 - **Foreign method names**: The resolver MUST look up the owning Society in the Federation
-  method name registry, dispatch a DIDComm `Svrn7.Identity/0.8/did-resolve-request` message to the owning
+  method name registry, dispatch a DIDComm `Svrn7.Identity/0.8.0/did-resolve-request` message to the owning
   Society, and return the response.
 
 If the owning Society does not respond within the configured timeout, the resolver MUST return

@@ -4,7 +4,7 @@
     SVRN7 Presence LOBE — net-new DIDComm presence protocol.
 
 .DESCRIPTION
-    Implements the did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/* DIDComm protocol.
+    Implements the did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/* DIDComm protocol.
     Publishes and receives TDA availability status across the VTC7 mesh.
     Presence state is held in IMemoryCache (TTL 5 minutes).
 
@@ -12,9 +12,9 @@
 
 .NOTES
     Protocol URIs:
-        did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/status      — publish/receive status
-        did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/subscribe   — subscribe to peer status
-        did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/unsubscribe — cancel subscription
+        did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/status      — publish/receive status
+        did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/subscribe   — subscribe to peer status
+        did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/unsubscribe — cancel subscription
 
     Status values: Available | Busy | Away | Offline
 #>
@@ -36,7 +36,7 @@ function Update-Web7Presence {
         Resolves the inbox message, extracts the sender's status and TTL,
         and sets the presence cache entry for the sender's DID.
 
-        Protocol: did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/status
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/status
 
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
@@ -168,7 +168,7 @@ function Publish-Web7Presence {
             $envelope = [ordered]@{
                 typ  = 'application/didcomm-plain+json'
                 id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-                type = 'did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/status'
+                type = 'did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/status'
                 from = $mySocietyDid
                 to   = @($subscriberDid)
                 body = $payload

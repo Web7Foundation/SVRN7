@@ -137,7 +137,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/initialize-federation"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/initialize-federation"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = $body
@@ -157,7 +157,7 @@ Send a `federation/1.0/federation-query` message.  The TDA replies with a
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/federation-query"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/federation-query"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = "{}"
@@ -204,7 +204,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/register-society"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = $body
@@ -232,7 +232,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/society-list"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/society-list"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = $body
@@ -279,7 +279,7 @@ but does not attempt outbound delivery.
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query"
+    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = "{}"
@@ -294,7 +294,7 @@ Expected TDA log:
 
 ```
 info:  Switchboard: routing did:drn:solo.svrn7.net/inbox/msg/<id>
-           (type=did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query)
+           (type=did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query)
            → Invoke-PandoDiagnosticsDateQuery [Pando.Diagnostics]
 info:    [PS Info] Pando.Diagnostics: serverUtc=2026-05-30T... epoch=0
 warn:    [PS Warning] Invoke-PandoDiagnosticsDateQuery: no reply endpoint — result not delivered.
@@ -318,7 +318,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query"
+    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = $body

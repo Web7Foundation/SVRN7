@@ -5,13 +5,13 @@
     Web 7.0 TDA — Agent N Invoicing Runspace Script.
 
 .DESCRIPTION
-    Task runspace opened on demand by the Switchboard for Svrn7.Invoicing/0.8/request messages.
+    Task runspace opened on demand by the Switchboard for Svrn7.Invoicing/0.8.0/request messages.
     Returned to the RunspacePool after each task completes.
 
     Derived from: Agent N — Invoicing (PowerShell Runspace) — DSA 0.24 Epoch 0 (PPML).
 
 .NOTES
-    DIDComm protocol: did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/request
+    DIDComm protocol: did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/request
     Routing: Switchboard → Invoke-AgentRunspace Invoicing $msgDid
 
     Full pipeline:

@@ -24,12 +24,12 @@
             Svrn7.UX.psm1           → ux/1.0/* (balance updates, notifications, registration)
 
         JIT (imported on first message of each type):
-            Svrn7.Email.psm1        → did:drn:svrn7.net/protocols/Svrn7.Email/0.8/*
-            Svrn7.Calendar.psm1     → did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/*
-            Svrn7.Presence.psm1     → did:drn:svrn7.net/protocols/Svrn7.Presence/0.8/*
-            Svrn7.Notifications.psm1→ did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8/*
-            Svrn7.Identity.psm1     → did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-*
-                                      did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-*
+            Svrn7.Email.psm1        → did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/*
+            Svrn7.Calendar.psm1     → did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/*
+            Svrn7.Presence.psm1     → did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/*
+            Svrn7.Notifications.psm1→ did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/*
+            Svrn7.Identity.psm1     → did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-*
+                                      did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/vc-*
 
     $SVRN7 session variable is pre-injected by LobeManager.
     $SVRN7_JIT_LOBES contains the array of JIT LOBE paths.
@@ -142,8 +142,8 @@ function Invoke-IdentityAgent {
     Import-JitLobeIfNeeded -LobeName 'Svrn7.Identity'
     try {
         $result = switch -Wildcard ($MessageType) {
-            '*/Svrn7.Identity/0.8/did-resolve-request'               { Resolve-Svrn7Did -MessageDid $MessageDid }
-            '*/Svrn7.Identity/0.8/vc-resolve-by-subject-request'     { Get-Svrn7VcById  -MessageDid $MessageDid }
+            '*/Svrn7.Identity/0.8.0/did-resolve-request'               { Resolve-Svrn7Did -MessageDid $MessageDid }
+            '*/Svrn7.Identity/0.8.0/vc-resolve-by-subject-request'     { Get-Svrn7VcById  -MessageDid $MessageDid }
             default { Write-Warning "Agent 1 / Identity: unhandled type $MessageType"; $null }
         }
         Write-Verbose "Agent 1 / Identity: processed $MessageDid ($MessageType)"

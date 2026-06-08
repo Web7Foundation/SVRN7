@@ -108,20 +108,20 @@ public static class Svrn7Constants
     // ── DIDComm protocol URIs (svrn7.net) ─────────────────────────────────────
     public static class Protocols
     {
-        public const string TransferRequest       = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-request";
-        public const string TransferReceipt       = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-receipt";
-        public const string TransferOrder         = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order";
-        public const string TransferOrderReceipt  = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order-receipt";
-        public const string OverdraftDrawRequest  = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-draw-request";
-        public const string OverdraftDrawReceipt  = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-draw-receipt";
-        public const string EndowmentTopUp        = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/endowment-top-up";
-        public const string SupplyUpdate          = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/supply-update";
-        public const string DidResolveRequest     = "did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-request";
-        public const string DidResolveResponse    = "did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-response";
-        public const string OnboardRequest        = "did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen";
-        public const string OnboardReceipt        = "did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/receipt";
-        public const string InvoiceRequest        = "did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/request";
-        public const string InvoiceReceipt        = "did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/receipt";
+        public const string TransferRequest       = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-request";
+        public const string TransferReceipt       = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-receipt";
+        public const string TransferOrder         = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order";
+        public const string TransferOrderReceipt  = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order-receipt";
+        public const string OverdraftDrawRequest  = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-draw-request";
+        public const string OverdraftDrawReceipt  = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-draw-receipt";
+        public const string EndowmentTopUp        = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/endowment-top-up";
+        public const string SupplyUpdate          = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/supply-update";
+        public const string DidResolveRequest     = "did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-request";
+        public const string DidResolveResponse    = "did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-response";
+        public const string OnboardRequest        = "did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen";
+        public const string OnboardReceipt        = "did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/receipt";
+        public const string InvoiceRequest        = "did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/request";
+        public const string InvoiceReceipt        = "did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/receipt";
     }
 
     // ── Epoch values ──────────────────────────────────────────────────────────

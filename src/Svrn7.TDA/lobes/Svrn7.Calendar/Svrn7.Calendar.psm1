@@ -4,7 +4,7 @@
     SVRN7 Calendar LOBE — DIDComm-native calendar using iCalendar (RFC 5545) tunneling.
 
 .DESCRIPTION
-    Implements the did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/* DIDComm protocol.
+    Implements the did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/* DIDComm protocol.
     iCalendar (RFC 5545) VCALENDAR objects are tunneled verbatim inside DIDComm envelopes.
     ATTENDEE properties use did: URIs. No CalDAV server. No SMTP/MIME transport.
 
@@ -12,9 +12,9 @@
 
 .NOTES
     Protocol URIs:
-        did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/event    — publish an event
-        did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/invite   — METHOD:REQUEST meeting invite
-        did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/response — METHOD:REPLY accept/decline
+        did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/event    — publish an event
+        did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/invite   — METHOD:REQUEST meeting invite
+        did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/response — METHOD:REPLY accept/decline
 #>
 
 Set-StrictMode -Version Latest
@@ -32,7 +32,7 @@ function Import-Web7CalendarEvent {
         maps ATTENDEE did: URIs to citizen records, and returns a calendar event record.
 
         Derived from: Calendar LOBE (Agent 1 LOBE) — DSA 0.24 Epoch 0 (PPML).
-        Protocol: did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/event
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/event
 
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
@@ -89,7 +89,7 @@ function Receive-Web7MeetingRequest {
         Parses the meeting invite and returns a pending invite record.
         Call New-Web7CalendarResponse to generate an accept/decline reply.
 
-        Protocol: did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/invite
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/invite
 
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
@@ -180,7 +180,7 @@ END:VCALENDAR
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/response'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/response'
             from = $mySocietyDid
             to   = @($Invite.OrganizerDid)
             body = $payload

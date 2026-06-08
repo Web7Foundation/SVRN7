@@ -16,23 +16,22 @@ transformation.
 
 ### Naming and version convention (to be enforced)
 
-**Rule:** `did:drn:svrn7.net/protocols/{LobeName}/{major}.{minor}/{action}`
+**Rule:** `did:drn:svrn7.net/protocols/{LobeName}/{lobe.version}/{action}`
 
 - `{LobeName}` — the full LOBE name exactly as it appears in `lobe.name`
   (e.g. `Svrn7.Email`, `Pando.Diagnostics`).  Case-preserved.
-- `{major}.{minor}` — the LOBE's major and minor version from `lobe.version`.
-  Patch releases (`0.8.0` → `0.8.1`) do not change the URI.
+- `{lobe.version}` — the full three-part version from `lobe.version` (e.g. `0.8.0`).
 - `{action}` — the message action name (e.g. `message`, `register-citizen`).
 
 **Examples under the new convention:**
 
 ```
-Svrn7.Email 0.8.0      did:drn:svrn7.net/protocols/Svrn7.Email/0.8/message
-Svrn7.Email 0.8.0      did:drn:svrn7.net/protocols/Svrn7.Email/0.8/receipt
-Svrn7.Federation 0.8.0 did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/register-society
-Svrn7.Onboarding 0.8.0 did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen
-Svrn7.Invoicing 0.8.0  did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/request
-Pando.Diagnostics 0.1.0 did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query
+Svrn7.Email 0.8.0      did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message
+Svrn7.Email 0.8.0      did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/receipt
+Svrn7.Federation 0.8.0 did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society
+Svrn7.Onboarding 0.8.0 did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen
+Svrn7.Invoicing 0.8.0  did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/request
+Pando.Diagnostics 0.1.0 did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query
 ```
 
 **Derivation (bidirectional — no algorithm needed):**
@@ -40,12 +39,12 @@ Pando.Diagnostics 0.1.0 did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-q
 | Direction | Rule |
 |---|---|
 | URI → LOBE name | second path segment after `/protocols/` is the LOBE name verbatim |
-| URI → version constraint | third path segment is `{major}.{minor}` |
+| URI → version constraint | third path segment is `lobe.version` verbatim |
 | LOBE name → URI segment | use `lobe.name` from `.lobe.json` verbatim |
-| LOBE version → URI version | use `{major}.{minor}` from `lobe.version` |
+| LOBE version → URI version | use `lobe.version` from `.lobe.json` verbatim |
 
 This makes TDA-006 trivial: given
-`did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen`, the
+`did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen`, the
 NuGet package ID is `Svrn7.Onboarding` and the minimum version is `0.8.*`
 — read directly from the URI, no registry lookup for the package name.
 
@@ -80,8 +79,8 @@ version.  The full before/after for every LOBE:
 Two LOBEs currently own protocols that belong in separate LOBEs.  A LOBE must
 own exactly one URI segment (its own name):
 
-- **`Svrn7.Identity`** owns `did/1.0/*` and `Svrn7.Identity/0.8/vc-*`.  These are unrelated
-  concerns.  Options: (A) consolidate all under `Svrn7.Identity/0.8/*` and
+- **`Svrn7.Identity`** owns `did/1.0/*` and `Svrn7.Identity/0.8.0/vc-*`.  These are unrelated
+  concerns.  Options: (A) consolidate all under `Svrn7.Identity/0.8.0/*` and
   rename actions accordingly; (B) split into `Svrn7.DID` and `Svrn7.VC`
   (separate LOBEs, separate packages).  Decision required.
 
@@ -95,9 +94,9 @@ own exactly one URI segment (its own name):
 
 | Change type | Protocol URI version | LOBE package version |
 |---|---|---|
-| Patch fix (no message format change) | unchanged | `0.8.0` → `0.8.1` |
-| New optional field added | unchanged | `0.8.0` → `0.9.0` |
-| Breaking field rename / removal | bump minor or major | `0.8.0` → `0.9.0` or `1.0.0` |
+| Patch fix (no message format change) | `0.8.0` → `0.8.1` | `0.8.0` → `0.8.1` |
+| New optional field added | `0.8.0` → `0.9.0` | `0.8.0` → `0.9.0` |
+| Breaking field rename / removal | `0.8.0` → `0.9.0` or `1.0.0` | `0.8.0` → `0.9.0` or `1.0.0` |
 
 A protocol version bump always requires a new URI.  Old and new URIs may be
 registered simultaneously during a migration window (see versioning backlog).
@@ -136,7 +135,7 @@ every message type a TDA will ever encounter.
 1. **LOBE registry / index** — Once TDA-007 naming is in place, the NuGet
    package ID is read directly from the URI: the second path segment after
    `/protocols/` is the package ID verbatim (e.g.
-   `did:drn:svrn7.net/protocols/Svrn7.Email/0.8/message` → package
+   `did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message` → package
    `Svrn7.Email`).  The registry is still needed for one thing: the NuGet feed
    URL (`https://packages.svrn7.net/v3/index.json`).  The minimum version
    constraint is also read directly from the URI (`0.8` → `>= 0.8.0`).

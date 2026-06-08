@@ -203,36 +203,36 @@ namespace for standard SVRN7 protocol type URIs.
 
 | Constant | URI | Direction |
 |----------|-----|-----------|
-| `TransferRequest` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-request` | Citizen → Society |
-| `TransferReceipt` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-receipt` | Society → Citizen |
-| `TransferOrder` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order` | Society → Society |
-| `TransferOrderReceipt` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order-receipt` | Society → Society |
-| `OverdraftDrawRequest` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-draw-request` | Society → Federation |
-| `OverdraftDrawReceipt` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-draw-receipt` | Federation → Society |
-| `EndowmentTopUp` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/endowment-top-up` | Federation → Society |
-| `SupplyUpdate` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/supply-update` | Federation → Societies |
-| `DidResolveRequest` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-request` | Society → Society |
-| `DidResolveResponse` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/did-resolve-response` | Society → Society |
-| `VcResolveBySubjectRequest` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-resolve-by-subject-request` | Society → Society |
-| `VcResolveBySubjectResponse` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8/vc-resolve-by-subject-response` | Society → Society |
-| `SocietyQuery` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/society-query` | Client → Society |
-| `SocietyQueryResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/society-query-result` | Society → Client |
-| `MemberQuery` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/member-query` | Client → Society |
-| `MemberQueryResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/member-query-result` | Society → Client |
-| `OverdraftQuery` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-query` | Client → Society |
-| `OverdraftQueryResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-query-result` | Society → Client |
-| `DidMethodsQuery` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-methods-query` | Client → Society |
-| `DidMethodsQueryResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-methods-query-result` | Society → Client |
-| `DidMethodRegister` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-method-register` | Client → Society |
-| `DidMethodRegisterResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-method-register-result` | Society → Client |
-| `CitizenDidAdd` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/citizen-did-add` | Client → Society |
-| `CitizenDidAddResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/citizen-did-add-result` | Society → Client |
-| `FederationQuery` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/federation-query` | Client → Federation |
-| `FederationQueryResult` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/federation-query-result` | Federation → Client |
-| `FederationInit` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/initialize-federation` | Client → Federation |
-| `FederationInitResult` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/initialize-federation-result` | Federation → Client |
-| `RegisterSociety` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/register-society` | Client → Federation |
-| `RegisterSocietyResult` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/register-society-result` | Federation → Client |
+| `TransferRequest` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-request` | Citizen → Society |
+| `TransferReceipt` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-receipt` | Society → Citizen |
+| `TransferOrder` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order` | Society → Society |
+| `TransferOrderReceipt` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order-receipt` | Society → Society |
+| `OverdraftDrawRequest` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-draw-request` | Society → Federation |
+| `OverdraftDrawReceipt` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-draw-receipt` | Federation → Society |
+| `EndowmentTopUp` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/endowment-top-up` | Federation → Society |
+| `SupplyUpdate` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/supply-update` | Federation → Societies |
+| `DidResolveRequest` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-request` | Society → Society |
+| `DidResolveResponse` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-response` | Society → Society |
+| `VcResolveBySubjectRequest` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/vc-resolve-by-subject-request` | Society → Society |
+| `VcResolveBySubjectResponse` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/vc-resolve-by-subject-response` | Society → Society |
+| `SocietyQuery` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/society-query` | Client → Society |
+| `SocietyQueryResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/society-query-result` | Society → Client |
+| `MemberQuery` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/member-query` | Client → Society |
+| `MemberQueryResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/member-query-result` | Society → Client |
+| `OverdraftQuery` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-query` | Client → Society |
+| `OverdraftQueryResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-query-result` | Society → Client |
+| `DidMethodsQuery` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-methods-query` | Client → Society |
+| `DidMethodsQueryResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-methods-query-result` | Society → Client |
+| `DidMethodRegister` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-method-register` | Client → Society |
+| `DidMethodRegisterResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-method-register-result` | Society → Client |
+| `CitizenDidAdd` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/citizen-did-add` | Client → Society |
+| `CitizenDidAddResult` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/citizen-did-add-result` | Society → Client |
+| `FederationQuery` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/federation-query` | Client → Federation |
+| `FederationQueryResult` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/federation-query-result` | Federation → Client |
+| `FederationInit` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/initialize-federation` | Client → Federation |
+| `FederationInitResult` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/initialize-federation-result` | Federation → Client |
+| `RegisterSociety` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society` | Client → Federation |
+| `RegisterSocietyResult` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society-result` | Federation → Client |
 
 ---
 

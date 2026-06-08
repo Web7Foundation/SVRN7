@@ -147,7 +147,7 @@ bootstrap sequence using only DIDComm messages to the running TDA:
 | E.1 | `federation/1.0/federation-query` | `Invoke-Web7FederationQuery` |
 | E.2 | `federation/1.0/register-society` | `Invoke-Web7RegisterSociety` |
 | E.3 | *(client-side key generation)* | — |
-| E.4 | `Svrn7.Onboarding/0.8/register-citizen` | `ConvertFrom-Web7OnboardRequest` |
+| E.4 | `Svrn7.Onboarding/0.8.0/register-citizen` | `ConvertFrom-Web7OnboardRequest` |
 | E.5–E.11 | `society/1.0/*` query/admin | see below |
 
 > **How replies work:** the Switchboard executes the handler cmdlet, which resolves
@@ -204,7 +204,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/initialize-federation"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/initialize-federation"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -216,7 +216,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/initialize-federation)
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/initialize-federation)
         → Invoke-Web7FederationInit [Svrn7.Federation]   # routes on initialize-federation
 [Info]  Federation initialised: did:drn:foundation.svrn7.net (Web 7.0 SOVRON Foundation), supply 1000000000000000000 grana
 ```
@@ -242,7 +242,7 @@ Verify the federation was initialised correctly. Also works before initialisatio
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/federation-query"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/federation-query"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = "{}"
@@ -254,7 +254,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/federation-query)
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/federation-query)
         → Invoke-Web7FederationQuery [Svrn7.Federation]
 [Trace]   [PS Verbose] Invoke-Web7FederationQuery: replying to did:drn:foundation.svrn7.net
 ```
@@ -294,7 +294,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/register-society"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -306,7 +306,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/register-society)
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society)
         → Invoke-Web7RegisterSociety [Svrn7.Federation]
 [Warn]  RegisterSocietyAsync: FoundationPrivateKey not configured — VTC credential skipped for did:drn:bindloss.svrn7.net (development mode)
 [Info]  Society registered: did:drn:bindloss.svrn7.net (Bindloss Alberta) method=bindloss
@@ -337,7 +337,7 @@ $citizenDid     = $citizenDidDoc.Did
 # e.g. did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
 ```
 
-### E.4 — Register citizen "mwherman" via Svrn7.Onboarding/0.8/register-citizen
+### E.4 — Register citizen "mwherman" via Svrn7.Onboarding/0.8.0/register-citizen
 
 ```powershell
 $body = @{
@@ -349,7 +349,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen"
     from = $citizenDid
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -361,7 +361,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen)
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen)
         → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
 [Info]  Citizen registered: did:bindloss:3J98...
 ```
@@ -377,7 +377,7 @@ now sent as DIDComm messages to the running TDA.
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/society-query"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/society-query"
     from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"   # sender DID
     to   = @("did:drn:bindloss.svrn7.net")
     body = "{}"
@@ -389,7 +389,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log (LogLevel.Trace):
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Society/0.8/society-query)
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/society-query)
         → Invoke-Web7SocietyQuery [Svrn7.Society]
 [Trace]   [PS Verbose] Invoke-Web7SocietyQuery: replying to did:bindloss:3J98...
 ```
@@ -415,7 +415,7 @@ $body = @{ did = $citizenDid } | ConvertTo-Json -Compress
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/member-query"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/member-query"
     from = $citizenDid
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -438,7 +438,7 @@ Send the same `member-query` with an empty body (`"{}"`):
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/member-query"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/member-query"
     from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
     to   = @("did:drn:bindloss.svrn7.net")
     body = "{}"
@@ -459,7 +459,7 @@ Reply body:
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/overdraft-query"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-query"
     from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
     to   = @("did:drn:bindloss.svrn7.net")
     body = "{}"
@@ -489,7 +489,7 @@ $body = @{ methodName = "bindlossgov" } | ConvertTo-Json -Compress
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-method-register"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-method-register"
     from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -510,7 +510,7 @@ Reply body:
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/did-methods-query"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-methods-query"
     from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
     to   = @("did:drn:bindloss.svrn7.net")
     body = "{}"
@@ -542,7 +542,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/citizen-did-add"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/citizen-did-add"
     from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -607,7 +607,7 @@ All scenarios below call `Send-DIDCommMessage -Body <json>` directly.
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-request"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-request"
     from = "did:test:sender"
     to   = @("did:drn:alpha.svrn7.net")
     body = "{}"
@@ -624,10 +624,10 @@ Expected: `Status: Accepted`
 
 | `type` URI | LOBE Handler |
 |---|---|
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-request` | `Invoke-Svrn7IncomingTransfer` |
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order` | `Invoke-Svrn7IncomingTransfer` |
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8/transfer-order-receipt` | `Confirm-Svrn7Settlement` |
-| `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen` | `Register-Svrn7CitizenInSociety` |
+| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-request` | `Invoke-Svrn7IncomingTransfer` |
+| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order` | `Invoke-Svrn7IncomingTransfer` |
+| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order-receipt` | `Confirm-Svrn7Settlement` |
+| `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen` | `Register-Svrn7CitizenInSociety` |
 
 Any other `type` value is enqueued (202) but the Switchboard will log an unroutable message — visible at `LogLevel.Trace`.
 
@@ -780,9 +780,9 @@ did:drn:bindloss.svrn7.net   Clean
 
 ## Scenario B — Register first citizen "mwherman" via DIDComm
 
-Citizen registration is driven by the `Svrn7.Onboarding/0.8/register-citizen` DIDComm protocol.
+Citizen registration is driven by the `Svrn7.Onboarding/0.8.0/register-citizen` DIDComm protocol.
 The Switchboard routes the inbound message to Agent 2 (Onboarding LOBE), which calls
-`Register-Svrn7CitizenInSociety` and returns an `Svrn7.Onboarding/0.8/receipt`.
+`Register-Svrn7CitizenInSociety` and returns an `Svrn7.Onboarding/0.8.0/receipt`.
 
 ### B.1 — Generate key material for "mwherman"
 
@@ -833,7 +833,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen"
     from = $citizenDid
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -850,7 +850,7 @@ With `LogLevel.Trace`, look for the Agent 2 pipeline output:
 
 ```
 [Info]  Switchboard: routing did:drn:bindloss.svrn7.net/inbox/msg/<id>
-        (type=did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen) → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
+        (type=did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen) → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
 [Trace] PS invoke: Agent2-Onboarding.ps1 -MessageDid did:drn:...
 [Trace]   [PS Verbose] Agent 2 / Onboarding: processing did:drn:...
 [Trace]   [PS Verbose] Agent 2 / Onboarding: registering citizen did:bindloss:3J98...
@@ -888,9 +888,9 @@ MemberCount MemberDids
 
 ### B.6 — Error: duplicate registration
 
-Sending the same `Svrn7.Onboarding/0.8/register-citizen` a second time (same `citizenDid`) results in
+Sending the same `Svrn7.Onboarding/0.8.0/register-citizen` a second time (same `citizenDid`) results in
 a `202 Accepted` at the HTTP layer (the Switchboard always enqueues), but Agent 2 will
-log an error and return an `Svrn7.Onboarding/0.8/receipt` with `success: false`:
+log an error and return an `Svrn7.Onboarding/0.8.0/receipt` with `success: false`:
 
 ```
 [Error] Agent 2 / Onboarding: failed for did:drn:.../inbox/msg/<id> — CitizenAlreadyRegisteredException
@@ -1154,8 +1154,8 @@ bindlossgov  False     Active
 | `202` but log shows `CitizenAlreadyRegisteredException` | Citizen DID already registered | Expected — use a new key pair and DID |
 | `202` but log shows `SocietyEndowmentDepletedException` | Society overdraft ceiling reached | Check `Get-Svrn7OverdraftStatus`; await Federation top-up |
 | Agent 2 log: `No DIDComm service endpoint for <DID>` | Citizen DID document has no `DIDComm` service entry | Register the citizen's DID document before sending the receipt |
-| Switchboard epoch gate log warning | `type` URI requires a higher epoch than `CurrentEpoch` | Only `Svrn7.Society/0.8/transfer-order` and `Svrn7.Society/0.8/transfer-order-receipt` are epoch-gated (require Epoch 1). `Svrn7.Society/0.8/transfer-request` is not epoch-gated. |
-| `202` but Switchboard log shows `HandleIncomingTransferMessageAsync` error on `Svrn7.Society/0.8/transfer-request` | `Invoke-Svrn7IncomingTransfer` passes the stored body to `HandleIncomingTransferMessageAsync`, which expects a packed transfer credential, not a plaintext JSON body | Dev testing of transfer routing only — use a properly signed `TransferOrderCredential` body for production transfers |
+| Switchboard epoch gate log warning | `type` URI requires a higher epoch than `CurrentEpoch` | Only `Svrn7.Society/0.8.0/transfer-order` and `Svrn7.Society/0.8.0/transfer-order-receipt` are epoch-gated (require Epoch 1). `Svrn7.Society/0.8.0/transfer-request` is not epoch-gated. |
+| `202` but Switchboard log shows `HandleIncomingTransferMessageAsync` error on `Svrn7.Society/0.8.0/transfer-request` | `Invoke-Svrn7IncomingTransfer` passes the stored body to `HandleIncomingTransferMessageAsync`, which expects a packed transfer credential, not a plaintext JSON body | Dev testing of transfer routing only — use a properly signed `TransferOrderCredential` body for production transfers |
 | `202` but log shows `unknown message type 'application/didcomm-encrypted+json'` | Encrypted JWE was sent — `UnpackAsync` does not decrypt JWE; stores raw ciphertext with wrong type | Use plaintext messages for dev/test (`typ = "application/didcomm-plain+json"`, no `protected_` wrapper) |
 
 ---

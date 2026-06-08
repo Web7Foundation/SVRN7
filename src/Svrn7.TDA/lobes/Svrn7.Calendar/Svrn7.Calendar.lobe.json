@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/event",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/event",
       "title": "Calendar Event Publication",
       "description": "Publishes a VCALENDAR event to a peer TDA. Body: { from: did, icalendarBody: string }",
       "direction": "inbound",
@@ -23,7 +23,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/invite",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/invite",
       "title": "Meeting Invite (METHOD:REQUEST)",
       "description": "iCalendar METHOD:REQUEST meeting invite sent to attendees.",
       "direction": "inbound",
@@ -32,7 +32,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8/response",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/response",
       "title": "Meeting RSVP (METHOD:REPLY)",
       "description": "iCalendar METHOD:REPLY accept or decline from an attendee.",
       "direction": "inbound",
