@@ -12,8 +12,8 @@
 
 .NOTES
     Protocol URIs:
-        did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message   — inbound/outbound email
-        did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/receipt   — delivery confirmation
+        did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/signal-message   — inbound/outbound email
+        did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/issue-receipt   — delivery confirmation
 
     Key:
         From/To headers in the RFC 5322 payload use did: URIs, not SMTP addresses.
@@ -38,7 +38,7 @@ function Receive-Web7Email {
         record to the IInboxStore long-term memory.
 
         Derived from: Email LOBE (Agent 1 LOBE) — DSA 0.24 Epoch 0 (PPML).
-        Protocol: did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/signal-message
 
     .PARAMETER MessageDid
         The TDA resource DID URL of the inbox message.
@@ -107,7 +107,7 @@ function Send-Web7Email {
         message. Resolves the recipient's DID to their TDA endpoint and returns
         an OutboundMessage for the Switchboard to deliver.
 
-        Protocol: did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/signal-message
 
     .PARAMETER RecipientDid
         The recipient citizen's did:drn DID.
@@ -167,7 +167,7 @@ $Body
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/signal-message'
             from = $SVRN7.Driver.SocietyDid
             to   = @($RecipientDid)
             body = $payload

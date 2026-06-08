@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/signal-message",
       "title": "Inbound Email Message",
       "description": "Inbound RFC 5322 email tunneled over DIDComm. Body: { from: did, to: did, rfc5322Body: string }",
       "direction": "inbound",
@@ -23,7 +23,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/receipt",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/issue-receipt",
       "title": "Email Delivery Receipt",
       "description": "Delivery confirmation for a previously sent email.",
       "direction": "inbound",
