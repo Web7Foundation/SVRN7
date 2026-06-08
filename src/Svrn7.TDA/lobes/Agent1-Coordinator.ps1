@@ -18,18 +18,18 @@
 
     LOBEs available in this runspace:
         Eager (pre-loaded via InitialSessionState):
-            Svrn7.Common.psm1
-            Svrn7.Federation.psm1
-            Svrn7.Society.psm1
-            Svrn7.UX.psm1           → ux/1.0/* (balance updates, notifications, registration)
+            Svrn7.Common.0.8.0.psm1
+            Svrn7.Federation.0.8.0.psm1
+            Svrn7.Society.0.8.0.psm1
+            Svrn7.UX.0.8.0.psm1           → ux/1.0/* (balance updates, notifications, registration)
 
         JIT (imported on first message of each type):
-            Svrn7.Email.psm1        → did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/*
-            Svrn7.Calendar.psm1     → did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/*
-            Svrn7.Presence.psm1     → did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/*
-            Svrn7.Notifications.psm1→ did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/*
-            Svrn7.Identity.psm1     → did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-*
-                                      did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/vc-*
+            Svrn7.Email.0.8.0.psm1        → did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/*
+            Svrn7.Calendar.0.8.0.psm1     → did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/*
+            Svrn7.Presence.0.8.0.psm1     → did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/*
+            Svrn7.Notifications.0.8.0.psm1→ did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/*
+            Svrn7.Identity.0.8.0.psm1     → did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-*
+                                      did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/vc-*
 
     $SVRN7 session variable is pre-injected by LobeManager.
     $SVRN7_JIT_LOBES contains the array of JIT LOBE paths.
@@ -47,7 +47,8 @@ function Import-JitLobeIfNeeded {
     if ($script:LoadedJitLobes.ContainsKey($LobeName)) { return }
 
     $path = $SVRN7_JIT_LOBES | Where-Object {
-        [System.IO.Path]::GetFileNameWithoutExtension($_) -eq $LobeName
+        $stem = [System.IO.Path]::GetFileNameWithoutExtension($_)
+        $stem -eq $LobeName -or $stem -like "$LobeName.*"
     } | Select-Object -First 1
 
     if (-not $path) {

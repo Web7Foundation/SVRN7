@@ -1,4 +1,4 @@
-﻿# Pando.Diagnostics LOBE — Debug & Testing Guide
+# Pando.Diagnostics LOBE — Debug & Testing Guide
 
 This guide covers building, running, and testing the `Pando.Diagnostics` example LOBE
 end-to-end against a live TDA.  It is self-contained from the point of starting the TDA
@@ -41,9 +41,9 @@ Get-ChildItem lobes/Pando.Diagnostics
 Expected:
 
 ```
-Pando.Diagnostics.Impl.psm1
+Pando.Diagnostics.Impl.0.1.0.psm1
 Pando.Diagnostics.lobe.json
-Pando.Diagnostics.psm1
+Pando.Diagnostics.0.1.0.psm1
 ```
 
 Verify `Pando.Diagnostics` is in the JIT list:
@@ -55,7 +55,7 @@ Get-Content lobes/lobes.config.json | Select-String "Pando"
 Expected:
 
 ```
-    "Pando.Diagnostics/Pando.Diagnostics.psm1"
+    "Pando.Diagnostics/Pando.Diagnostics.0.1.0.psm1"
 ```
 
 ---
@@ -93,7 +93,7 @@ Federation module to get `Send-DIDCommMessage`:
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
+Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
 ```
 
 ---
@@ -114,7 +114,7 @@ bootstrap sequence.  (The TDA must be running in the first terminal throughout.)
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
+Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
 ```
 
 ### 4.1 — Generate the federation key pair (one-time)
@@ -137,7 +137,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/initialize-federation"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = $body
@@ -157,7 +157,7 @@ Send a `federation/1.0/federation-query` message.  The TDA replies with a
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/federation-query"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/federation-query"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = "{}"
@@ -204,7 +204,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = $body
@@ -221,7 +221,7 @@ While the TDA is running, send a `federation/1.0/society-list` message.
 Include `replyEndpoint` so the result is delivered back to the local TDA.
 
 ```powershell
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
+Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
 
 $body = @{
     replyEndpoint = "http://localhost:8443"
@@ -232,7 +232,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/society-list"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = $body
@@ -279,7 +279,7 @@ but does not attempt outbound delivery.
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query"
+    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = "{}"
@@ -294,7 +294,7 @@ Expected TDA log:
 
 ```
 info:  Switchboard: routing did:drn:solo.svrn7.net/inbox/msg/<id>
-           (type=did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query)
+           (type=did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query)
            → Invoke-PandoDiagnosticsDateQuery [Pando.Diagnostics]
 info:    [PS Info] Pando.Diagnostics: serverUtc=2026-05-30T... epoch=0
 warn:    [PS Warning] Invoke-PandoDiagnosticsDateQuery: no reply endpoint — result not delivered.
@@ -318,7 +318,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query"
+    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = $body
@@ -349,11 +349,11 @@ Expected `date-result` reply body:
 
 ## Step 7 — Verify Get-TDADate standalone (no TDA required)
 
-`Pando.Diagnostics.Impl.psm1` can be imported and tested in isolation — no TDA,
+`Pando.Diagnostics.Impl.0.1.0.psm1` can be imported and tested in isolation — no TDA,
 no assemblies, no database needed.
 
 ```powershell
-Import-Module .\lobes\Pando.Diagnostics\Pando.Diagnostics.Impl.psm1
+Import-Module .\lobes\Pando.Diagnostics\Pando.Diagnostics.Impl.0.1.0.psm1
 
 $now = Get-TDADate
 Write-Host "Server time : $($now.ToString('o'))"
@@ -395,7 +395,7 @@ After a full reset, repeat Step 4 before testing the LOBE.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `No LOBE registered for @type .../diagnostics/1.0/date-query` | `Pando.Diagnostics` missing from `lobes.config.json` or files not in output | Verify Step 1 |
-| `The term 'Get-TDADate' is not recognized` | `Pando.Diagnostics.Impl.psm1` not found at `$PSScriptRoot` | Verify all three files are in `lobes/Pando.Diagnostics/` in the output folder |
+| `The term 'Get-TDADate' is not recognized` | `Pando.Diagnostics.Impl.0.1.0.psm1` not found at `$PSScriptRoot` | Verify all three files are in `lobes/Pando.Diagnostics/` in the output folder |
 | `Invoke-PandoDiagnosticsDateQuery: message '...' not found.` | Message expired from cache before handler ran | Retry; check inbox store |
 | `[PS Warning] no reply endpoint — result not delivered.` | Expected when `replyEndpoint` absent and sender DID has no DID Document | Normal for Step 5 (no-reply variant) |
 | `serverUtc` and `respondedAt` are identical | Normal — both calls run within microseconds | Not an error |

@@ -184,7 +184,7 @@ directory is configured via `TdaOptions.LobesConfigPath` and defaults to `./lobe
 
 Examples:
 ```
-Svrn7.Email.psm1
+Svrn7.Email.0.8.0.psm1
 Svrn7.Email.psd1
 Svrn7.Email.lobe.json
 ```
@@ -321,7 +321,7 @@ entry with a protocol prefix covers all message subtypes in a protocol family:
 
 ```json
 {
-  "uri":       "did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/",
+  "uri":       "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/",
   "match":     "prefix",
   "entrypoint":"Dequeue-PandoEmail"
 }
@@ -336,9 +336,9 @@ When `match` is `"exact"`, only an exact string match routes to the entry. Use w
 different subtypes within a protocol family require different entry-point cmdlets:
 
 ```json
-{ "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/invite",
+{ "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/invite",
   "match": "exact", "entrypoint": "Receive-Web7MeetingRequest" },
-{ "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/",
+{ "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/",
   "match": "prefix", "entrypoint": "Import-Web7CalendarEvent" }
 ```
 
@@ -361,7 +361,7 @@ register URIs in namespaces they do not control.
 The SVRN7 transfer protocols include an idempotency requirement that is implemented as
 a Switchboard special case rather than in the LOBE:
 
-- `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order` — cross-Society TransferOrder
+- `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order` — cross-Society TransferOrder
   MUST be checked against `IProcessedOrderStore` before routing. If a receipt already
   exists, the stored receipt is returned without re-invoking the LOBE cmdlet.
 
@@ -493,7 +493,7 @@ the following dispatch protocol:
      Return.
 
 4. OPTION A CHECK (Svrn7.Society/0.8.0/transfer-order only):
-   If @type == "did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order":
+   If @type == "did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order":
      Check IProcessedOrderStore.GetReceiptAsync(msg.Id).
      If receipt found: Mark Processed. Return.
 
@@ -707,20 +707,20 @@ The following nine LOBEs are shipped with the SVRN7 TDA Host v0.8.0.
 
 | LOBE              | Module                 | Purpose                                          |
 |-------------------|------------------------|--------------------------------------------------|
-| Svrn7.Common      | Svrn7.Common.psm1      | Shared helpers. No protocol handlers.            |
-| Svrn7.Federation  | Svrn7.Federation.psm1  | DID generation, key pairs, base registry.        |
-| Svrn7.Society     | Svrn7.Society.psm1     | Citizen registration, transfers, membership, society/1.0/* query and admin protocols. |
+| Svrn7.Common      | Svrn7.Common.0.8.0.psm1      | Shared helpers. No protocol handlers.            |
+| Svrn7.Federation  | Svrn7.Federation.0.8.0.psm1  | DID generation, key pairs, base registry.        |
+| Svrn7.Society     | Svrn7.Society.0.8.0.psm1     | Citizen registration, transfers, membership, society/1.0/* query and admin protocols. |
 
 ### 12.2 JIT LOBEs (on-demand import)
 
 | LOBE                   | Module                      | Protocols Handled                          |
 |------------------------|-----------------------------|--------------------------------------------|
-| Svrn7.Email            | Svrn7.Email.psm1            | email/1.0/*                                |
-| Svrn7.Calendar         | Svrn7.Calendar.psm1         | calendar/1.0/*                             |
-| Svrn7.Presence         | Svrn7.Presence.psm1         | presence/1.0/*                             |
-| Svrn7.Notifications    | Svrn7.Notifications.psm1    | Svrn7.Notifications/0.8.0/*                         |
-| Svrn7.Onboarding       | Svrn7.Onboarding.psm1       | Svrn7.Onboarding/0.8.0/*                              |
-| Svrn7.Invoicing        | Svrn7.Invoicing.psm1        | Svrn7.Invoicing/0.8.0/*                              |
+| Svrn7.Email            | Svrn7.Email.0.8.0.psm1            | email/1.0/*                                |
+| Svrn7.Calendar         | Svrn7.Calendar.0.8.0.psm1         | calendar/1.0/*                             |
+| Svrn7.Presence         | Svrn7.Presence.0.8.0.psm1         | presence/1.0/*                             |
+| Svrn7.Notifications    | Svrn7.Notifications.0.8.0.psm1    | Svrn7.Notifications/0.8.0/*                         |
+| Svrn7.Onboarding       | Svrn7.Onboarding.0.8.0.psm1       | Svrn7.Onboarding/0.8.0/*                              |
+| Svrn7.Invoicing        | Svrn7.Invoicing.0.8.0.psm1        | Svrn7.Invoicing/0.8.0/*                              |
 
 ### 12.3 Option A Protocols (Switchboard special case)
 
@@ -729,33 +729,33 @@ handling in the Switchboard before being routed to the registered cmdlet:
 
 | Protocol URI                                        | Special Case                        |
 |-----------------------------------------------------|-------------------------------------|
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order`   | Idempotency check via IProcessedOrderStore |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order`   | Idempotency check via IProcessedOrderStore |
 
 ### 12.4 Standard Protocol URI Registry
 
 | @type URI prefix                                              | LOBE                | Entrypoint                    | Epoch |
 |---------------------------------------------------------------|---------------------|-------------------------------|-------|
-| `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/federation-query`| Svrn7.Federation    | Invoke-Web7FederationQuery    | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/initialize-federation`            | Svrn7.Federation    | Invoke-Web7FederationInit     | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society`| Svrn7.Federation    | Invoke-Web7RegisterSociety    | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-request`           | Svrn7.Society       | Invoke-Svrn7IncomingTransfer  | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order`             | Svrn7.Society       | Invoke-Svrn7IncomingTransfer  | 1     |
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order-receipt`     | Svrn7.Society       | Confirm-Svrn7Settlement       | 1     |
-| `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/`                   | Svrn7.Onboarding    | ConvertFrom-Web7OnboardRequest| 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/`                     | Svrn7.Email         | Dequeue-PandoEmail             | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/invite`            | Svrn7.Calendar      | Receive-Web7MeetingRequest    | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/`                  | Svrn7.Calendar      | Import-Web7CalendarEvent      | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/subscribe`         | Svrn7.Presence      | Add-Web7PresenceSubscription  | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/`                  | Svrn7.Presence      | Update-Web7Presence           | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/`              | Svrn7.Notifications | Invoke-Web7Notification       | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/`                   | Svrn7.Invoicing     | ConvertFrom-Web7InvoiceRequest| 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-request`        | Svrn7.Society       | Resolve-Svrn7Did              | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/society-query`      | Svrn7.Society       | Invoke-Web7SocietyQuery       | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/member-query`       | Svrn7.Society       | Invoke-Web7MemberQuery        | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-query`    | Svrn7.Society       | Invoke-Web7OverdraftQuery     | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-methods-query`  | Svrn7.Society       | Invoke-Web7DidMethodsQuery    | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-method-register`| Svrn7.Society       | Invoke-Web7DidMethodRegister  | 0     |
-| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/citizen-did-add`    | Svrn7.Society       | Invoke-Web7CitizenDidAdd      | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/federation-query`| Svrn7.Federation    | Invoke-Web7FederationQuery    | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation`            | Svrn7.Federation    | Invoke-Web7FederationInit     | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society`| Svrn7.Federation    | Invoke-Web7RegisterSociety    | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request`           | Svrn7.Society       | Invoke-Svrn7IncomingTransfer  | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order`             | Svrn7.Society       | Invoke-Svrn7IncomingTransfer  | 1     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order-receipt`     | Svrn7.Society       | Confirm-Svrn7Settlement       | 1     |
+| `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/`                   | Svrn7.Onboarding    | ConvertFrom-Web7OnboardRequest| 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/`                     | Svrn7.Email         | Dequeue-PandoEmail             | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/invite`            | Svrn7.Calendar      | Receive-Web7MeetingRequest    | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/`                  | Svrn7.Calendar      | Import-Web7CalendarEvent      | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/subscribe`         | Svrn7.Presence      | Add-Web7PresenceSubscription  | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/`                  | Svrn7.Presence      | Update-Web7Presence           | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/`              | Svrn7.Notifications | Invoke-Web7Notification       | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/`                   | Svrn7.Invoicing     | ConvertFrom-Web7InvoiceRequest| 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request`        | Svrn7.Society       | Resolve-Svrn7Did              | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/society-query`      | Svrn7.Society       | Invoke-Web7SocietyQuery       | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/member-query`       | Svrn7.Society       | Invoke-Web7MemberQuery        | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-query`    | Svrn7.Society       | Invoke-Web7OverdraftQuery     | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-methods-query`  | Svrn7.Society       | Invoke-Web7DidMethodsQuery    | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-method-register`| Svrn7.Society       | Invoke-Web7DidMethodRegister  | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/citizen-did-add`    | Svrn7.Society       | Invoke-Web7CitizenDidAdd      | 0     |
 
 ---
 

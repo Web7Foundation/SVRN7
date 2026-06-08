@@ -1,4 +1,4 @@
-﻿# SVRN7 — DID & DIDDocument Debug Guide
+# SVRN7 — DID & DIDDocument Debug Guide
 
 Covers all DID and DIDDocument operations: key generation, registration, document
 inspection, method management, secondary DIDs, resolution, and DIDComm-based resolution.
@@ -24,8 +24,8 @@ Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 ### Module imports
 
 ```powershell
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
-Import-Module .\lobes\Svrn7.Society\Svrn7.Society.psm1
+Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Society\Svrn7.Society.0.8.0.psm1
 ```
 
 ### TDA requirement
@@ -86,7 +86,7 @@ $body = @{
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = 'did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/initialize-federation'
+    type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation'
     from = 'did:drn:foundation.svrn7.net'
     to   = @('did:drn:bindloss.svrn7.net')
     body = $body
@@ -98,7 +98,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/init)
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/init)
         → Invoke-Web7FederationInit [Svrn7.Federation]
 [Info]  Federation initialised: did:drn:foundation.svrn7.net (Web 7.0 Foundation)
 ```
@@ -121,7 +121,7 @@ $body = @{
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = 'did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society'
+    type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society'
     from = 'did:drn:foundation.svrn7.net'
     to   = @('did:drn:bindloss.svrn7.net')
     body = $body
@@ -152,7 +152,7 @@ $body = @{
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = 'did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen'
+    type = 'did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen'
     from = $citizenDid
     to   = @('did:drn:bindloss.svrn7.net')
     body = $body
@@ -164,7 +164,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen)
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen)
         → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
 [Info]  Citizen registered: did:bindloss:mwherman001
 ```
@@ -440,8 +440,8 @@ Resolve-Svrn7CitizenPrimaryDid -Did 'did:sovroniamed:3J98t1WpEZ73CNmQviecrnyiWrn
 
 | Direction | Protocol URI |
 |-----------|-------------|
-| Request  | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-request` |
-| Response | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-response` |
+| Request  | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request` |
+| Response | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response` |
 
 ### D8.1 — Send a DID resolve request
 
@@ -454,7 +454,7 @@ $body = @{ did = $targetDid; from = $requesterDid } | ConvertTo-Json -Compress
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = 'did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-request'
+    type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request'
     from = $requesterDid
     to   = @('did:drn:bindloss.svrn7.net')
     body = $body
@@ -466,7 +466,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-request)
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request)
         → Resolve-Svrn7Did [Svrn7.Identity]
 [Info]  Invoke-Svrn7DidResolveResponse: requestedDid='did:sovronia:abc123...' found=True
 ```

@@ -233,7 +233,7 @@ public static class TdaServiceCollectionExtensions
         // URLs. With the default RequestVersionOrLower, SocketsHttpHandler downgrades
         // to HTTP/1.1 for cleartext connections, producing 400 from a Http2-only Kestrel
         // endpoint. RequestVersionExact enforces HTTP/2 end-to-end (same approach used
-        // by Send-DIDCommMessage in Svrn7.Common.psm1).
+        // by Send-DIDCommMessage in Svrn7.Common.0.8.0.psm1).
         services.AddHttpClient("didcomm", client =>
         {
             client.DefaultRequestVersion = new System.Version(2, 0);

@@ -1,4 +1,4 @@
-﻿{
+{
   "lobe": {
     "id": "test.email",
     "name": "Test.Email",
@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "https://test.example/protocols/Svrn7.Email/0.8.0/signal-message",
+      "uri": "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail",
       "title": "Test Email Message",
       "description": "Test email message type.",
       "direction": "inbound",
@@ -23,7 +23,7 @@
       "epochRequired": 0
     },
     {
-      "uri": "https://test.example/protocols/Svrn7.Email/0.8.0/issue-receipt",
+      "uri": "https://test.example/protocols/Svrn7.Email.0.8.0/issue-receipt",
       "title": "Test Email Receipt",
       "description": "Test email receipt (exact match).",
       "direction": "inbound",

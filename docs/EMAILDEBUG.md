@@ -40,7 +40,7 @@ Expected:
 
 ```
 Svrn7.Email.lobe.json
-Svrn7.Email.psm1
+Svrn7.Email.0.8.0.psm1
 ```
 
 Verify `Svrn7.Email` is in the JIT list:
@@ -52,7 +52,7 @@ Get-Content lobes/lobes.config.json | Select-String "Email"
 Expected:
 
 ```
-    "Svrn7.Email/Svrn7.Email.psm1"
+    "Svrn7.Email/Svrn7.Email.0.8.0.psm1"
 ```
 
 ---
@@ -77,7 +77,7 @@ In a separate PowerShell 7 terminal:
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
+Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
 ```
 
 This gives you `Send-DIDCommMessage` for all subsequent steps.
@@ -113,7 +113,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/message"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -127,9 +127,9 @@ Expected response: `Status: Accepted`
 Expected TDA log (timestamps vary):
 
 ```
-20:49:13.432 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing did:drn:alpha.svrn7.net/inbox/msg/<id> (type=did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message) → Dequeue-PandoEmail [Svrn7.Email]
-20:49:13.441 dbug: Svrn7.TDA.LobeManager[0] LobeManager: EnsureLoadedAsync - JIT 'C:\...\lobes\Svrn7.Email\Svrn7.Email.psm1'.
-20:49:13.512 info: Svrn7.TDA.LobeManager[0] LobeManager: import complete - ...\Svrn7.Email.psm1
+20:49:13.432 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing did:drn:alpha.svrn7.net/inbox/msg/<id> (type=did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/message) → Dequeue-PandoEmail [Svrn7.Email]
+20:49:13.441 dbug: Svrn7.TDA.LobeManager[0] LobeManager: EnsureLoadedAsync - JIT 'C:\...\lobes\Svrn7.Email\Svrn7.Email.0.8.0.psm1'.
+20:49:13.512 info: Svrn7.TDA.LobeManager[0] LobeManager: import complete - ...\Svrn7.Email.0.8.0.psm1
 20:49:13.518 dbug: Svrn7.TDA.DIDCommMessageSwitchboard[0]   [PS Verbose] Email LOBE: stored email from did:drn:foundation.svrn7.net — 'Hello from the Foundation'
 20:49:13.519 dbug: Svrn7.Society.LiteInboxStore[0] Inbox: message did:drn:alpha.svrn7.net/inbox/msg/<id> marked Processed
 ```
@@ -153,7 +153,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/message"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -183,7 +183,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/receipt"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/receipt"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
@@ -195,7 +195,7 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-20:49:14.101 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/receipt) → Dequeue-PandoEmail [Svrn7.Email]
+20:49:14.101 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/receipt) → Dequeue-PandoEmail [Svrn7.Email]
 20:49:14.104 dbug: ...   [PS Verbose] Email LOBE: stored email from did:drn:foundation.svrn7.net — 'Delivery receipt'
 ```
 
@@ -238,7 +238,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/message"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body

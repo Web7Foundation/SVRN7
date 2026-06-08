@@ -1,8 +1,8 @@
 {
   "eager": [
-    "Svrn7.Common/Svrn7.Common.psm1",
-    "Svrn7.Federation/Svrn7.Federation.psm1",
-    "Svrn7.Society/Svrn7.Society.psm1",
-    "Svrn7.UX/Svrn7.UX.psm1"
+    "Svrn7.Common.0.8.0/Svrn7.Common.0.8.0.psm1",
+    "Svrn7.Federation.0.8.0/Svrn7.Federation.0.8.0.psm1",
+    "Svrn7.Society.0.8.0/Svrn7.Society.0.8.0.psm1",
+    "Svrn7.UX.0.8.0/Svrn7.UX.0.8.0.psm1"
   ]
 }

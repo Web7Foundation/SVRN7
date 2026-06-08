@@ -1,4 +1,4 @@
-﻿# Pando.Packaging — JIT LOBE Lifecycle Debug Guide
+# Pando.Packaging — JIT LOBE Lifecycle Debug Guide
 
 This guide walks the complete lifecycle of a JIT LOBE: packaging from source,
 validating, installing into a running TDA, verifying hot-load via the
@@ -172,12 +172,12 @@ is not installed, the Switchboard will dead-letter the message immediately
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
+Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
 
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query'
+    type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query'
     from = 'did:drn:solo.svrn7.net'
     to   = @('did:drn:solo.svrn7.net')
     body = '{}'
@@ -191,7 +191,7 @@ Expected TDA log (Terminal A):
 ```
 warn: Svrn7.TDA.DIDCommMessageSwitchboard[0]
       Switchboard: no LOBE registered for @type
-      'did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query' — failing message.
+      'did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query' — failing message.
 ```
 
 The message is dead-lettered, not dropped — it is recorded in the inbox store
@@ -227,9 +227,9 @@ Get-ChildItem $lobesDir\Pando.Diagnostics
 Expected:
 
 ```
-Pando.Diagnostics.Impl.psm1
+Pando.Diagnostics.Impl.0.1.0.psm1
 Pando.Diagnostics.lobe.json
-Pando.Diagnostics.psm1
+Pando.Diagnostics.0.1.0.psm1
 ```
 
 ---
@@ -263,7 +263,7 @@ info: Svrn7.TDA.LobeManager[0]
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query'
+    type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query'
     from = 'did:drn:solo.svrn7.net'
     to   = @('did:drn:solo.svrn7.net')
     body = '{}'
@@ -276,13 +276,13 @@ Expected TDA log (Terminal A):
 
 ```
 dbg: Svrn7.TDA.LobeManager[0]
-     LobeManager: EnsureLoadedAsync — JIT '...\Pando.Diagnostics.psm1'.
+     LobeManager: EnsureLoadedAsync — JIT '...\Pando.Diagnostics.0.1.0.psm1'.
 
 info: Svrn7.TDA.LobeManager[0]
-     LobeManager: importing into isolated runspace (JIT) — ...\Pando.Diagnostics.psm1
+     LobeManager: importing into isolated runspace (JIT) — ...\Pando.Diagnostics.0.1.0.psm1
 
 info: Svrn7.TDA.LobeManager[0]
-     LobeManager: import complete — ...\Pando.Diagnostics.psm1
+     LobeManager: import complete — ...\Pando.Diagnostics.0.1.0.psm1
 
 info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
      Invoke-PandoDiagnosticsDateQuery: replying ...
@@ -299,7 +299,7 @@ The TDA uses `Import-Module -Force` for every JIT message.  Any change to the
 
 **11.1 — Edit the installed .psm1**
 
-Open `...\lobes\Pando.Diagnostics\Pando.Diagnostics.psm1` in any editor and
+Open `...\lobes\Pando.Diagnostics\Pando.Diagnostics.0.1.0.psm1` in any editor and
 add a visible marker to the `Invoke-PandoDiagnosticsDateQuery` function body:
 
 ```powershell
@@ -315,7 +315,7 @@ Save the file.
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query'
+    type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query'
     from = 'did:drn:solo.svrn7.net'
     to   = @('did:drn:solo.svrn7.net')
     body = '{}'
@@ -330,7 +330,7 @@ The TDA log shows the reimport:
 
 ```
 info: Svrn7.TDA.LobeManager[0]
-      LobeManager: importing into isolated runspace (JIT) — ...\Pando.Diagnostics.psm1
+      LobeManager: importing into isolated runspace (JIT) — ...\Pando.Diagnostics.0.1.0.psm1
 ```
 
 And the magenta `Write-Host` output appears in the TDA terminal, confirming the
@@ -436,7 +436,7 @@ non-empty.  The `uri`, `match`, and `entrypoint` fields are required per entry.
 ### JIT import fails (`Import-Module failed`)
 
 ```
-InvalidOperationException: LobeManager: Import-Module failed for '...\Pando.Diagnostics.psm1':
+InvalidOperationException: LobeManager: Import-Module failed for '...\Pando.Diagnostics.0.1.0.psm1':
   The term 'Invoke-PandoDiagnosticsDateQuery' is not recognized ...
 ```
 
@@ -445,7 +445,7 @@ The `.psm1` has a syntax error or the entrypoint function name does not match
 session to surface parse errors:
 
 ```powershell
-pwsh -NoProfile -Command "Import-Module '.\lobes\Pando.Diagnostics\Pando.Diagnostics.psm1' -Force"
+pwsh -NoProfile -Command "Import-Module '.\lobes\Pando.Diagnostics\Pando.Diagnostics.0.1.0.psm1' -Force"
 ```
 
 ### Hot-update: old code still runs

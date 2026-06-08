@@ -1,0 +1,289 @@
+#Requires -Version 7.0
+<#
+.SYNOPSIS
+    SVRN7 UX LOBE — Platform-specific user interface adapter for TDA interactions.
+
+.DESCRIPTION
+    The UX LOBE is the boundary between the TDA's internal DIDComm ecosystem and
+    the citizen-facing user interface layer. It translates TDA events into UI
+    notifications, renders wallet balance updates, and relays citizen-initiated
+    actions into the appropriate DIDComm pipelines.
+
+    In the DSA 0.24 PPML diagram, the UX LOBE sits outside the TDA Host (element
+    type: LOBE) adjacent to the DEVICE element. It is the only LOBE that communicates
+    with a DEVICE; all other LOBEs communicate exclusively TDA-to-TDA via DIDComm.
+
+    Derived from: UX LOBE (LOBE element type) — DSA 0.24 Epoch 0 (PPML).
+
+.NOTES
+    Protocol URIs handled (outbound — TDA → UX layer):
+        did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/balance-update     — wallet balance changed
+        did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/notification       — surface an alert to the citizen
+        did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/registration-complete — onboarding confirmed
+
+    Protocol URIs handled (inbound — UX layer → TDA):
+        did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/transfer-intent     — citizen initiated a transfer
+        did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/registration-intent — citizen initiated onboarding
+
+    Epoch 0: platform-specific rendering is stubbed. Implementors replace
+    the Render-* functions with platform-appropriate UI calls (CLI, web, mobile).
+#>
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# ── Render-Web7BalanceUpdate ───────────────────────────────────────────────────
+
+function Render-Web7BalanceUpdate {
+    <#
+    .SYNOPSIS
+        Renders a wallet balance update to the citizen-facing UX device.
+
+    .DESCRIPTION
+        Processes an inbound ux/1.0/balance-update message from the TDA and
+        surfaces the new balance to the citizen via the platform-specific UI layer.
+
+        Derived from: UX LOBE — DSA 0.24 Epoch 0 (PPML).
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/balance-update
+
+    .PARAMETER MessageDid
+        TDA resource DID URL of the inbox message.
+
+    .OUTPUTS
+        Hashtable — { CitizenDid, BalanceGrana, BalanceSvrn7, UpdatedAt }
+        or $null if message could not be processed.
+
+    .EXAMPLE
+        Render-Web7BalanceUpdate -MessageDid "did:drn:alpha.svrn7.net/inbox/msg/5f43a2..."
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { Write-Warning "UX LOBE: $MessageDid not found."; return $null }
+
+        $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+
+        $record = @{
+            CitizenDid    = $body.citizenDid
+            BalanceGrana  = $body.balanceGrana
+            BalanceSvrn7  = [decimal]$body.balanceGrana / 1000000
+            UpdatedAt     = [datetimeoffset]::UtcNow.ToString('o')
+        }
+
+        # Platform-specific rendering — replace with actual UI call.
+        # Epoch 0: writes to console. Production: push notification, web socket, etc.
+        Write-Host ("UX: Balance update for {0} — {1:F6} SRC ({2} grana)" -f
+            $record.CitizenDid,
+            $record.BalanceSvrn7,
+            $record.BalanceGrana) -ForegroundColor Cyan
+
+        return $record
+    }
+}
+
+# ── Render-Web7Notification ────────────────────────────────────────────────────
+
+function Render-Web7Notification {
+    <#
+    .SYNOPSIS
+        Surfaces a TDA alert notification to the citizen UX device.
+
+    .DESCRIPTION
+        Translates a Svrn7.Notifications/0.8.0/alert or ux/1.0/notification message into
+        a platform-specific UI notification. The UX LOBE is the adapter boundary;
+        the rendering implementation is platform-specific.
+
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/notification
+
+    .PARAMETER MessageDid
+        TDA resource DID URL of the inbox message.
+
+    .OUTPUTS
+        Hashtable — { AlertType, Severity, Message, ResourceDid, RenderedAt }
+
+    .EXAMPLE
+        Render-Web7Notification -MessageDid "did:drn:alpha.svrn7.net/inbox/msg/5f43a2..."
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { Write-Warning "UX LOBE: $MessageDid not found."; return $null }
+
+        $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+
+        $record = @{
+            AlertType   = $body.alertType
+            Severity    = $body.severity
+            Message     = $body.message
+            ResourceDid = $body.resourceDid
+            RenderedAt  = [datetimeoffset]::UtcNow.ToString('o')
+        }
+
+        # Platform-specific rendering — severity maps to UI treatment.
+        $colour = switch ($body.severity) {
+            'Critical' { 'Red' }
+            'Warning'  { 'Yellow' }
+            default    { 'White' }
+        }
+        Write-Host ("UX [{0}]: {1} — {2}" -f
+            $body.severity, $body.alertType, $body.message) -ForegroundColor $colour
+
+        return $record
+    }
+}
+
+# ── Render-Web7RegistrationComplete ───────────────────────────────────────────
+
+function Render-Web7RegistrationComplete {
+    <#
+    .SYNOPSIS
+        Renders a successful citizen registration confirmation to the UX device.
+
+    .DESCRIPTION
+        Called when Svrn7.Onboarding/0.8.0/receipt arrives with success=true.
+        Surfaces the citizen's new DID, Society membership, and endowment amount.
+
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/registration-complete
+
+    .PARAMETER MessageDid
+        TDA resource DID URL of the inbox message.
+
+    .OUTPUTS
+        Hashtable — { CitizenDid, SocietyDid, EndowmentGrana, EndowmentSvrn7, RegisteredAt }
+
+    .EXAMPLE
+        Render-Web7RegistrationComplete -MessageDid "did:drn:alpha.svrn7.net/inbox/msg/..."
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { Write-Warning "UX LOBE: $MessageDid not found."; return $null }
+
+        $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+
+        $success       = $body.PSObject.Properties['success'] -and $body.success
+        $citizenDid    = Get-BodyField $body 'citizenDid'    ''
+        $societyDid    = Get-BodyField $body 'societyDid'    ''
+        $endowmentGrana= Get-BodyField $body 'endowmentGrana' 0
+
+        if (-not $success) {
+            $errDetail = Get-BodyField $body 'error' '(no detail)'
+            Write-Warning ("UX LOBE: registration failed — {0}" -f $errDetail)
+            return $null
+        }
+
+        $svrn7 = [decimal]$endowmentGrana / 1000000
+        $record = @{
+            CitizenDid     = $citizenDid
+            SocietyDid     = $societyDid
+            EndowmentGrana = $endowmentGrana
+            EndowmentSvrn7 = $svrn7
+            RegisteredAt   = [datetimeoffset]::UtcNow.ToString('o')
+        }
+
+        Write-Host "UX: Welcome to $societyDid!" -ForegroundColor Green
+        Write-Host "    DID:       $citizenDid" -ForegroundColor Green
+        Write-Host ("    Endowment: {0:F6} SRC ({1} grana)" -f $svrn7, $endowmentGrana) -ForegroundColor Green
+
+        return $record
+    }
+}
+
+# ── New-Svrn7TransferIntent ─────────────────────────────────────────────────────
+
+function New-Svrn7TransferIntent {
+    <#
+    .SYNOPSIS
+        Packages a citizen-initiated transfer into a DIDComm Svrn7.Society/0.8.0/transfer-request.
+
+    .DESCRIPTION
+        Called by the UX layer when a citizen submits a transfer via the UI.
+        Constructs the outbound DIDComm message for the Switchboard to deliver
+        to the Society TDA for execution.
+
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/transfer-intent (inbound UX)
+                  → did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request (outbound DIDComm)
+
+    .PARAMETER PayerDid
+        Payer citizen DID.
+
+    .PARAMETER PayeeDid
+        Payee citizen DID.
+
+    .PARAMETER AmountGrana
+        Amount in grana (integer).
+
+    .PARAMETER Memo
+        Optional memo (max 256 chars).
+
+    .OUTPUTS
+        OutboundMessage — packed DIDComm message ready for Switchboard delivery.
+
+    .EXAMPLE
+        New-Svrn7TransferIntent -PayerDid $from -PayeeDid $to -AmountGrana 500000
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string] $PayerDid,
+        [Parameter(Mandatory)] [string] $PayeeDid,
+        [Parameter(Mandatory)] [long]   $AmountGrana,
+        [string] $Memo = ''
+    )
+
+    process {
+        if ($AmountGrana -le 0) {
+            throw "UX LOBE: AmountGrana must be greater than zero."
+        }
+
+        $bodyJson = @{
+            payerDid    = $PayerDid
+            payeeDid    = $PayeeDid
+            amountGrana = $AmountGrana
+            memo        = $Memo
+            nonce       = [guid]::NewGuid().ToString('N')
+            timestamp   = [datetimeoffset]::UtcNow.ToString('o')
+        } | ConvertTo-Json -Compress
+
+        $peerEndpoint = Resolve-SocietySenderEndpoint -Did $SVRN7.Driver.SocietyDid
+        if (-not $peerEndpoint) {
+            Write-Warning "New-Svrn7TransferIntent: no DIDComm service endpoint for Society — intent skipped."
+            return
+        }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request'
+            from = $PayerDid
+            to   = @($PayeeDid)
+            body = $bodyJson
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($peerEndpoint, $envelope)
+    }
+}
+
+Export-ModuleMember -Function @(
+    'Render-Web7BalanceUpdate',
+    'Render-Web7Notification',
+    'Render-Web7RegistrationComplete',
+    'New-Svrn7TransferIntent'
+)

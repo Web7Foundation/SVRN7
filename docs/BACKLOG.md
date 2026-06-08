@@ -16,7 +16,7 @@ transformation.
 
 ### Naming and version convention (to be enforced)
 
-**Rule:** `did:drn:svrn7.net/protocols/{LobeName}/{lobe.version}/{action}`
+**Rule:** `did:drn:svrn7.net/protocols/{LobeName}.{lobe.version}/{action}`
 
 - `{LobeName}` — the full LOBE name exactly as it appears in `lobe.name`
   (e.g. `Svrn7.Email`, `Pando.Diagnostics`).  Case-preserved.
@@ -26,12 +26,12 @@ transformation.
 **Examples under the new convention:**
 
 ```
-Svrn7.Email 0.8.0      did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message
-Svrn7.Email 0.8.0      did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/receipt
-Svrn7.Federation 0.8.0 did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society
-Svrn7.Onboarding 0.8.0 did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen
-Svrn7.Invoicing 0.8.0  did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/request
-Pando.Diagnostics 0.1.0 did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date-query
+Svrn7.Email 0.8.0      did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/message
+Svrn7.Email 0.8.0      did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/receipt
+Svrn7.Federation 0.8.0 did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society
+Svrn7.Onboarding 0.8.0 did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen
+Svrn7.Invoicing 0.8.0  did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/request
+Pando.Diagnostics 0.1.0 did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query
 ```
 
 **Derivation (bidirectional — no algorithm needed):**
@@ -44,7 +44,7 @@ Pando.Diagnostics 0.1.0 did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1.0/date
 | LOBE version → URI version | use `lobe.version` from `.lobe.json` verbatim |
 
 This makes TDA-006 trivial: given
-`did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen`, the
+`did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen`, the
 NuGet package ID is `Svrn7.Onboarding` and the minimum version is `0.8.*`
 — read directly from the URI, no registry lookup for the package name.
 
@@ -135,7 +135,7 @@ every message type a TDA will ever encounter.
 1. **LOBE registry / index** — Once TDA-007 naming is in place, the NuGet
    package ID is read directly from the URI: the second path segment after
    `/protocols/` is the package ID verbatim (e.g.
-   `did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message` → package
+   `did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/message` → package
    `Svrn7.Email`).  The registry is still needed for one thing: the NuGet feed
    URL (`https://packages.svrn7.net/v3/index.json`).  The minimum version
    constraint is also read directly from the URI (`0.8` → `>= 0.8.0`).
@@ -371,7 +371,7 @@ would eliminate the per-dispatch import cost for frequently-used JIT LOBEs.
 
 ## TDA-001c — Double GetMessageAsync call in LOBE cmdlets (FYI / Minor Performance Note)
 
-**Area:** `DIDCommMessageSwitchboard`, `Svrn7.Email.psm1`, all LOBE cmdlets that call
+**Area:** `DIDCommMessageSwitchboard`, `Svrn7.Email.0.8.0.psm1`, all LOBE cmdlets that call
 `$SVRN7.GetMessageAsync()` internally
 
 **Summary:** The Switchboard pipeline calls `Dequeue-Svrn7Message -Did $did` before invoking

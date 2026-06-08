@@ -200,7 +200,7 @@ Three LiteDB 5 embedded databases per deployment:
 
 ## PowerShell Test Utilities
 
-`Remove-Svrn7Databases` is exported from `Svrn7.Federation.psm1` and removes all LiteDB database files for a deployment. It is intended for test teardown — stop the TDA host before calling it.
+`Remove-Svrn7Databases` is exported from `Svrn7.Federation.0.8.0.psm1` and removes all LiteDB database files for a deployment. It is intended for test teardown — stop the TDA host before calling it.
 
 ```powershell
 # Interactive — PowerShell prompts for confirmation (ConfirmImpact = High)

@@ -1,4 +1,4 @@
-﻿# Parchment Programming Modeling Language (PPML)
+# Parchment Programming Modeling Language (PPML)
 # draft-herman-parchment-programming-00
 # Author: M. Herman, Web 7.0 Foundation
 # Published: April 2026
@@ -643,7 +643,7 @@ This zone structure directly generates the layered implementation specification:
 - Layer 0: Host process (.NET console app, Generic Host)
 - Layer 1: Transport (Kestrel HTTP/2 + mTLS, POST /didcomm, HttpClient)
 - Layer 2: DIDComm Pack/Unpack boundary (DIDCommPackingService)
-- Layer 3: LOBEs (PowerShell modules: Svrn7.Federation.psm1, Svrn7.Society.psm1, ...)
+- Layer 3: LOBEs (PowerShell modules: Svrn7.Federation.0.8.0.psm1, Svrn7.Society.0.8.0.psm1, ...)
 - Layer 4: Runspace Pool and agents (IsolatedRunspaceFactory, agent scripts, Switchboard)
 - Layer 5: Storage (Data Storage databases: svrn7.db, svrn7-dids.db, svrn7-vcs.db, svrn7-inbox.db)
 
@@ -797,12 +797,12 @@ between diagram and implementation explicitly visible and measurable.
 | Runspace Pool (outer box) | Runspace Pool  | IsolatedRunspaceFactory.cs + IsolatedPipeline.cs | ✓ Done |
 | LobeManager               | LOBE (implied) | LobeManager.cs             | ✓ Done   |
 | Svrn7RunspaceContext      | (Host service) | Svrn7RunspaceContext.cs    | ✓ Done   |
-| Svrn7.Email.psm1          | LOBE           | Svrn7.Email.psm1           | ✓ Done   |
-| Svrn7.Calendar.psm1       | LOBE           | Svrn7.Calendar.psm1        | ✓ Done   |
-| Svrn7.Presence.psm1       | LOBE           | Svrn7.Presence.psm1        | ✓ Done   |
-| Svrn7.Notifications.psm1  | LOBE           | Svrn7.Notifications.psm1   | ✓ Done   |
-| Svrn7.Onboarding.psm1     | LOBE           | Svrn7.Onboarding.psm1      | ✓ Done   |
-| Svrn7.Invoicing.psm1      | LOBE           | Svrn7.Invoicing.psm1       | ✓ Done   |
+| Svrn7.Email.0.8.0.psm1          | LOBE           | Svrn7.Email.0.8.0.psm1           | ✓ Done   |
+| Svrn7.Calendar.0.8.0.psm1       | LOBE           | Svrn7.Calendar.0.8.0.psm1        | ✓ Done   |
+| Svrn7.Presence.0.8.0.psm1       | LOBE           | Svrn7.Presence.0.8.0.psm1        | ✓ Done   |
+| Svrn7.Notifications.0.8.0.psm1  | LOBE           | Svrn7.Notifications.0.8.0.psm1   | ✓ Done   |
+| Svrn7.Onboarding.0.8.0.psm1     | LOBE           | Svrn7.Onboarding.0.8.0.psm1      | ✓ Done   |
+| Svrn7.Invoicing.0.8.0.psm1      | LOBE           | Svrn7.Invoicing.0.8.0.psm1       | ✓ Done   |
 | Agent 1 coordinator       | PS Runspace    | Agent1-Coordinator.ps1     | ✓ Done   |
 | Agent 2 onboarding        | PS Runspace    | Agent2-Onboarding.ps1      | ✓ Done   |
 | Agent N invoicing         | PS Runspace    | AgentN-Invoicing.ps1       | ✓ Done   |
@@ -1071,9 +1071,9 @@ Applying the Legend produces the following element instance classification (sele
 | Agent 2 — LOBE A                   | PowerShell Runspace| LOBE A agent script (generic)  |
 | Agent N — LOBE Z                   | PowerShell Runspace| LOBE Z agent script (generic)  |
 | DIDComm Message Switchboard        | Switchboard        | DIDCommMessageSwitchboard.cs   |
-| UX LOBE                            | LOBE               | Svrn7.UX.psm1                  |
-| SVRN7 LOBE                         | LOBE               | Svrn7.Federation.psm1 +        |
-|                                    |                    | Svrn7.Society.psm1             |
+| UX LOBE                            | LOBE               | Svrn7.UX.0.8.0.psm1                  |
+| SVRN7 LOBE                         | LOBE               | Svrn7.Federation.0.8.0.psm1 +        |
+|                                    |                    | Svrn7.Society.0.8.0.psm1             |
 | DIDComm V2 Messaging               | Protocol           | DIDCommPackingService.cs       |
 | HTTP Listener/Sender (HTTPClient)  | Protocol           | KestrelListenerService.cs +    |
 |                                    |                    | HttpClient (named "didcomm")   |
@@ -1101,12 +1101,12 @@ Derivation rule: Protocol -> implements IDIDCommService; provides UnpackAsync/Pa
 Derived from: "Long-Term Message Memory (LiteDB)" — element type Data Storage — DSA 0.24 Epoch 0.
 Derivation rule: Data Storage database -> LiteDB context class; one collection per entity type.
 
-**Svrn7.Federation.psm1** (lobes/Svrn7.Federation.psm1)
+**Svrn7.Federation.0.8.0.psm1** (lobes/Svrn7.Federation.0.8.0.psm1)
 Derived from: "SVRN7 LOBE" — element type LOBE — DSA 0.24 Epoch 0.
 Derivation rule: LOBE -> PowerShell module (.psm1); exports named cmdlets (35 cmdlets).
 
-**Register-Svrn7CitizenInSociety** (cmdlet in Svrn7.Society.psm1)
-Derived from: "SVRN7 LOBE" (-> Svrn7.Society.psm1) and the Switchboard routing rule for
+**Register-Svrn7CitizenInSociety** (cmdlet in Svrn7.Society.0.8.0.psm1)
+Derived from: "SVRN7 LOBE" (-> Svrn7.Society.0.8.0.psm1) and the Switchboard routing rule for
 "Svrn7.Onboarding/0.8.0/register-citizen" -> Agent 2 Onboarding -> Register-Svrn7CitizenInSociety pipeline.
 
 ### 11.4 The Parchment Programming Loop: One Iteration
@@ -1155,19 +1155,19 @@ a single element type (LOBE) producing multiple artefact categories (Module + Pr
 
 | LOBE Instance       | Module File             | DIDComm Protocol URIs                     |
 |---------------------|-------------------------|-------------------------------------------|
-| Common LOBE         | Svrn7.Common.psm1       | — (shared helpers, eager)                 |
-| Federation LOBE     | Svrn7.Federation.psm1   | did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/*|
-| Society LOBE        | Svrn7.Society.psm1      | did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-*|
-|                     |                         | did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/* |
-| UX LOBE             | Svrn7.UX.psm1           | did:drn:svrn7.net/protocols/Svrn7.UX/0.8.0/*      |
-| Email LOBE          | Svrn7.Email.psm1        | did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/*   |
-| Calendar LOBE       | Svrn7.Calendar.psm1     | did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/*|
-| Presence LOBE       | Svrn7.Presence.psm1     | did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/*|
-| Notifications LOBE  | Svrn7.Notifications.psm1| did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/*|
-| Onboarding LOBE     | Svrn7.Onboarding.psm1   | did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/* |
-| Invoicing LOBE      | Svrn7.Invoicing.psm1    | did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/* |
-| Identity LOBE       | Svrn7.Identity.psm1     | did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-*|
-|                     |                         | did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/vc-*|
+| Common LOBE         | Svrn7.Common.0.8.0.psm1       | — (shared helpers, eager)                 |
+| Federation LOBE     | Svrn7.Federation.0.8.0.psm1   | did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/*|
+| Society LOBE        | Svrn7.Society.0.8.0.psm1      | did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-*|
+|                     |                         | did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/* |
+| UX LOBE             | Svrn7.UX.0.8.0.psm1           | did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/*      |
+| Email LOBE          | Svrn7.Email.0.8.0.psm1        | did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/*   |
+| Calendar LOBE       | Svrn7.Calendar.0.8.0.psm1     | did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/*|
+| Presence LOBE       | Svrn7.Presence.0.8.0.psm1     | did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/*|
+| Notifications LOBE  | Svrn7.Notifications.0.8.0.psm1| did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/*|
+| Onboarding LOBE     | Svrn7.Onboarding.0.8.0.psm1   | did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/* |
+| Invoicing LOBE      | Svrn7.Invoicing.0.8.0.psm1    | did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/* |
+| Identity LOBE       | Svrn7.Identity.0.8.0.psm1     | did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-*|
+|                     |                         | did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/vc-*|
 
 Each LOBE either defines a net-new DIDComm protocol or tunnels an existing industry standard
 inside a DIDComm envelope:

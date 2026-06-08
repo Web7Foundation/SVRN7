@@ -11,15 +11,15 @@
     Derived from: Agent N — Invoicing (PowerShell Runspace) — DSA 0.24 Epoch 0 (PPML).
 
 .NOTES
-    DIDComm protocol: did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/request
+    DIDComm protocol: did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/request
     Routing: Switchboard → Invoke-AgentRunspace Invoicing $msgDid
 
     Full pipeline:
         Dequeue-Svrn7Message -Did $msgDid
-            | ConvertFrom-Web7InvoiceRequest     ← Svrn7.Invoicing.psm1 (JIT)
-            | Resolve-InvoiceAmount             ← Svrn7.Invoicing.psm1 (JIT)
-            | Invoke-Svrn7Transfer              ← Svrn7.Society.psm1 (eager, same-Society)
-            | New-Web7InvoiceReceipt             ← Svrn7.Invoicing.psm1 (JIT)
+            | ConvertFrom-Web7InvoiceRequest     ← Svrn7.Invoicing.0.8.0.psm1 (JIT)
+            | Resolve-InvoiceAmount             ← Svrn7.Invoicing.0.8.0.psm1 (JIT)
+            | Invoke-Svrn7Transfer              ← Svrn7.Society.0.8.0.psm1 (eager, same-Society)
+            | New-Web7InvoiceReceipt             ← Svrn7.Invoicing.0.8.0.psm1 (JIT)
             | Enqueue-Svrn7Message
 
     Cross-Society invoices use Invoke-Svrn7ExternalTransfer instead.

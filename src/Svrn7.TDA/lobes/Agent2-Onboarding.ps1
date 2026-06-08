@@ -11,14 +11,14 @@
     Derived from: Agent 2 — Onboarding (PowerShell Runspace) — DSA 0.24 Epoch 0 (PPML).
 
 .NOTES
-    DIDComm protocol: did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen
+    DIDComm protocol: did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen
     Routing: Switchboard → Invoke-AgentRunspace Onboarding $msgDid
 
     Full pipeline:
         Dequeue-Svrn7Message -Did $msgDid
             | ConvertFrom-Web7OnboardRequest
-            | Register-Svrn7CitizenInSociety   ← Svrn7.Society.psm1 (eager)
-            | New-Web7OnboardReceipt             ← Svrn7.Onboarding.psm1 (JIT)
+            | Register-Svrn7CitizenInSociety   ← Svrn7.Society.0.8.0.psm1 (eager)
+            | New-Web7OnboardReceipt             ← Svrn7.Onboarding.0.8.0.psm1 (JIT)
             | Enqueue-Svrn7Message
 
     On failure: Send-Web7OnboardError is called with the error message.
@@ -60,8 +60,8 @@ try {
     $citizenDid = $request.CitizenDid
     Write-Verbose "Agent 2 / Onboarding: registering citizen $citizenDid"
 
-    # Step 2: Register citizen in Society + endowment (Svrn7.Society.psm1 — eager)
-    # Register-Svrn7CitizenInSociety is an existing cmdlet in Svrn7.Society.psm1.
+    # Step 2: Register citizen in Society + endowment (Svrn7.Society.0.8.0.psm1 — eager)
+    # Register-Svrn7CitizenInSociety is an existing cmdlet in Svrn7.Society.0.8.0.psm1.
     # It calls ISvrn7SocietyDriver.RegisterCitizenInSocietyAsync internally.
     # Register-Svrn7CitizenInSociety requires a KeyPair PSCustomObject.
     # The Society stores the citizen's public key; private key is not transmitted.

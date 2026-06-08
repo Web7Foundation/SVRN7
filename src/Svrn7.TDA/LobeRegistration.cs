@@ -113,7 +113,7 @@ public sealed class LobeMetadata
     public int EpochRequired   { get; init; } = 0;
 
     /// <summary>
-    /// PowerShell module file name (e.g., "Svrn7.Email.psm1").
+    /// PowerShell module file name (e.g., "Svrn7.Email.0.8.0.psm1").
     /// Resolved relative to the LOBE directory by LobeManager.
     /// </summary>
     [JsonPropertyName("module")]

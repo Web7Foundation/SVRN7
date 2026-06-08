@@ -1,4 +1,4 @@
-﻿# Designing a New SVRN7 LOBE
+# Designing a New SVRN7 LOBE
 
 A LOBE (Lightweight Operational Behaviour Engine) is a PowerShell module that the TDA
 Switchboard loads into an isolated runspace and invokes when a DIDComm message arrives.
@@ -18,8 +18,8 @@ did:drn:svrn7.net/protocols/{domain}/{version}/{action}
 ```
 
 Examples:
-- `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen`
-- `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/request`
+- `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen`
+- `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/request`
 - `did:drn:svrn7.net/protocols/payments/1.0/request`
 
 One URI maps to exactly one entrypoint cmdlet.  If the LOBE handles multiple message
@@ -106,7 +106,7 @@ For each field state:
 > **Rule:** Under `Set-StrictMode -Version Latest` (enforced in all LOBEs), reading a
 > property that is absent on a `PSCustomObject` throws immediately.  Use
 > `Assert-BodyFields` for required fields and `Get-BodyField` for optional ones.
-> Both helpers are defined in `Svrn7.Common.psm1`.
+> Both helpers are defined in `Svrn7.Common.0.8.0.psm1`.
 
 ---
 
@@ -271,7 +271,7 @@ Import-Module "$PSScriptRoot/Svrn7.MyLobe.Impl.psm1"
 |---|---|
 | Wrapping a pre-existing PS module that predates the LOBE | Put the pre-existing module (unmodified) in `{LobeName}.Impl.psm1`; the main `.psm1` is a thin DIDComm adapter only |
 | LOBE has private helper functions not exported to other LOBEs | Move them to `{LobeName}.Impl.psm1` to keep the main module focused on the public protocol surface |
-| Functions shared across multiple LOBEs | Do **not** use `.Impl.psm1` — place shared helpers in `Svrn7.Common.psm1` instead |
+| Functions shared across multiple LOBEs | Do **not** use `.Impl.psm1` — place shared helpers in `Svrn7.Common.0.8.0.psm1` instead |
 
 The `.Impl.psm1` file is picked up automatically by the existing `.csproj` glob
 (`lobes/**/*.psm1`) and copied to the build output — no project file changes needed.
@@ -426,20 +426,20 @@ It is returned by `$SVRN7.GetMessageAsync(messageDid)`.
 | Property | Type | Description |
 |---|---|---|
 | `Id` | `string` | TDA resource DID URL — `did:drn:{network}/inbox/msg/{objectId}`. This is the value of `$MessageDid` passed to the entrypoint. |
-| `MessageType` | `string` | The `@type` value from the DIDComm envelope (e.g. `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/request`). |
+| `MessageType` | `string` | The `@type` value from the DIDComm envelope (e.g. `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/request`). |
 | `PackedPayload` | `string` | The raw JSON string of the DIDComm `body` field. Parse with `ConvertFrom-Json`. |
 | `FromDid` | `string?` | The `from` field of the DIDComm envelope. `$null` if the sender omitted it. Check before calling `Resolve-SocietySenderEndpoint`. |
 | `AttemptCount` | `int` | Number of processing attempts so far (0 on first delivery). |
 
 ---
 
-## Appendix C — `Svrn7.Common.psm1` Helper Reference
+## Appendix C — `Svrn7.Common.0.8.0.psm1` Helper Reference
 
-These helpers are dot-sourced into `Svrn7.Federation.psm1` and `Svrn7.Society.psm1`
+These helpers are dot-sourced into `Svrn7.Federation.0.8.0.psm1` and `Svrn7.Society.0.8.0.psm1`
 and are therefore available in every eager LOBE runspace.  JIT LOBEs that are not
-children of Federation or Society must dot-source `Svrn7.Common.psm1` explicitly.
+children of Federation or Society must dot-source `Svrn7.Common.0.8.0.psm1` explicitly.
 
-> Do **not** add `#Requires` to `Svrn7.Common.psm1` — it causes PowerShell 7 to treat
+> Do **not** add `#Requires` to `Svrn7.Common.0.8.0.psm1` — it causes PowerShell 7 to treat
 > the dot-source as a module-context load, scoping functions to a private scope instead
 > of the caller's.
 
@@ -714,35 +714,35 @@ understand existing patterns; confirm that any new URI is unique before register
 
 | LOBE | Protocol URI | Direction | Entrypoint |
 |---|---|---|---|
-| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/initialize-federation` | inbound | `Invoke-PandoFederationInit` |
-| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/federation-query` | inbound | `Invoke-PandoFederationQuery` |
-| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/register-society` | inbound | `Invoke-PandoRegisterSociety` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/member-query` | inbound | `Invoke-PandoMemberQuery` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/society-query` | inbound | `Invoke-PandoSocietyQuery` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-query` | inbound | `Invoke-PandoOverdraftQuery` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-method-register` | inbound | `Invoke-PandoDidMethodRegister` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/did-methods-query` | inbound | `Invoke-PandoDidMethodsQuery` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/citizen-did-add` | inbound | `Invoke-PandoCitizenDidAdd` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-request` | inbound | `Invoke-Svrn7IncomingTransfer` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order` | inbound | `Invoke-Svrn7IncomingTransfer` |
-| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order-receipt` | inbound | `Confirm-Svrn7Settlement` |
-| `Svrn7.Onboarding` | `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen` | inbound | `ConvertFrom-PandoOnboardRequest` |
-| `Svrn7.Onboarding` | `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/receipt` | outbound | — |
-| `Svrn7.Invoicing` | `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/request` | inbound | `ConvertFrom-PandoInvoiceRequest` |
-| `Svrn7.Invoicing` | `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/receipt` | outbound | — |
-| `Svrn7.Identity` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-request` | inbound | *(see lobe.json)* |
-| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/event` | inbound | *(see lobe.json)* |
-| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/invite` | inbound | *(see lobe.json)* |
-| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/response` | inbound | *(see lobe.json)* |
-| `Svrn7.Email` | `did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message` | inbound | *(see lobe.json)* |
-| `Svrn7.Email` | `did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/receipt` | outbound | — |
-| `Svrn7.Notifications` | `did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/alert` | inbound | *(see lobe.json)* |
-| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/status` | inbound | *(see lobe.json)* |
-| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/subscribe` | inbound | *(see lobe.json)* |
-| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/unsubscribe` | inbound | *(see lobe.json)* |
-| `Svrn7.UX` | `did:drn:svrn7.net/protocols/Svrn7.UX/0.8.0/notification` | inbound | *(see lobe.json)* |
-| `Svrn7.UX` | `did:drn:svrn7.net/protocols/Svrn7.UX/0.8.0/balance-update` | inbound | *(see lobe.json)* |
-| `Svrn7.UX` | `did:drn:svrn7.net/protocols/Svrn7.UX/0.8.0/registration-complete` | inbound | *(see lobe.json)* |
+| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation` | inbound | `Invoke-PandoFederationInit` |
+| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/federation-query` | inbound | `Invoke-PandoFederationQuery` |
+| `Svrn7.Federation` | `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society` | inbound | `Invoke-PandoRegisterSociety` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/member-query` | inbound | `Invoke-PandoMemberQuery` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/society-query` | inbound | `Invoke-PandoSocietyQuery` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-query` | inbound | `Invoke-PandoOverdraftQuery` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-method-register` | inbound | `Invoke-PandoDidMethodRegister` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-methods-query` | inbound | `Invoke-PandoDidMethodsQuery` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/citizen-did-add` | inbound | `Invoke-PandoCitizenDidAdd` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request` | inbound | `Invoke-Svrn7IncomingTransfer` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order` | inbound | `Invoke-Svrn7IncomingTransfer` |
+| `Svrn7.Society` | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order-receipt` | inbound | `Confirm-Svrn7Settlement` |
+| `Svrn7.Onboarding` | `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen` | inbound | `ConvertFrom-PandoOnboardRequest` |
+| `Svrn7.Onboarding` | `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt` | outbound | — |
+| `Svrn7.Invoicing` | `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/request` | inbound | `ConvertFrom-PandoInvoiceRequest` |
+| `Svrn7.Invoicing` | `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/receipt` | outbound | — |
+| `Svrn7.Identity` | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request` | inbound | *(see lobe.json)* |
+| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/event` | inbound | *(see lobe.json)* |
+| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/invite` | inbound | *(see lobe.json)* |
+| `Svrn7.Calendar` | `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/response` | inbound | *(see lobe.json)* |
+| `Svrn7.Email` | `did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/message` | inbound | *(see lobe.json)* |
+| `Svrn7.Email` | `did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/receipt` | outbound | — |
+| `Svrn7.Notifications` | `did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/alert` | inbound | *(see lobe.json)* |
+| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/status` | inbound | *(see lobe.json)* |
+| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/subscribe` | inbound | *(see lobe.json)* |
+| `Svrn7.Presence` | `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/unsubscribe` | inbound | *(see lobe.json)* |
+| `Svrn7.UX` | `did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/notification` | inbound | *(see lobe.json)* |
+| `Svrn7.UX` | `did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/balance-update` | inbound | *(see lobe.json)* |
+| `Svrn7.UX` | `did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/registration-complete` | inbound | *(see lobe.json)* |
 
 ---
 
@@ -770,7 +770,7 @@ The fastest way to exercise a new LOBE end-to-end:
 1. Build and start the TDA: `dotnet .\Svrn7.TDA.dll`
 2. Import the send helper from a separate PowerShell 7 session:
    ```powershell
-   Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
+   Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
    ```
 3. Send a plaintext DIDComm message:
    ```powershell
@@ -804,7 +804,7 @@ After a successful handler run, verify driver-side effects using the PowerShell 
 (with the TDA stopped — LiteDB exclusive lock):
 
 ```powershell
-Import-Module .\lobes\Svrn7.Society\Svrn7.Society.psm1
+Import-Module .\lobes\Svrn7.Society\Svrn7.Society.0.8.0.psm1
 Connect-Svrn7Society -SocietyDid "did:drn:bindloss.svrn7.net" -FederationDid "did:drn:foundation.svrn7.net" -DidMethodNames @("bindloss") -DbPath "."
 # ... then call Get-* cmdlets to inspect state
 ```

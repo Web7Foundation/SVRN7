@@ -1,4 +1,4 @@
-﻿# Web 7.0 TDA Resource Addressing using DID URL Paths
+# Web 7.0 TDA Resource Addressing using DID URL Paths
 # draft-herman-drn-resource-addressing-00
 # Author: M. Herman, Web 7.0 Foundation
 # Published: April 2026
@@ -187,7 +187,7 @@ Both DIDComm message type URIs and Data Storage record DID URLs use the Locator 
 form with `/` path delimiter. They differ only in the path segments:
 
 ```
-did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-request    ← Protocol definition locator
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request    ← Protocol definition locator
 did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1...        ← Data record locator
 ```
 
@@ -219,29 +219,29 @@ Epoch 0.
 
 | Constant Name           | DID URL                                                              | Direction         |
 |-------------------------|----------------------------------------------------------------------|-------------------|
-| `TransferRequest`       | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-request`                  | Citizen → Society |
-| `TransferReceipt`       | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-receipt`                  | Society → Citizen |
-| `TransferOrder`         | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order`                    | Society → Society |
-| `TransferOrderReceipt`  | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order-receipt`            | Society → Society |
-| `OverdraftDrawRequest`  | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-draw-request`  | Society → Federation |
-| `OverdraftDrawReceipt`  | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-draw-receipt`  | Federation → Society |
-| `EndowmentTopUp`        | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/endowment-top-up`                  | Federation → Society |
-| `SupplyUpdate`          | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/supply-update`                     | Federation → Societies |
-| `DidResolveRequest`     | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-request`               | Society → Society |
-| `DidResolveResponse`    | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-response`              | Society → Society |
-| `OnboardRequest`        | `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen`                   | Citizen → Society |
-| `OnboardReceipt`        | `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/receipt`                   | Society → Citizen |
-| `InvoiceRequest`        | `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/request`                   | Citizen → Society |
-| `InvoiceReceipt`        | `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/receipt`                   | Society → Citizen |
-| Email message           | `did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/message`                     | TDA → TDA |
-| Email receipt           | `did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/receipt`                     | TDA → TDA |
-| Calendar event          | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/event`                    | TDA → TDA |
-| Calendar invite         | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/invite`                   | TDA → TDA |
-| Calendar response       | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/response`                 | TDA → TDA |
-| Presence status         | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/status`                   | TDA → TDA |
-| Presence subscribe      | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/subscribe`                | TDA → TDA |
-| Presence unsubscribe    | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/unsubscribe`              | TDA → TDA |
-| Notification alert      | `did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/alert`                | TDA → TDA |
+| `TransferRequest`       | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request`                  | Citizen → Society |
+| `TransferReceipt`       | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-receipt`                  | Society → Citizen |
+| `TransferOrder`         | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order`                    | Society → Society |
+| `TransferOrderReceipt`  | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order-receipt`            | Society → Society |
+| `OverdraftDrawRequest`  | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-draw-request`  | Society → Federation |
+| `OverdraftDrawReceipt`  | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-draw-receipt`  | Federation → Society |
+| `EndowmentTopUp`        | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/endowment-top-up`                  | Federation → Society |
+| `SupplyUpdate`          | `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/supply-update`                     | Federation → Societies |
+| `DidResolveRequest`     | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request`               | Society → Society |
+| `DidResolveResponse`    | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response`              | Society → Society |
+| `OnboardRequest`        | `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen`                   | Citizen → Society |
+| `OnboardReceipt`        | `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt`                   | Society → Citizen |
+| `InvoiceRequest`        | `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/request`                   | Citizen → Society |
+| `InvoiceReceipt`        | `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/receipt`                   | Society → Citizen |
+| Email message           | `did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/message`                     | TDA → TDA |
+| Email receipt           | `did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/receipt`                     | TDA → TDA |
+| Calendar event          | `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/event`                    | TDA → TDA |
+| Calendar invite         | `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/invite`                   | TDA → TDA |
+| Calendar response       | `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/response`                 | TDA → TDA |
+| Presence status         | `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/status`                   | TDA → TDA |
+| Presence subscribe      | `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/subscribe`                | TDA → TDA |
+| Presence unsubscribe    | `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/unsubscribe`              | TDA → TDA |
+| Notification alert      | `did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/alert`                | TDA → TDA |
 
 ## 4. DID URL Path Structure
 

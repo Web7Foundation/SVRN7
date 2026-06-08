@@ -747,32 +747,32 @@ All SVRN7 `@type` URIs follow: `did:drn:svrn7.net/protocols/{family}/{version}/{
 
 | Constant             | URI                                                                    |
 |----------------------|------------------------------------------------------------------------|
-| `TransferRequest`    | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-request`                    |
-| `TransferReceipt`    | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-receipt`                    |
-| `TransferOrder`      | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order`                      |
-| `TransferOrderReceipt`| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/transfer-order-receipt`             |
-| `OverdraftDrawRequest`| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-draw-request`   |
-| `OverdraftDrawReceipt`| `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/overdraft-draw-receipt`   |
-| `EndowmentTopUp`     | `did:drn:svrn7.net/protocols/Svrn7.Society/0.8.0/endowment-top-up`                    |
-| `SupplyUpdate`       | `did:drn:svrn7.net/protocols/Svrn7.Federation/0.8.0/supply-update`                       |
-| `DidResolveRequest`  | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-request`                 |
-| `DidResolveResponse` | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-resolve-response`                |
-| `OnboardRequest`     | `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/register-citizen`                     |
-| `OnboardReceipt`     | `did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8.0/receipt`                     |
-| `InvoiceRequest`     | `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/request`                     |
-| `InvoiceReceipt`     | `did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8.0/receipt`                     |
+| `TransferRequest`    | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request`                    |
+| `TransferReceipt`    | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-receipt`                    |
+| `TransferOrder`      | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order`                      |
+| `TransferOrderReceipt`| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order-receipt`             |
+| `OverdraftDrawRequest`| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-draw-request`   |
+| `OverdraftDrawReceipt`| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-draw-receipt`   |
+| `EndowmentTopUp`     | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/endowment-top-up`                    |
+| `SupplyUpdate`       | `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/supply-update`                       |
+| `DidResolveRequest`  | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request`                 |
+| `DidResolveResponse` | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response`                |
+| `OnboardRequest`     | `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen`                     |
+| `OnboardReceipt`     | `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt`                     |
+| `InvoiceRequest`     | `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/request`                     |
+| `InvoiceReceipt`     | `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/receipt`                     |
 
 **LOBE protocol families** (declared in `.lobe.json` descriptors):
 
 | Family          | URI prefix                                      | LOBE                   |
 |-----------------|-------------------------------------------------|------------------------|
-| Email           | `did:drn:svrn7.net/protocols/Svrn7.Email/0.8.0/`        | `Svrn7.Email`          |
-| Calendar        | `did:drn:svrn7.net/protocols/Svrn7.Calendar/0.8.0/`     | `Svrn7.Calendar`       |
-| Presence        | `did:drn:svrn7.net/protocols/Svrn7.Presence/0.8.0/`     | `Svrn7.Presence`       |
-| Notification    | `did:drn:svrn7.net/protocols/Svrn7.Notifications/0.8.0/` | `Svrn7.Notifications`  |
-| UX              | `did:drn:svrn7.net/protocols/Svrn7.UX/0.8.0/`           | `Svrn7.UX`             |
-| DID resolution  | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/did-` | `Svrn7.Identity`       |
-| VC resolution   | `did:drn:svrn7.net/protocols/Svrn7.Identity/0.8.0/vc-`           | `Svrn7.Identity`       |
+| Email           | `did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/`        | `Svrn7.Email`          |
+| Calendar        | `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/`     | `Svrn7.Calendar`       |
+| Presence        | `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/`     | `Svrn7.Presence`       |
+| Notification    | `did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/` | `Svrn7.Notifications`  |
+| UX              | `did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/`           | `Svrn7.UX`             |
+| DID resolution  | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-` | `Svrn7.Identity`       |
+| VC resolution   | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/vc-`           | `Svrn7.Identity`       |
 
 ---
 
