@@ -6,100 +6,116 @@
 
 **Area:** all `.lobe.json` descriptors, agent scripts, DIDComm integration guide, BACKLOG TDA-006
 
-**Summary:** Protocol URI path segments and version numbers should be derived
-from LOBE names — not independently invented.  The LOBE name is the source of
-truth.  This is a prerequisite for TDA-006 (on-demand LOBE download), where an
-unknown protocol URI must resolve to a deterministic NuGet package ID without
-a round-trip to a registry index.
+**Summary:** Protocol URI path segments and version numbers must be derived
+directly from LOBE names and LOBE versions — no independent invention.  The
+LOBE name is the source of truth.  This also makes TDA-006 (on-demand LOBE
+download) trivial: the NuGet package ID is read directly from the URI with no
+transformation.
 
 ---
 
-### Naming convention (to be enforced)
+### Naming and version convention (to be enforced)
 
-**Rule:** `did:drn:svrn7.net/protocols/{segment}/{ver}/{action}`
+**Rule:** `did:drn:svrn7.net/protocols/{LobeName}/{major}.{minor}/{action}`
 
-Where `{segment}` is the LOBE name suffix — the part after the first `.` —
-lowercased.  Examples: `Svrn7.Email` → `email`; `Pando.Diagnostics` →
-`diagnostics`; `Svrn7.Onboarding` → `onboarding`.
+- `{LobeName}` — the full LOBE name exactly as it appears in `lobe.name`
+  (e.g. `Svrn7.Email`, `Pando.Diagnostics`).  Case-preserved.
+- `{major}.{minor}` — the LOBE's major and minor version from `lobe.version`.
+  Patch releases (`0.8.0` → `0.8.1`) do not change the URI.
+- `{action}` — the message action name (e.g. `message`, `register-citizen`).
 
-**Derivation algorithm (bidirectional):**
+**Examples under the new convention:**
 
-| Direction | Algorithm |
+```
+Svrn7.Email 0.8.0      did:drn:svrn7.net/protocols/Svrn7.Email/0.8/message
+Svrn7.Email 0.8.0      did:drn:svrn7.net/protocols/Svrn7.Email/0.8/receipt
+Svrn7.Federation 0.8.0 did:drn:svrn7.net/protocols/Svrn7.Federation/0.8/register-society
+Svrn7.Onboarding 0.8.0 did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen
+Svrn7.Invoicing 0.8.0  did:drn:svrn7.net/protocols/Svrn7.Invoicing/0.8/request
+Pando.Diagnostics 0.1.0 did:drn:svrn7.net/protocols/Pando.Diagnostics/0.1/date-query
+```
+
+**Derivation (bidirectional — no algorithm needed):**
+
+| Direction | Rule |
 |---|---|
-| LOBE name → segment | strip namespace prefix (`Svrn7.` / `Pando.`), lowercase |
-| segment → LOBE name | title-case, prepend `Svrn7.` (or `Pando.` for known Pando LOBEs) |
+| URI → LOBE name | second path segment after `/protocols/` is the LOBE name verbatim |
+| URI → version constraint | third path segment is `{major}.{minor}` |
+| LOBE name → URI segment | use `lobe.name` from `.lobe.json` verbatim |
+| LOBE version → URI version | use `{major}.{minor}` from `lobe.version` |
 
-This makes TDA-006 step 1 algorithmic: given an unknown URI
-`did:drn:svrn7.net/protocols/onboarding/1.0/register-citizen`, derive
-`Svrn7.Onboarding` as the NuGet package ID without a registry lookup.
-
----
-
-### Current inconsistencies — must be fixed
-
-Mapping produced by scanning all `.lobe.json` files as of 2026-06-08:
-
-| LOBE | Current segment(s) | Required segment | Action |
-|---|---|---|---|
-| `Svrn7.Invoicing` | `invoice` | `invoicing` | Rename all URIs |
-| `Svrn7.Notifications` | `notification` | `notifications` | Rename all URIs |
-| `Svrn7.Onboarding` | `onboard` | `onboarding` | Rename all URIs |
-| `Svrn7.Identity` | `did`, `vc` | `identity` | Rename all URIs; consolidate two segments into one |
-| `Svrn7.Society` | `society`, `transfer` | `society` | Move `transfer/*` URIs to a new `Svrn7.Transfer` LOBE |
-
-LOBEs already conforming: `Svrn7.Calendar`, `Svrn7.Email`, `Svrn7.Federation`,
-`Svrn7.Presence`, `Svrn7.Society` (partial), `Svrn7.UX`, `Pando.Diagnostics`.
-`Svrn7.Common` has no protocols — conforms by default.
+This makes TDA-006 trivial: given
+`did:drn:svrn7.net/protocols/Svrn7.Onboarding/0.8/register-citizen`, the
+NuGet package ID is `Svrn7.Onboarding` and the minimum version is `0.8.*`
+— read directly from the URI, no registry lookup for the package name.
 
 ---
 
-### One segment per LOBE rule
+### Current state — all URIs must be updated
 
-A LOBE must own exactly one protocol path segment.  Multiple segments in one
-LOBE (`did` + `vc` in `Svrn7.Identity`; `society` + `transfer` in
-`Svrn7.Society`) break the derivation algorithm and make on-demand download
-ambiguous.
+Every existing protocol URI must be renamed.  Current URIs use ad-hoc lowercase
+suffixes (`email`, `federation`, `onboard`, `invoice`) and a hardcoded `1.0`
+version.  The full before/after for every LOBE:
 
-**Required splits:**
-- `Svrn7.Identity`: consolidate `did/` and `vc/` under `identity/`, OR split
-  into `Svrn7.DID` and `Svrn7.VC` (separate LOBEs, separate packages).
-- `Svrn7.Society`: extract `transfer/` into a new `Svrn7.Transfer` LOBE.
-
----
-
-### Version numbering convention
-
-Protocol URI version (`1.0`) and LOBE package version (`0.8.0`) are
-**independent axes**:
-
-| Axis | Format | Bumped when |
+| LOBE | Current URI segment / version | New segment / version |
 |---|---|---|
-| Protocol URI version | `{major}.{minor}` only | Breaking change to the message body schema |
-| LOBE package version | Full SemVer `{major}.{minor}.{patch}` | Any implementation change |
+| `Svrn7.Calendar` | `calendar/1.0` | `Svrn7.Calendar/0.8` |
+| `Svrn7.Email` | `email/1.0` | `Svrn7.Email/0.8` |
+| `Svrn7.Federation` | `federation/1.0` | `Svrn7.Federation/0.8` |
+| `Svrn7.Identity` | `did/1.0`, `vc/1.0` | `Svrn7.Identity/0.8` (see split note) |
+| `Svrn7.Invoicing` | `invoice/1.0` | `Svrn7.Invoicing/0.8` |
+| `Svrn7.Notifications` | `notification/1.0` | `Svrn7.Notifications/0.8` |
+| `Svrn7.Onboarding` | `onboard/1.0` | `Svrn7.Onboarding/0.8` |
+| `Svrn7.Presence` | `presence/1.0` | `Svrn7.Presence/0.8` |
+| `Svrn7.Society` | `society/1.0`, `transfer/1.0` | `Svrn7.Society/0.8` (see split note) |
+| `Svrn7.UX` | `ux/1.0` | `Svrn7.UX/0.8` |
+| `Pando.Diagnostics` | `diagnostics/1.0` | `Pando.Diagnostics/0.1` |
 
-**Rule:** a patch or minor LOBE release must not change the protocol URI
-version.  A protocol version bump (`1.0` → `2.0`) always implies a new URI and
-may require a new handler registration alongside the old one during a migration
-window (see TDA versioning backlog for side-by-side handling).
+`Svrn7.Common` has no protocols — no change needed.
 
-Current state: all protocols at `1.0`, all LOBEs at `0.x.0` — consistent for
-Epoch 0.  No changes needed now beyond enforcing the rule going forward.
+---
+
+### Required LOBE splits
+
+Two LOBEs currently own protocols that belong in separate LOBEs.  A LOBE must
+own exactly one URI segment (its own name):
+
+- **`Svrn7.Identity`** owns `did/1.0/*` and `vc/1.0/*`.  These are unrelated
+  concerns.  Options: (A) consolidate all under `Svrn7.Identity/0.8/*` and
+  rename actions accordingly; (B) split into `Svrn7.DID` and `Svrn7.VC`
+  (separate LOBEs, separate packages).  Decision required.
+
+- **`Svrn7.Society`** owns `transfer/1.0/*` in addition to `society/1.0/*`.
+  Transfer protocols must move to a new `Svrn7.Transfer` LOBE and be renamed
+  `did:drn:svrn7.net/protocols/Svrn7.Transfer/0.8/*`.
+
+---
+
+### Version bump rules
+
+| Change type | Protocol URI version | LOBE package version |
+|---|---|---|
+| Patch fix (no message format change) | unchanged | `0.8.0` → `0.8.1` |
+| New optional field added | unchanged | `0.8.0` → `0.9.0` |
+| Breaking field rename / removal | bump minor or major | `0.8.0` → `0.9.0` or `1.0.0` |
+
+A protocol version bump always requires a new URI.  Old and new URIs may be
+registered simultaneously during a migration window (see versioning backlog).
 
 ---
 
 ### Scope of change
 
-URI renames are a **breaking change** for any sender that has hardcoded the
-current URI strings.  The agent scripts in `lobes/Agent*.ps1` and the
-integration tests must be updated in the same commit as the `.lobe.json`
-descriptor changes.  A compatibility prefix registration (old URI → same
-handler) can be added during a transition window if needed.
+This is a **breaking change** across all `.lobe.json` files, all agent scripts
+(`lobes/Agent*.ps1`), all integration test message fixtures, and any external
+sender that has hardcoded the current URI strings.  All must be updated in a
+single coordinated commit.
 
 **No code change required in `LobeManager` or `DIDCommMessageSwitchboard`** —
 the registry is URI-keyed and is indifferent to the naming convention.
 
-**Dependencies:** must be completed before TDA-006 to enable the algorithmic
-package-ID derivation.
+**Dependencies:** must be completed before TDA-006 to make package-ID
+derivation trivial.
 
 ---
 
@@ -118,12 +134,13 @@ every message type a TDA will ever encounter.
 **What would be required:**
 
 1. **LOBE registry / index** — Once TDA-007 naming is in place, the NuGet
-   package ID is derivable algorithmically from the protocol URI (strip
-   `did:drn:svrn7.net/protocols/`, take the first segment, title-case,
-   prepend `Svrn7.`).  The registry is still needed for two things: the feed
-   URL (`https://packages.svrn7.net/v3/index.json`) and the latest compatible
-   version for the current TDA epoch.  `TdaOptions.LobeRegistryUrl` holds the
-   registry base URL.
+   package ID is read directly from the URI: the second path segment after
+   `/protocols/` is the package ID verbatim (e.g.
+   `did:drn:svrn7.net/protocols/Svrn7.Email/0.8/message` → package
+   `Svrn7.Email`).  The registry is still needed for one thing: the feed URL
+   (`https://packages.svrn7.net/v3/index.json`).  The minimum version
+   constraint is also read directly from the URI (`0.8` → `>= 0.8.0`).
+   `TdaOptions.LobeRegistryUrl` holds the feed URL.
 
 2. **Switchboard — "no handler" intercept** — `DIDCommMessageSwitchboard` must
    intercept the `reg is null` branch before calling `MarkFailedAsync` and call
