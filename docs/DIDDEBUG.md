@@ -33,7 +33,7 @@ Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1
 `New-Svrn7KeyPair` and `New-Svrn7Did` work with no TDA and no driver — both are pure
 in-memory operations. Persistence cmdlets (`Initialize-Svrn7Citizen`, etc.) require the
 `$SVRN7` Federation driver context — set up either by running a TDA or by calling
-`Initialize-Svrn7FederationDriver` in the local PS session (Scenario D1.3).
+`Initialize-Svrn7FederationDriver` in the local PS session (Scenario D1b.1).
 
 Two workflows:
 
@@ -84,7 +84,13 @@ did:drn:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
 The DID string is derived deterministically from `PublicKeyHex` — the same key pair
 always produces the same DID regardless of method name or other parameters.
 
-### D1.3 — Initialise the local Federation driver (required for persistence)
+---
+
+## Scenario D1b — Persist a DID Document via local driver (no TDA required)
+
+Requires `$didDoc` and `$kp` from Scenario D1.
+
+### D1b.1 — Initialise the local Federation driver
 
 `Initialize-Svrn7Citizen` and all other persistence cmdlets require the `$SVRN7` driver
 context. `Initialize-Svrn7FederationDriver` sets up a local driver backed by its own
@@ -103,7 +109,7 @@ VERBOSE: Loaded: Svrn7.Crypto.dll
 VERBOSE: Svrn7.Federation ready. DbRoot: ./data-d1  Method: drn
 ```
 
-### D1.4 — Persist the DID Document
+### D1b.2 — Persist the DID Document
 
 `Initialize-Svrn7Citizen` registers the `DidDocument` produced in D1.2 and writes it
 to the local `svrn7-dids.db`. The stored document is assigned `Version=1`,
