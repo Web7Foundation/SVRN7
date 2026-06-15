@@ -31,8 +31,46 @@ using Svrn7.TDA;
 //                  LOBEs are loaded from   "<BaseDir>/{port}/lobes/".
 // --name <string>  Human-readable name for this TDA (required).
 //                  Stored as Svrn7Name in the Wanderer DIDDocument on first run.
+// --url <url>      Base URL advertised in the Wanderer DID Document service
+//                  endpoint (scheme + host, no trailing slash).
+//                  Default: http://localhost
+//                  Full endpoint stored: <url>:{port}/didcomm
 // --reset          Delete all databases and agent-identity.json for this port before
 //                  starting, forcing a clean first-run Wanderer bootstrap.
+// --help           Display this help and exit.
+
+if (Array.IndexOf(args, "--help") >= 0 || Array.IndexOf(args, "-h") >= 0)
+{
+    Console.WriteLine("""
+        SVRN7 Trusted Digital Assistant (TDA)
+        Web 7.0 Foundation — https://svrn7.net
+
+        Usage:
+          Svrn7.TDA --port <n> --name <string> [--url <url>] [--reset] [--help]
+
+        Parameters:
+          --port <n>        (required) TCP/IP port this TDA listens on.
+                            Databases are stored under <BaseDir>/{port}/mem/.
+                            LOBEs       are loaded from <BaseDir>/{port}/lobes/.
+
+          --name <string>   (required) Human-readable name for this TDA instance.
+                            Stored as Svrn7Name in the Wanderer DID Document on
+                            first run.
+
+          --url <url>       Base URL advertised in the Wanderer DID Document
+                            service endpoint (scheme + host, no trailing slash).
+                            Default: http://localhost
+                            Full endpoint stored: <url>:{port}/didcomm
+
+          --reset           Delete all databases and agent-identity.json for this
+                            port before starting, forcing a clean first-run
+                            Wanderer bootstrap. Use with caution — irreversible.
+
+          --help | -h       Display this help and exit.
+        """);
+    Environment.Exit(0);
+}
+
 int port;
 {
     var portIdx = Array.IndexOf(args, "--port");
@@ -61,6 +99,14 @@ string tdaName;
     {
         tdaName = args[nameIdx + 1];
     }
+}
+
+string tdaUrl;
+{
+    var urlIdx = Array.IndexOf(args, "--url");
+    tdaUrl = urlIdx >= 0 && urlIdx + 1 < args.Length && !string.IsNullOrWhiteSpace(args[urlIdx + 1])
+        ? args[urlIdx + 1].TrimEnd('/')
+        : "http://localhost";
 }
 
 bool forceReset = Array.IndexOf(args, "--reset") >= 0;
@@ -149,7 +195,7 @@ if (await driver.DidRegistry.CountAsync() == 0)
     svrn7Name = tdaName;
 
     var didDoc = driver.CreateDidDocument(agentDid, kp.PublicKeyHex, "drn",
-                     $"http://localhost:{port}/didcomm", Svrn7Role.Wanderer, svrn7Name);
+                     $"{tdaUrl}:{port}/didcomm", Svrn7Role.Wanderer, svrn7Name);
     await driver.CreateDidAsync(didDoc);
 
     await File.WriteAllTextAsync(identityPath,
