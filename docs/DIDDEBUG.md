@@ -30,12 +30,16 @@ Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1
 
 ### TDA requirement
 
-`New-Svrn7KeyPair` works from the PS CLI with no TDA. All other DID cmdlets require the
-Federation driver, which can only be initialised inside the `dotnet` host. The workflow is:
+`New-Svrn7KeyPair` works with no TDA and no driver. All other DID cmdlets require the
+`$SVRN7` Federation driver context — set up either by running a TDA or by calling
+`Initialize-Svrn7FederationDriver` in the local PS session (Scenario D1.2).
 
-1. Generate key pairs from the PS CLI (Scenario D1)
-2. Start the TDA: `dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA`
-3. Register via the TDA runspace (Scenario D2)
+Two workflows:
+
+| Workflow | When to use |
+|----------|-------------|
+| **Standalone PS** (D1) | Dev/test: `Initialize-Svrn7FederationDriver` opens local DBs; no TDA process needed |
+| **DIDComm via running TDA** (D2) | Production: send messages to a live TDA; driver lives inside the TDA host |
 
 ---
 
@@ -58,6 +62,85 @@ PrivateKeyHex: 8f7e6d5c4b...
 
 The `$kp` object is used as input to `New-Svrn7Did` and all Register cmdlets inside
 the TDA runspace.
+
+### D1.2 — Initialise the local Federation driver
+
+`New-Svrn7Did` and all registration cmdlets require the `$SVRN7` driver context.
+`Initialize-Svrn7FederationDriver` sets up a local driver backed by its own LiteDB
+databases — no running TDA is needed.
+
+```powershell
+Initialize-Svrn7FederationDriver -DbPath "./data-d1" -DidMethodName "drn" -Verbose
+```
+
+Expected verbose output:
+
+```
+VERBOSE: Loaded: Svrn7.Core.dll
+VERBOSE: Loaded: Svrn7.Crypto.dll
+...
+VERBOSE: Svrn7.Federation ready. DbRoot: ./data-d1  Method: drn
+```
+
+### D1.3 — Create a DID
+
+`New-Svrn7Did` derives the DID URI deterministically from the secp256k1 public key and
+builds the `DidDocument` record in memory. The document is **not** persisted until a
+registration step is called (D1.4).
+
+```powershell
+$didDoc = New-Svrn7Did -KeyPair $kp -MethodName "drn" `
+              -ServiceEndpointUrl "http://localhost:8443/didcomm" `
+              -Svrn7Name "MyTDA"
+
+$didDoc.Did
+```
+
+Expected output:
+
+```
+did:drn:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
+```
+
+The DID string is derived deterministically from `PublicKeyHex` — the same key pair
+always produces the same DID regardless of method name or other parameters.
+
+### D1.4 — Create and persist a DID Document
+
+`Initialize-Svrn7Citizen` registers the `DidDocument` produced in D1.3 and writes it
+to the local `svrn7-dids.db`. The stored document is assigned `Version=1`,
+`Status=Active`, and `Role=Citizen`.
+
+```powershell
+$reg = Initialize-Svrn7Citizen -DidDocument $didDoc -KeyPair $kp
+$reg | Format-List CitizenDid, Success, EndowmentSvrn7
+```
+
+Expected output:
+
+```
+CitizenDid     : did:drn:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
+Success        : True
+EndowmentSvrn7 : 1000.000000
+```
+
+Verify the persisted DID Document:
+
+```powershell
+$result = Resolve-Svrn7Did -Did $didDoc.Did
+$result.Document | Format-List Did, Version, Status, Role
+$result.Document.VerificationMethod | Format-List
+$result.Document.DocumentJson | ConvertFrom-Json | ConvertTo-Json -Depth 5
+```
+
+Expected:
+
+```
+Did     : did:drn:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
+Version : 1
+Status  : Active
+Role    : Citizen
+```
 
 ---
 
