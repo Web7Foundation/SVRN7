@@ -482,7 +482,7 @@ public sealed class DIDCommMessageSwitchboard
         deliverActivity?.SetTag(Svrn7Telemetry.TagPeerEndpoint, msg.PeerEndpoint);
 
         var client   = _httpFactory.CreateClient("didcomm");
-        var endpoint = msg.PeerEndpoint.TrimEnd('/') + "/didcomm";
+        var endpoint = msg.PeerEndpoint.TrimEnd('/');
 
         Exception? lastException = null;
 
