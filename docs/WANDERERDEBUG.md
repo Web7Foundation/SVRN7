@@ -157,8 +157,8 @@ Status: Accepted
 
 ## Step 6 — Verify W6 received and replied (Terminal B)
 
-Watch Terminal B for W6's log.  `Pando.Diagnostics` is a JIT LOBE — the first message
-triggers an import.  On all subsequent messages the import lines will not appear.
+Watch Terminal B for W6's log.  `Pando.Diagnostics` is a JIT LOBE — `Import-Module -Force`
+runs on every dispatch (by design, for hot-update support).
 
 ```
 dbug: Svrn7.TDA.LobeManager[0]
@@ -202,12 +202,20 @@ The `from` field shows W6's DID confirming the reply originated from W6.
 
 ---
 
-## Step 8 — Send a second Query-TOD (no JIT import delay)
+## Step 8 — Send a second Query-TOD
 
-Repeat Step 5.  The import lines in W6's log will not appear — the LOBE is already
-loaded in the runspace:
+Repeat Step 5.  The import lines **will appear again** — JIT LOBEs run
+`Import-Module -Force` on every dispatch by design, so that an updated `.psm1` is
+always picked up without a TDA restart (hot-update).  The ~30 ms reimport overhead
+is tracked in the backlog as TDA-001a.
 
 ```
+info: Svrn7.TDA.LobeManager[0]
+      LobeManager: importing into isolated runspace (JIT) — ...\Pando.Diagnostics.0.1.0.psm1
+
+info: Svrn7.TDA.LobeManager[0]
+      LobeManager: import complete — ...\Pando.Diagnostics.0.1.0.psm1
+
 info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
       [PS Info] Pando.Diagnostics: serverUtc=2026-06-15T... epoch=0
 

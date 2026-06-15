@@ -135,13 +135,13 @@ Expected TDA log (timestamps vary):
 ```
 
 The `[PS Verbose]` line confirms the handler parsed the RFC 5322 subject correctly.
-The import log only appears once — subsequent emails reuse the loaded runspace.
+`Import-Module -Force` runs on every JIT dispatch — the import lines appear each time.
 
 ---
 
-## Step 5 — Send a second email (JIT already loaded)
+## Step 5 — Send a second email
 
-Send the same message again to confirm the import delay is gone:
+Send the same message again:
 
 ```powershell
 $body = @{
@@ -162,7 +162,7 @@ $msg = @{
 Send-DIDCommMessage -Body $msg
 ```
 
-The `LobeManager: EnsureLoadedAsync` and import lines will not appear this time.
+The import lines appear again — JIT LOBEs reimport on every dispatch (see Step 4 note).
 
 ---
 
@@ -288,4 +288,4 @@ re-running these steps.
 | `[PS Warning] has no rfc5322Body field` | Body missing `rfc5322Body` key | Include `rfc5322Body` in the DIDComm body JSON (see Step 4) |
 | `[PS Warning] message ... not found` | Message expired from cache before handler ran | Retry; increase `MaxMessageAgeSeconds` in `TdaOptions` for testing |
 | Subject shows `$null` in verbose log | RFC 5322 `Subject:` header absent or misspelled | Verify header name casing (`Subject:` not `subject:`) |
-| First message is slow (~200 ms extra) | JIT LOBE import delay — normal first-run behaviour | Expected; subsequent messages are fast |
+| Import lines appear on every message | JIT LOBEs run `Import-Module -Force` each dispatch for hot-update support | Expected — see TDA-001a backlog for future optimisation |
