@@ -55,7 +55,7 @@ installed.  The TDA starts and runs normally without it.
 
 ```powershell
 $outDir  = 'src/Svrn7.TDA/bin/Debug/net8.0'
-$lobeOut = "$outDir/lobes/Pando.Diagnostics"
+$lobeOut = "$outDir/lobes/Pando.Diagnostics.0.1.0"
 
 if (Test-Path $lobeOut) {
     Remove-Item $lobeOut -Recurse -Force
@@ -124,7 +124,7 @@ Function     Test-LOBEPackage       0.0      Pando.Packaging
 ## Step 5 — Package (Terminal B)
 
 ```powershell
-$lobeSrc = '.\src\Svrn7.TDA\lobes\Pando.Diagnostics'
+$lobeSrc = '.\src\Svrn7.TDA\lobes\Pando.Diagnostics.0.1.0'
 $distDir = '.\dist'
 
 $nupkg = New-LOBEPackage -Path $lobeSrc -OutputDirectory $distDir
@@ -172,7 +172,7 @@ is not installed, the Switchboard will dead-letter the message immediately
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
 $msg = @{
     typ  = 'application/didcomm-plain+json'
@@ -215,7 +215,7 @@ Install-LOBEPackage -Path $nupkg -LobesDirectory $lobesDir
 Expected output:
 
 ```
-Installed: Pando.Diagnostics -> ...\lobes\Pando.Diagnostics
+Installed: Pando.Diagnostics -> ...\lobes\Pando.Diagnostics.0.1.0
 ```
 
 Confirm the files are on disk:
@@ -242,7 +242,7 @@ Watch for these log lines in Terminal A:
 ```
 info: Svrn7.TDA.LobeManager[0]
       LobeManager: descriptor change —
-      ...\lobes\Pando.Diagnostics\Pando.Diagnostics.lobe.json.
+      ...\lobes\Pando.Diagnostics.0.1.0\Pando.Diagnostics.lobe.json.
       Re-registering protocols.
 
 info: Svrn7.TDA.LobeManager[0]
@@ -299,7 +299,7 @@ The TDA uses `Import-Module -Force` for every JIT message.  Any change to the
 
 **11.1 — Edit the installed .psm1**
 
-Open `...\lobes\Pando.Diagnostics\Pando.Diagnostics.0.1.0.psm1` in any editor and
+Open `...\lobes\Pando.Diagnostics.0.1.0\Pando.Diagnostics.0.1.0.psm1` in any editor and
 add a visible marker to the `Invoke-PandoDiagnosticsDateQuery` function body:
 
 ```powershell
@@ -389,7 +389,7 @@ Install-LOBEPackage `
 the `lobes/` parent.  The folder must contain exactly one `*.lobe.json` file.
 
 ```powershell
-Get-ChildItem .\src\Svrn7.TDA\lobes\Pando.Diagnostics -Filter '*.lobe.json'
+Get-ChildItem .\src\Svrn7.TDA\lobes\Pando.Diagnostics.0.1.0 -Filter '*.lobe.json'
 # Must return: Pando.Diagnostics.lobe.json
 ```
 
@@ -445,7 +445,7 @@ The `.psm1` has a syntax error or the entrypoint function name does not match
 session to surface parse errors:
 
 ```powershell
-pwsh -NoProfile -Command "Import-Module '.\lobes\Pando.Diagnostics\Pando.Diagnostics.0.1.0.psm1' -Force"
+pwsh -NoProfile -Command "Import-Module '.\lobes\Pando.Diagnostics.0.1.0\Pando.Diagnostics.0.1.0.psm1' -Force"
 ```
 
 ### Hot-update: old code still runs

@@ -35,7 +35,7 @@ Verify the three LOBE files were copied to the output:
 
 ```powershell
 Set-Location src/Svrn7.TDA/bin/Debug/net8.0
-Get-ChildItem lobes/Pando.Diagnostics
+Get-ChildItem lobes/Pando.Diagnostics.0.1.0
 ```
 
 Expected:
@@ -55,7 +55,7 @@ Get-Content lobes/lobes.config.json | Select-String "Pando"
 Expected:
 
 ```
-    "Pando.Diagnostics/Pando.Diagnostics.0.1.0.psm1"
+    "Pando.Diagnostics.0.1.0/Pando.Diagnostics.0.1.0.psm1"
 ```
 
 ---
@@ -93,7 +93,7 @@ Federation module to get `Send-DIDCommMessage`:
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 ```
 
 ---
@@ -114,7 +114,7 @@ bootstrap sequence.  (The TDA must be running in the first terminal throughout.)
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 ```
 
 ### 4.1 — Generate the federation key pair (one-time)
@@ -221,7 +221,7 @@ While the TDA is running, send a `federation/1.0/society-list` message.
 Include `replyEndpoint` so the result is delivered back to the local TDA.
 
 ```powershell
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
 $body = @{
     replyEndpoint = "http://localhost:8443"
@@ -353,7 +353,7 @@ Expected `date-result` reply body:
 no assemblies, no database needed.
 
 ```powershell
-Import-Module .\lobes\Pando.Diagnostics\Pando.Diagnostics.Impl.0.1.0.psm1
+Import-Module .\lobes\Pando.Diagnostics.0.1.0\Pando.Diagnostics.Impl.0.1.0.psm1
 
 $now = Get-TDADate
 Write-Host "Server time : $($now.ToString('o'))"
@@ -395,7 +395,7 @@ After a full reset, repeat Step 4 before testing the LOBE.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `No LOBE registered for @type .../diagnostics/1.0/date-query` | `Pando.Diagnostics` missing from `lobes.config.json` or files not in output | Verify Step 1 |
-| `The term 'Get-TDADate' is not recognized` | `Pando.Diagnostics.Impl.0.1.0.psm1` not found at `$PSScriptRoot` | Verify all three files are in `lobes/Pando.Diagnostics/` in the output folder |
+| `The term 'Get-TDADate' is not recognized` | `Pando.Diagnostics.Impl.0.1.0.psm1` not found at `$PSScriptRoot` | Verify all three files are in `lobes/Pando.Diagnostics.0.1.0/` in the output folder |
 | `Invoke-PandoDiagnosticsDateQuery: message '...' not found.` | Message expired from cache before handler ran | Retry; check inbox store |
 | `[PS Warning] no reply endpoint — result not delivered.` | Expected when `replyEndpoint` absent and sender DID has no DID Document | Normal for Step 5 (no-reply variant) |
 | `serverUtc` and `respondedAt` are identical | Normal — both calls run within microseconds | Not an error |

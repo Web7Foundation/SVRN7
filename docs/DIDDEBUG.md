@@ -24,8 +24,8 @@ Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 ### Module imports
 
 ```powershell
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
-Import-Module .\lobes\Svrn7.Society\Svrn7.Society.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1
 ```
 
 ### TDA requirement
