@@ -84,7 +84,7 @@ var host = Host.CreateDefaultBuilder(args)
         {
             opts.TimestampFormat = "HH:mm:ss.fff ";
             opts.UseUtcTimestamp = true;
-            opts.SingleLine      = true;
+            opts.SingleLine      = false;
         });
     })
     .ConfigureServices((ctx, services) =>

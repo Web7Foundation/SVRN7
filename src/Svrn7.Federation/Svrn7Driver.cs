@@ -173,7 +173,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
             var citizenDoc = request.DidDocument with { Role = Svrn7Role.Citizen };
             await _didRegistry.CreateAsync(citizenDoc, ct);
             if (_log.IsEnabled(LogLevel.Debug))
-                _log.LogDebug("DID Document created: {Summary}\n{Json}", DidDocumentSummary(citizenDoc), citizenDoc.DocumentJson);
+                _log.LogDebug("DID Document created: {Content}", FormatDocumentForLog(citizenDoc));
 
             // Endowment VC
             var jwtVc = await _vcService.IssueAsync(
@@ -274,7 +274,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
             var societyDoc = request.DidDocument with { Role = Svrn7Role.Society };
             await _didRegistry.CreateAsync(societyDoc, ct);
             if (_log.IsEnabled(LogLevel.Debug))
-                _log.LogDebug("DID Document created: {Summary}\n{Json}", DidDocumentSummary(societyDoc), societyDoc.DocumentJson);
+                _log.LogDebug("DID Document created: {Content}", FormatDocumentForLog(societyDoc));
 
             _didsPubl.Add(1);
             _log.LogInformation("Society initialised locally: {Did} ({Method})", did, primaryMethodName);
@@ -662,7 +662,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
         var fedDoc = didDocument with { Role = Svrn7Role.Federation };
         await _didRegistry.CreateAsync(fedDoc, ct);
         if (_log.IsEnabled(LogLevel.Debug))
-            _log.LogDebug("DID Document created: {Summary}\n{Json}", DidDocumentSummary(fedDoc), fedDoc.DocumentJson);
+            _log.LogDebug("DID Document created: {Content}", FormatDocumentForLog(fedDoc));
 
         await _merkle.AppendAsync("FederationInitialised",
             JsonSerializer.Serialize(new
@@ -691,7 +691,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
         ThrowIfDisposed();
         await _didRegistry.CreateAsync(doc, ct);
         if (_log.IsEnabled(LogLevel.Debug))
-            _log.LogDebug("DID Document created: {Summary}\n{Json}", DidDocumentSummary(doc), doc.DocumentJson);
+            _log.LogDebug("DID Document created: {Content}", FormatDocumentForLog(doc));
     }
     public Task UpdateDidAsync(DidDocument doc, CancellationToken ct = default)
     { ThrowIfDisposed(); return _didRegistry.UpdateAsync(doc, ct); }
@@ -700,7 +700,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
         ThrowIfDisposed();
         var result = await _didResolver.ResolveAsync(did, ct);
         if (_log.IsEnabled(LogLevel.Debug) && result.Document is not null)
-            _log.LogDebug("DID Document retrieved: {Summary}\n{Json}", DidDocumentSummary(result.Document), result.Document.DocumentJson);
+            _log.LogDebug("DID Document retrieved: {Content}", FormatDocumentForLog(result.Document));
         return result;
     }
     public Task DeactivateDidAsync(string did, CancellationToken ct = default)
@@ -823,9 +823,19 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    private static string DidDocumentSummary(DidDocument doc) =>
-        $"DID={doc.Did} Version={doc.Version} Status={doc.Status} Role={doc.Role} " +
-        $"Keys={doc.VerificationMethod.Count} Services={doc.ServiceEndpoints.Count}";
+    private static string FormatDocumentForLog(DidDocument doc)
+    {
+        var summary = $"DID={doc.Did} Version={doc.Version} Status={doc.Status} Role={doc.Role} " +
+                      $"Keys={doc.VerificationMethod.Count} Services={doc.ServiceEndpoints.Count}";
+        try
+        {
+            var pretty = JsonSerializer.Serialize(
+                JsonSerializer.Deserialize<JsonElement>(doc.DocumentJson),
+                new JsonSerializerOptions { WriteIndented = true });
+            return $"{summary}\n{pretty}";
+        }
+        catch { return summary; }
+    }
 
     public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null)
         => BuildMinimalDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role, tdaName);

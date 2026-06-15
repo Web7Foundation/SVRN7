@@ -43,8 +43,7 @@ public sealed class DIDDocumentService
             activity?.SetTag("error.code", result.ErrorCode);
 
         if (_log.IsEnabled(LogLevel.Debug) && result.Document is not null)
-            _log.LogDebug("DID Document retrieved: {Summary}\n{Json}",
-                Summarize(result.Document), result.Document.DocumentJson);
+            _log.LogDebug("DID Document retrieved: {Content}", FormatForLog(result.Document));
 
         return result;
     }
@@ -64,8 +63,7 @@ public sealed class DIDDocumentService
         await _registry.CreateAsync(document, ct);
 
         if (_log.IsEnabled(LogLevel.Debug))
-            _log.LogDebug("DID Document created: {Summary}\n{Json}",
-                Summarize(document), document.DocumentJson);
+            _log.LogDebug("DID Document created: {Content}", FormatForLog(document));
     }
 
     /// <summary>
@@ -136,4 +134,17 @@ public sealed class DIDDocumentService
             : $"DID={doc.Did} Version={doc.Version} Status={doc.Status} Role={doc.Role} " +
               $"Keys={doc.VerificationMethod.Count} Services={doc.ServiceEndpoints.Count} " +
               $"UpdatedAt={doc.UpdatedAt:O}";
+
+    private static string FormatForLog(DidDocument doc)
+    {
+        var summary = Summarize(doc);
+        try
+        {
+            var pretty = System.Text.Json.JsonSerializer.Serialize(
+                System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(doc.DocumentJson),
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            return $"{summary}\n{pretty}";
+        }
+        catch { return summary; }
+    }
 }
