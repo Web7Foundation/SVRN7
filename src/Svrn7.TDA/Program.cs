@@ -167,21 +167,13 @@ if (await driver.DidRegistry.CountAsync() == 0)
 else
 {
     isFirstRun = false;
-    var allDids     = await driver.DidRegistry.QueryAsync();
-    var wandererDoc = allDids.FirstOrDefault(d => d.Role == Svrn7Role.Wanderer);
-    agentDid  = wandererDoc?.Did;
-    svrn7Name = wandererDoc?.Svrn7Name;
-
-    // Resolve through the driver so the Debug DID Document log fires consistently
-    // on every run, not just first run.
-    if (wandererDoc is not null)
-        await driver.ResolveDidAsync(wandererDoc.Did);
-
-    if (agentDid is null && File.Exists(identityPath))
+    if (File.Exists(identityPath))
     {
-        var json = await File.ReadAllTextAsync(identityPath);
-        var elem = JsonSerializer.Deserialize<JsonElement>(json);
-        agentDid = elem.GetProperty("did").GetString();
+        var json   = await File.ReadAllTextAsync(identityPath);
+        var elem   = JsonSerializer.Deserialize<JsonElement>(json);
+        agentDid   = elem.GetProperty("did").GetString();
+        var result = await driver.DidRegistry.ResolveAsync(agentDid!);
+        svrn7Name  = result.Document?.Svrn7Name;
     }
 }
 

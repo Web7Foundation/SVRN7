@@ -1,33 +1,29 @@
 using System.Diagnostics;
-using Microsoft.Extensions.Logging;
 using Svrn7.Core.Interfaces;
 using Svrn7.Core.Models;
 
 namespace Svrn7.Identity;
 
 /// <summary>
-/// Wraps IDidDocumentRegistry with OpenTelemetry Activity tracing and structured
-/// Debug logging for all DID Document lifecycle operations. Used by the
-/// Get-DIDDocument LOBE cmdlet and any C# caller that needs traced DID resolution,
-/// creation, update, or deactivation.
+/// Wraps IDidDocumentRegistry with OpenTelemetry Activity tracing for all DID
+/// Document lifecycle operations. Used by the Get-DIDDocument LOBE cmdlet and
+/// any C# caller that needs traced DID resolution, creation, update, or deactivation.
 /// </summary>
 public sealed class DIDDocumentService
 {
     public static readonly ActivitySource ActivitySource =
         new("Svrn7.Identity.DIDDocument", "0.8.0");
 
-    private readonly IDidDocumentRegistry      _registry;
-    private readonly ILogger<DIDDocumentService> _log;
+    private readonly IDidDocumentRegistry _registry;
 
-    public DIDDocumentService(IDidDocumentRegistry registry, ILogger<DIDDocumentService> log)
+    public DIDDocumentService(IDidDocumentRegistry registry)
     {
         _registry = registry;
-        _log      = log;
     }
 
     /// <summary>
     /// Resolves a DID Document by DID. Emits a DIDDocument.Resolve activity span
-    /// with found, version, and W3C error code tags. Logs document contents at Debug.
+    /// with found, version, and W3C error code tags.
     /// </summary>
     public async Task<DidResolutionResult> ResolveAsync(string did, CancellationToken ct = default)
     {
@@ -42,15 +38,12 @@ public sealed class DIDDocumentService
         if (result.ErrorCode is not null)
             activity?.SetTag("error.code", result.ErrorCode);
 
-        if (_log.IsEnabled(LogLevel.Debug) && result.Document is not null)
-            _log.LogDebug("DID Document retrieved: {Content}", FormatForLog(result.Document));
-
         return result;
     }
 
     /// <summary>
     /// Creates a new DID Document and emits a DIDDocument.Create activity span
-    /// with DID, method, and role tags. Logs document contents at Debug.
+    /// with DID, method, and role tags.
     /// </summary>
     public async Task CreateAsync(DidDocument document, CancellationToken ct = default)
     {
@@ -61,9 +54,6 @@ public sealed class DIDDocumentService
         activity?.SetTag("did.version", document.Version);
 
         await _registry.CreateAsync(document, ct);
-
-        if (_log.IsEnabled(LogLevel.Debug))
-            _log.LogDebug("DID Document created: {Content}", FormatForLog(document));
     }
 
     /// <summary>
@@ -134,17 +124,4 @@ public sealed class DIDDocumentService
             : $"DID={doc.Did} Version={doc.Version} Status={doc.Status} Role={doc.Role} " +
               $"Keys={doc.VerificationMethod.Count} Services={doc.ServiceEndpoints.Count} " +
               $"UpdatedAt={doc.UpdatedAt:O}";
-
-    private static string FormatForLog(DidDocument doc)
-    {
-        var summary = Summarize(doc);
-        try
-        {
-            var pretty = System.Text.Json.JsonSerializer.Serialize(
-                System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(doc.DocumentJson),
-                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            return $"{summary}\n{pretty}";
-        }
-        catch { return summary; }
-    }
 }

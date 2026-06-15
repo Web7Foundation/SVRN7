@@ -131,7 +131,9 @@ public static class SocietyServiceCollectionExtensions
                 sp.GetRequiredService<Svrn7LiteContext>(),
                 sp.GetRequiredService<ICryptoService>()));
         services.TryAddSingleton<IDidDocumentRegistry>(sp =>
-            new LiteDidDocumentRegistry(sp.GetRequiredService<DidRegistryLiteContext>()));
+            new LiteDidDocumentRegistry(
+                sp.GetRequiredService<DidRegistryLiteContext>(),
+                sp.GetRequiredService<ILogger<LiteDidDocumentRegistry>>()));
         services.TryAddSingleton<IVcRegistry>(sp =>
             new LiteVcRegistry(sp.GetRequiredService<VcRegistryLiteContext>()));
         services.TryAddSingleton<IFederationStore>(sp =>

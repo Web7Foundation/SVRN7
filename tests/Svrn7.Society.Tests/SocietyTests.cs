@@ -43,7 +43,7 @@ public sealed class SocietyTestFixture : IAsyncDisposable
         var wallets     = new LiteWalletStore(Context);
         var registry    = new LiteIdentityRegistry(Context);
         var merkle      = new MerkleLog(Context, Crypto);
-        var didReg      = new LiteDidDocumentRegistry(_didCtx);
+        var didReg      = new LiteDidDocumentRegistry(_didCtx, NullLogger<LiteDidDocumentRegistry>.Instance);
         var vcReg       = new LiteVcRegistry(_vcCtx);
         var fedStore    = new LiteFederationStore(_fedCtx);
         var vcResolver  = new LiteVcDocumentResolver(vcReg);
