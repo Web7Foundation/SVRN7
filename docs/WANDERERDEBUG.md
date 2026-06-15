@@ -53,11 +53,12 @@ Three PowerShell 7 terminals are needed throughout this guide.
 
 ---
 
-## Step 1 — Start W5 (Terminal A)
+## Step 1 — Start W5 and W6 (Terminals A and B)
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
-dotnet .\Svrn7.TDA.dll --port 8445 --name W5
+Start-Process cmd.exe -ArgumentList '/k title W5 [Wanderer]:8445 && dotnet ".\Svrn7.TDA.dll" --port 8445 --name W5'
+Start-Process cmd.exe -ArgumentList '/k title W6 [Wanderer]:8446 && dotnet ".\Svrn7.TDA.dll" --port 8446 --name W6'
 ```
 
 W5 has no prior databases — this is a first run.  Expected startup banner:
@@ -87,18 +88,6 @@ Note the `Agent DID` line — this is W5's Wanderer identity.  It is also writte
 ```
 8445/mem/agent-identity.json
 ```
-
----
-
-## Step 2 — Start W6 (Terminal B)
-
-```powershell
-Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
-dotnet .\Svrn7.TDA.dll --port 8446 --name W6
-```
-
-Expected: same banner shape as W5 with `W6`, port `8446`, and a different `<guid-W6>`.
-W6's identity is written to `8446/mem/agent-identity.json`.
 
 ---
 
