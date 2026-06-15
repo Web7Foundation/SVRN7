@@ -313,8 +313,8 @@ function New-Svrn7Did {
         DocumentJson     [string]   W3C DID Document JSON
         ServiceEndpoints [List]     contains one entry when -ServiceEndpointUrl is given
 .NOTES
-    ISvrn7Driver methods: Base58EncodeAsync(byte[]), CreateDidDocument(string,string,string,string?,Svrn7Role?,string?)
-    Requires TDA runspace — driver must be initialised.
+    Pure in-memory operation — no driver or database required.
+    Uses Svrn7.Crypto.CryptoService.Base58Encode and Svrn7.Federation.Svrn7Driver.BuildMinimalDidDocument (both static/value-type).
 #>
     [CmdletBinding()]
     [OutputType([Svrn7.Core.Models.DidDocument])]
@@ -326,17 +326,18 @@ function New-Svrn7Did {
         [Parameter()] [string] $Svrn7Name = ''
     )
     process {
-        Assert-FederationDriver
-        $drv = if ($SVRN7) { $SVRN7.Driver } else { $Script:FederationDriver }
         if (-not $KeyPair.PublicKeyHex) {
             throw [System.ArgumentException]::new('KeyPair.PublicKeyHex is empty. Use New-Svrn7KeyPair.')
         }
+        if (-not $Script:FederationDriver) {
+            Initialize-Svrn7Assemblies -ModuleRoot $PSScriptRoot
+        }
         $bytes   = [System.Convert]::FromHexString($KeyPair.PublicKeyHex)
-        $id      = $drv.Base58EncodeAsync($bytes).GetAwaiter().GetResult()
+        $id      = [Svrn7.Crypto.CryptoService]::new().Base58Encode($bytes)
         $did     = "did:${MethodName}:${id}"
         $svcUrl  = if ($ServiceEndpointUrl) { $ServiceEndpointUrl } else { $null }
         $nameVal = if ($Svrn7Name) { $Svrn7Name } else { $null }
-        $drv.CreateDidDocument($did, $KeyPair.PublicKeyHex, $MethodName, $svcUrl, $Role, $nameVal)
+        [Svrn7.Federation.Svrn7Driver]::BuildMinimalDidDocument($did, $KeyPair.PublicKeyHex, $MethodName, $svcUrl, $Role, $nameVal)
     }
 }
 

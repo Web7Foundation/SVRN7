@@ -809,7 +809,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
     public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null)
         => BuildMinimalDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role, tdaName);
 
-    private static DidDocument BuildMinimalDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null)
+    public static DidDocument BuildMinimalDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null)
     {
         var keyId = $"{did}#key-1";
         var vm = new DidVerificationMethod
