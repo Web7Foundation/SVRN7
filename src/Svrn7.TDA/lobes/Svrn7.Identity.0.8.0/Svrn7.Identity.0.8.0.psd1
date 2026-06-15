@@ -12,7 +12,8 @@
     FunctionsToExport = @(
         'Resolve-Svrn7Did',
         'Get-Svrn7VcById',
-        'Resolve-Svrn7CitizenIdentity'
+        'Resolve-Svrn7CitizenIdentity',
+        'Get-DIDDocument'
     )
 
     CmdletsToExport   = @()

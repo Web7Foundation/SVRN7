@@ -216,6 +216,49 @@ function Resolve-Svrn7CitizenIdentity {
     }
 }
 
+# ── Get-DIDDocument ───────────────────────────────────────────────────────────
+
+function Get-DIDDocument {
+    <#
+    .SYNOPSIS
+        Resolves a DID Document by DID and returns it directly.
+
+    .DESCRIPTION
+        Local utility for direct DID Document lookup. Delegates to
+        ISvrn7SocietyDriver.ResolveDidAsync(). Returns the DidDocument
+        object or $null when not found. Does not produce a DIDComm response.
+
+    .PARAMETER Did
+        The DID to resolve (e.g. "did:drn:alpha.svrn7.net/citizen/alice").
+
+    .OUTPUTS
+        Svrn7.Core.Models.DidDocument or $null.
+
+    .EXAMPLE
+        $doc = Get-DIDDocument -Did "did:drn:alpha.svrn7.net/citizen/alice"
+    #>
+    [CmdletBinding()]
+    [OutputType([object])]
+    param(
+        [Parameter(Mandatory)]
+        [string] $Did
+    )
+
+    process {
+        Write-Verbose "Get-DIDDocument: resolving '$Did'"
+
+        $doc = $SVRN7.Driver.ResolveDidAsync($Did).GetAwaiter().GetResult()
+
+        if ($null -eq $doc) {
+            Write-Verbose "Get-DIDDocument: '$Did' not found."
+            return $null
+        }
+
+        Write-Information "Get-DIDDocument: resolved '$Did' version=$($doc.Version) status=$($doc.Status) role=$($doc.Role)"
+        return $doc
+    }
+}
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Invoke-Svrn7DidResolveResponse {
@@ -270,6 +313,7 @@ Export-ModuleMember -Function @(
     'Resolve-Svrn7Did',
     'Get-Svrn7VcById',
     'Resolve-Svrn7CitizenIdentity',
+    'Get-DIDDocument',
     'Invoke-Svrn7DidResolveResponse',
     'Invoke-Svrn7VcResolveResponse'
 )

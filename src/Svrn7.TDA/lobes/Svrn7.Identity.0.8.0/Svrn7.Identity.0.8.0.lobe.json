@@ -134,6 +134,32 @@
       }
     },
     {
+      "name": "Get-DIDDocument",
+      "title": "Get DID Document",
+      "description": "Resolves a DID Document by DID and returns it directly. Local utility — does not produce a DIDComm response. Returns the DidDocument object or null when not found.",
+      "epochRequired": 0,
+      "annotations": {
+        "idempotent": true,
+        "modifiesState": false,
+        "requiresEpoch": 0,
+        "destructive": false,
+        "pipelinePosition": "source"
+      },
+      "inputSchema": {
+        "type": "object",
+        "required": [ "Did" ],
+        "properties": {
+          "Did": { "type": "string" }
+        }
+      },
+      "outputSchema": {
+        "oneOf": [
+          { "type": "object", "description": "Svrn7.Core.Models.DidDocument" },
+          { "type": "null" }
+        ]
+      }
+    },
+    {
       "name": "Resolve-Svrn7CitizenIdentity",
       "title": "Resolve Full Citizen Identity",
       "description": "Local convenience function returning DID Document + all active VCs for a citizen DID. Used by other LOBEs needing full identity context. Does not produce a DIDComm response.",

@@ -170,7 +170,10 @@ public sealed class Svrn7Driver : ISvrn7Driver
             }, ct);
 
             // DID Document — stamp role then persist
-            await _didRegistry.CreateAsync(request.DidDocument with { Role = Svrn7Role.Citizen }, ct);
+            var citizenDoc = request.DidDocument with { Role = Svrn7Role.Citizen };
+            await _didRegistry.CreateAsync(citizenDoc, ct);
+            if (_log.IsEnabled(LogLevel.Debug))
+                _log.LogDebug("DID Document created: {Summary}\n{Json}", DidDocumentSummary(citizenDoc), citizenDoc.DocumentJson);
 
             // Endowment VC
             var jwtVc = await _vcService.IssueAsync(
@@ -268,7 +271,10 @@ public sealed class Svrn7Driver : ISvrn7Driver
                 new Wallet { Did = did, BalanceGrana = 0, IsRestricted = false }, ct);
 
             // DID Document — stamp role then persist
-            await _didRegistry.CreateAsync(request.DidDocument with { Role = Svrn7Role.Society }, ct);
+            var societyDoc = request.DidDocument with { Role = Svrn7Role.Society };
+            await _didRegistry.CreateAsync(societyDoc, ct);
+            if (_log.IsEnabled(LogLevel.Debug))
+                _log.LogDebug("DID Document created: {Summary}\n{Json}", DidDocumentSummary(societyDoc), societyDoc.DocumentJson);
 
             _didsPubl.Add(1);
             _log.LogInformation("Society initialised locally: {Did} ({Method})", did, primaryMethodName);
@@ -653,7 +659,10 @@ public sealed class Svrn7Driver : ISvrn7Driver
         }, ct);
 
         // DID Document — stamp role then persist
-        await _didRegistry.CreateAsync(didDocument with { Role = Svrn7Role.Federation }, ct);
+        var fedDoc = didDocument with { Role = Svrn7Role.Federation };
+        await _didRegistry.CreateAsync(fedDoc, ct);
+        if (_log.IsEnabled(LogLevel.Debug))
+            _log.LogDebug("DID Document created: {Summary}\n{Json}", DidDocumentSummary(fedDoc), fedDoc.DocumentJson);
 
         await _merkle.AppendAsync("FederationInitialised",
             JsonSerializer.Serialize(new
@@ -677,12 +686,23 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
     // ── DID registry pass-through ──────────────────────────────────────────────
 
-    public Task CreateDidAsync(DidDocument doc, CancellationToken ct = default)
-    { ThrowIfDisposed(); return _didRegistry.CreateAsync(doc, ct); }
+    public async Task CreateDidAsync(DidDocument doc, CancellationToken ct = default)
+    {
+        ThrowIfDisposed();
+        await _didRegistry.CreateAsync(doc, ct);
+        if (_log.IsEnabled(LogLevel.Debug))
+            _log.LogDebug("DID Document created: {Summary}\n{Json}", DidDocumentSummary(doc), doc.DocumentJson);
+    }
     public Task UpdateDidAsync(DidDocument doc, CancellationToken ct = default)
     { ThrowIfDisposed(); return _didRegistry.UpdateAsync(doc, ct); }
-    public Task<DidResolutionResult> ResolveDidAsync(string did, CancellationToken ct = default)
-    { ThrowIfDisposed(); return _didResolver.ResolveAsync(did, ct); }
+    public async Task<DidResolutionResult> ResolveDidAsync(string did, CancellationToken ct = default)
+    {
+        ThrowIfDisposed();
+        var result = await _didResolver.ResolveAsync(did, ct);
+        if (_log.IsEnabled(LogLevel.Debug) && result.Document is not null)
+            _log.LogDebug("DID Document retrieved: {Summary}\n{Json}", DidDocumentSummary(result.Document), result.Document.DocumentJson);
+        return result;
+    }
     public Task DeactivateDidAsync(string did, CancellationToken ct = default)
     { ThrowIfDisposed(); return _didRegistry.DeactivateAsync(did, ct); }
     public Task SuspendDidAsync(string did, CancellationToken ct = default)
@@ -802,6 +822,10 @@ public sealed class Svrn7Driver : ISvrn7Driver
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+
+    private static string DidDocumentSummary(DidDocument doc) =>
+        $"DID={doc.Did} Version={doc.Version} Status={doc.Status} Role={doc.Role} " +
+        $"Keys={doc.VerificationMethod.Count} Services={doc.ServiceEndpoints.Count}";
 
     public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null)
         => BuildMinimalDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role, tdaName);

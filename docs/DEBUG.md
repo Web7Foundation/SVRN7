@@ -92,26 +92,21 @@ Set-Location src/Svrn7.TDA/bin/Debug/net8.0
 
 ## Resetting the Environment
 
-All state lives in five LiteDB files under the `mem/` subfolder of the TDA output directory.
+All state lives in five LiteDB files under the `{port}\mem\` subfolder of the TDA output directory.
 LiteDB holds an **exclusive write lock** for the lifetime of any process that has them open —
 **stop the TDA before deleting any database file**.
 
 Paths are configured in `appsettings.json` (`Svrn7:DbPath` etc.) and resolved relative to the
-TDA executable directory by `Program.cs`, so they always land in `mem/` regardless of the
-working directory.
+TDA executable directory by `Program.cs`, so they always land in `{port}\mem\` regardless of the
+working directory. For the default port 8443 the folder is `8443\mem\`.
 
 ### Full reset (start from scratch)
 
 ```powershell
 # 1. Stop the TDA (Ctrl+C in the TDA terminal window)
 
-# 2. Delete all LiteDB files from the mem/ subfolder
-Remove-Item -Path "mem\svrn7.db",
-                  "mem\svrn7-dids.db",
-                  "mem\svrn7-vcs.db",
-                  "mem\svrn7-inbox.db",
-                  "mem\svrn7-schemas.db" `
-            -ErrorAction SilentlyContinue
+# 2. Delete the entire mem folder (TDA recreates it on next run)
+Remove-Item -Recurse -Force "*\mem" -ErrorAction SilentlyContinue
 
 # 3. Restart the TDA — it recreates all databases on first run
 dotnet .\Svrn7.TDA.dll
@@ -126,13 +121,13 @@ without disturbing federation, society, or citizen state.
 
 ```powershell
 # Stop the TDA, then:
-Remove-Item -Path "mem\svrn7-inbox.db" -ErrorAction SilentlyContinue
+Remove-Item -Path "8443\mem\svrn7-inbox.db" -ErrorAction SilentlyContinue
 # Restart the TDA
 dotnet .\Svrn7.TDA.dll
 ```
 
 > If you override `Svrn7:InboxDbPath` in `appsettings.json` (or via `$env:Svrn7__InboxDbPath`),
-> substitute your configured path above.
+> substitute your configured path above. Replace `8443` with your port number if different.
 
 ---
 
@@ -143,12 +138,12 @@ bootstrap sequence using only DIDComm messages to the running TDA:
 
 | Step | Protocol | Handler |
 |------|----------|---------|
-| E.0 | `federation/1.0/initialize-federation` | `Invoke-Web7FederationInit` |
-| E.1 | `federation/1.0/federation-query` | `Invoke-Web7FederationQuery` |
-| E.2 | `federation/1.0/register-society` | `Invoke-Web7RegisterSociety` |
+| E.0 | `Svrn7.Federation.0.8.0/initialize-federation` | `Invoke-Web7FederationInit` |
+| E.1 | `Svrn7.Federation.0.8.0/federation-query` | `Invoke-Web7FederationQuery` |
+| E.2 | `Svrn7.Federation.0.8.0/register-society` | `Invoke-Web7RegisterSociety` |
 | E.3 | *(client-side key generation)* | — |
-| E.4 | `Svrn7.Onboarding/0.8.0/register-citizen` | `ConvertFrom-Web7OnboardRequest` |
-| E.5–E.11 | `society/1.0/*` query/admin | see below |
+| E.4 | `Svrn7.Onboarding.0.8.0/register-citizen` | `ConvertFrom-Web7OnboardRequest` |
+| E.5–E.11 | `Svrn7.Society.0.8.0/*` query/admin | see below |
 
 > **How replies work:** the Switchboard executes the handler cmdlet, which resolves
 > the sender's DIDComm endpoint from their DID document and returns an
@@ -174,7 +169,7 @@ The TDA may be running or stopped when this step is executed.
 
 ```powershell
 # Import the module (loads assemblies; no database opened)
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
 $federationKp = New-Svrn7KeyPair
 
@@ -189,7 +184,7 @@ Public key  : 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
 Private key : 18e14a7b5a...  <-- store securely, never share
 ```
 
-#### E.0.2 — Send the federation/1.0/initialize-federation DIDComm message
+#### E.0.2 — Send the Svrn7.Federation.0.8.0/initialize-federation DIDComm message
 
 Replace `$federationKp.PublicKeyHex` with the value saved in E.0.1 on subsequent runs.
 
@@ -221,7 +216,7 @@ Expected TDA log:
 [Info]  Federation initialised: did:drn:foundation.svrn7.net (Web 7.0 SOVRON Foundation), supply 1000000000000000000 grana
 ```
 
-Reply body (`federation/1.0/initialize-federation-result`):
+Reply body (`Svrn7.Federation.0.8.0/initialize-federation-result`):
 
 ```json
 {
@@ -259,7 +254,7 @@ Expected TDA log:
 [Trace]   [PS Verbose] Invoke-Web7FederationQuery: replying to did:drn:foundation.svrn7.net
 ```
 
-Reply body (`federation/1.0/federation-query-result`):
+Reply body (`Svrn7.Federation.0.8.0/federation-query-result`):
 
 ```json
 {
@@ -312,7 +307,7 @@ Expected TDA log:
 [Info]  Society registered: did:drn:bindloss.svrn7.net (Bindloss Alberta) method=bindloss
 ```
 
-Reply body (`federation/1.0/register-society-result`):
+Reply body (`Svrn7.Federation.0.8.0/register-society-result`):
 
 ```json
 {
@@ -337,7 +332,7 @@ $citizenDid     = $citizenDidDoc.Did
 # e.g. did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
 ```
 
-### E.4 — Register citizen "mwherman" via Svrn7.Onboarding/0.8.0/register-citizen
+### E.4 — Register citizen "mwherman" via Svrn7.Onboarding.0.8.0/register-citizen
 
 ```powershell
 $body = @{
@@ -592,9 +587,9 @@ Test-NetConnection localhost -Port 8443
 `Send-DIDCommMessage` is available automatically after importing either LOBE:
 
 ```powershell
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 # — or —
-Import-Module .\lobes\Svrn7.Society\Svrn7.Society.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1
 ```
 
 All scenarios below call `Send-DIDCommMessage -Body <json>` directly.
@@ -740,8 +735,8 @@ info: KestrelListenerService[0]
 In a separate PowerShell 7 session, import the Society module and query the running instance:
 
 ```powershell
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
-Import-Module .\lobes\Svrn7.Society\Svrn7.Society.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1
 
 Initialize-Svrn7FederationDriver
 
@@ -780,9 +775,9 @@ did:drn:bindloss.svrn7.net   Clean
 
 ## Scenario B — Register first citizen "mwherman" via DIDComm
 
-Citizen registration is driven by the `Svrn7.Onboarding/0.8.0/register-citizen` DIDComm protocol.
+Citizen registration is driven by the `Svrn7.Onboarding.0.8.0/register-citizen` DIDComm protocol.
 The Switchboard routes the inbound message to Agent 2 (Onboarding LOBE), which calls
-`Register-Svrn7CitizenInSociety` and returns an `Svrn7.Onboarding/0.8.0/receipt`.
+`Register-Svrn7CitizenInSociety` and returns an `Svrn7.Onboarding.0.8.0/receipt`.
 
 ### B.1 — Generate key material for "mwherman"
 
@@ -791,7 +786,7 @@ own TDA — the Society stores only the public key.
 
 ```powershell
 # Import the module (loads assemblies; no database opened)
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
 # Generate secp256k1 signing key pair — no driver or database needed
 $kp  = New-Svrn7KeyPair
@@ -888,9 +883,9 @@ MemberCount MemberDids
 
 ### B.6 — Error: duplicate registration
 
-Sending the same `Svrn7.Onboarding/0.8.0/register-citizen` a second time (same `citizenDid`) results in
+Sending the same `Svrn7.Onboarding.0.8.0/register-citizen` a second time (same `citizenDid`) results in
 a `202 Accepted` at the HTTP layer (the Switchboard always enqueues), but Agent 2 will
-log an error and return an `Svrn7.Onboarding/0.8.0/receipt` with `success: false`:
+log an error and return an `Svrn7.Onboarding.0.8.0/receipt` with `success: false`:
 
 ```
 [Error] Agent 2 / Onboarding: failed for did:drn:.../inbox/msg/<id> — CitizenAlreadyRegisteredException
@@ -945,8 +940,8 @@ $env:SVRN7_BIN_PATH = $PWD
 # Import order matters: Federation must be imported before Society
 # (Society dot-sources Svrn7.Common.0.8.0.psm1 through its own copy, but the
 #  assembly loader flag is set by Initialize-Svrn7FederationDriver)
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1 -Force
-Import-Module .\lobes\Svrn7.Society\Svrn7.Society.0.8.0.psm1    -Force
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1 -Force
+Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1    -Force
 
 # Load the Svrn7 assemblies and create the ISvrn7Driver singleton
 Initialize-Svrn7FederationDriver -DbPath "./data-ps" -DidMethodName "drn" -Verbose
@@ -1154,8 +1149,8 @@ bindlossgov  False     Active
 | `202` but log shows `CitizenAlreadyRegisteredException` | Citizen DID already registered | Expected — use a new key pair and DID |
 | `202` but log shows `SocietyEndowmentDepletedException` | Society overdraft ceiling reached | Check `Get-Svrn7OverdraftStatus`; await Federation top-up |
 | Agent 2 log: `No DIDComm service endpoint for <DID>` | Citizen DID document has no `DIDComm` service entry | Register the citizen's DID document before sending the receipt |
-| Switchboard epoch gate log warning | `type` URI requires a higher epoch than `CurrentEpoch` | Only `Svrn7.Society/0.8.0/transfer-order` and `Svrn7.Society/0.8.0/transfer-order-receipt` are epoch-gated (require Epoch 1). `Svrn7.Society/0.8.0/transfer-request` is not epoch-gated. |
-| `202` but Switchboard log shows `HandleIncomingTransferMessageAsync` error on `Svrn7.Society/0.8.0/transfer-request` | `Invoke-Svrn7IncomingTransfer` passes the stored body to `HandleIncomingTransferMessageAsync`, which expects a packed transfer credential, not a plaintext JSON body | Dev testing of transfer routing only — use a properly signed `TransferOrderCredential` body for production transfers |
+| Switchboard epoch gate log warning | `type` URI requires a higher epoch than `CurrentEpoch` | Only `Svrn7.Society.0.8.0/transfer-order` and `Svrn7.Society.0.8.0/transfer-order-receipt` are epoch-gated (require Epoch 1). `Svrn7.Society.0.8.0/transfer-request` is not epoch-gated. |
+| `202` but Switchboard log shows `HandleIncomingTransferMessageAsync` error on `Svrn7.Society.0.8.0/transfer-request` | `Invoke-Svrn7IncomingTransfer` passes the stored body to `HandleIncomingTransferMessageAsync`, which expects a packed transfer credential, not a plaintext JSON body | Dev testing of transfer routing only — use a properly signed `TransferOrderCredential` body for production transfers |
 | `202` but log shows `unknown message type 'application/didcomm-encrypted+json'` | Encrypted JWE was sent — `UnpackAsync` does not decrypt JWE; stores raw ciphertext with wrong type | Use plaintext messages for dev/test (`typ = "application/didcomm-plain+json"`, no `protected_` wrapper) |
 
 ---
