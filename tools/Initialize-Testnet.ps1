@@ -64,8 +64,10 @@ foreach ($node in $nodes) {
         $psi.UseShellExecute = $true
     }
 
+    $cmd = "dotnet `"$dll`" --port $($node.Port) --name $($node.Name)"
+    Write-Host "Launching: $cmd"
     $proc = [System.Diagnostics.Process]::Start($psi)
     $processes.Add($proc)
-    Write-Host "Started $($node.Name)  role=Wanderer  port=$($node.Port)  pid=$($proc.Id)"
+    Write-Host "Started   $($node.Name)  role=Wanderer  port=$($node.Port)  pid=$($proc.Id)"
 }
 
