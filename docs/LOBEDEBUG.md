@@ -65,7 +65,7 @@ Expected:
 In the TDA output folder (`src/Svrn7.TDA/bin/Debug/net8.0`):
 
 ```powershell
-dotnet .\Svrn7.TDA.dll
+dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 ```
 
 Expected startup log:
@@ -376,14 +376,14 @@ Stop the TDA, delete the inbox database to clear accumulated test messages, then
 ```powershell
 # (Stop the TDA first — Ctrl+C in the TDA terminal)
 Remove-Item -Path "mem\svrn7-inbox.db", "mem\svrn7-inbox-log.db" -ErrorAction SilentlyContinue
-dotnet .\Svrn7.TDA.dll
+dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 ```
 
 For a full reset (clears federation and society records too):
 
 ```powershell
 Remove-Item -Path "mem\*.db" -ErrorAction SilentlyContinue
-dotnet .\Svrn7.TDA.dll
+dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 ```
 
 After a full reset, repeat Step 4 before testing the LOBE.

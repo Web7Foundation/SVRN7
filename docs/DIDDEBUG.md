@@ -34,7 +34,7 @@ Import-Module .\lobes\Svrn7.Society\Svrn7.Society.0.8.0.psm1
 Federation driver, which can only be initialised inside the `dotnet` host. The workflow is:
 
 1. Generate key pairs from the PS CLI (Scenario D1)
-2. Start the TDA: `dotnet .\Svrn7.TDA.dll`
+2. Start the TDA: `dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA`
 3. Register via the TDA runspace (Scenario D2)
 
 ---

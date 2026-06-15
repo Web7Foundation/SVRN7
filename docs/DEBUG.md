@@ -109,7 +109,7 @@ working directory. For the default port 8443 the folder is `8443\mem\`.
 Remove-Item -Recurse -Force "*\mem" -ErrorAction SilentlyContinue
 
 # 3. Restart the TDA — it recreates all databases on first run
-dotnet .\Svrn7.TDA.dll
+dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 ```
 
 After a full reset, run Scenario E in order: E.0 (federation init) → E.2 (society register) → E.4 (citizen onboard).
@@ -123,7 +123,7 @@ without disturbing federation, society, or citizen state.
 # Stop the TDA, then:
 Remove-Item -Path "8443\mem\svrn7-inbox.db" -ErrorAction SilentlyContinue
 # Restart the TDA
-dotnet .\Svrn7.TDA.dll
+dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 ```
 
 > If you override `Svrn7:InboxDbPath` in `appsettings.json` (or via `$env:Svrn7__InboxDbPath`),
@@ -709,13 +709,17 @@ $env:Tda__AcceptSelfSigned    = "true"
 ### A.2 — First-run startup
 
 ```powershell
-dotnet .\Svrn7.TDA.dll --port 8443
+dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 ```
 
-`--port` is the only required argument. On first run the TDA:
+`--port` and `--name` are required. `--url <base-url>` is optional (default `http://localhost`);
+it sets the scheme+host used in the Wanderer DID Document service endpoint (`<url>:<port>/didcomm`).
+Run `dotnet .\Svrn7.TDA.dll --help` to see all parameters.
+
+On first run the TDA:
 1. Detects an empty DID registry and auto-generates a Wanderer identity: secp256k1
    key pair, `did:drn:wanderer.testnet.svrn7.net/agent/1.0/{guid}` DID and DIDDocument
-   (`Svrn7Role=Wanderer`, `Svrn7Name="TDA-8443"`), stored in `8443/mem/svrn7-dids.db`.
+   (`Svrn7Role=Wanderer`, `Svrn7Name=<--name value>`), stored in `8443/mem/svrn7-dids.db`.
    Key material is persisted to `8443/mem/agent-identity.json`.
 2. Registers `Svrn7SocietyOptions` with `SocietyDid = did:drn:bindloss.svrn7.net`.
 3. Loads eager LOBEs: `Svrn7.Common`, `Svrn7.Federation`, `Svrn7.Society`, `Svrn7.UX`.
@@ -1216,7 +1220,7 @@ Remove-Svrn7Databases `
 Remove-Svrn7Databases -Confirm:$false
 
 # 2. Start TDA host (separate process or background job)
-Start-Process dotnet -ArgumentList '.\Svrn7.TDA.dll' -NoNewWindow
+Start-Process dotnet -ArgumentList '.\Svrn7.TDA.dll','--port','8443','--name','MyTDA' -NoNewWindow
 
 # 3. Run test scenarios A/B/D/E ...
 

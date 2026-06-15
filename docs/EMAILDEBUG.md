@@ -62,7 +62,7 @@ Expected:
 In the TDA output folder (`src/Svrn7.TDA/bin/Debug/net8.0`):
 
 ```powershell
-dotnet .\Svrn7.TDA.dll
+dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA --port 8443 --name MyTDA
 ```
 
 `Svrn7.Email` is a **JIT LOBE** — it is not imported at startup.  It is loaded into
@@ -265,14 +265,14 @@ Stop the TDA, clear the inbox database, then restart:
 ```powershell
 # (Stop the TDA first — Ctrl+C in the TDA terminal)
 Remove-Item -Path "mem\svrn7-inbox.db", "mem\svrn7-inbox.db-log" -ErrorAction SilentlyContinue
-dotnet .\Svrn7.TDA.dll
+dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 ```
 
 For a full reset (clears all records):
 
 ```powershell
 Remove-Item -Path "mem\*.db" -ErrorAction SilentlyContinue
-dotnet .\Svrn7.TDA.dll
+dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 ```
 
 After a full reset, repeat the bootstrap in `docs/LOBEDEBUG.md` Step 4 before
