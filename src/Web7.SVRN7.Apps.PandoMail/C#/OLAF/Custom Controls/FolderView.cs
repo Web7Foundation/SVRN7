@@ -114,7 +114,7 @@ namespace Web7.SVRN7.Apps
 			this.folderImages.Images.SetKeyName(13, "New.bmp");
 			this.folderImages.Images.SetKeyName(14, "Notes.bmp");
 			this.folderImages.Images.SetKeyName(15, "Outbox.bmp");
-			this.folderImages.Images.SetKeyName(16, "Web7Mail.bmp");
+			this.folderImages.Images.SetKeyName(16, "PandoMail.bmp");
 			this.folderImages.Images.SetKeyName(17, "Post.bmp");
 			this.folderImages.Images.SetKeyName(18, "Print.bmp");
 			this.folderImages.Images.SetKeyName(19, "Read.bmp");

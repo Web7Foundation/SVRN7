@@ -1,12 +1,12 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Web 7.0 Mail")]
-[assembly: AssemblyDescription("Web 7.0 Mail App")]
+[assembly: AssemblyTitle("Web 7.0 Pando Mail")]
+[assembly: AssemblyDescription("Web 7.0 Pando Mail App")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Web 7. Foundation")]
 [assembly: AssemblyProduct("OLAF")]

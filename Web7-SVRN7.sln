@@ -55,7 +55,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{842588EC
 		tools\Pando.Packaging.psm1 = tools\Pando.Packaging.psm1
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web7Mail", "src\Web7.SVRN7.Apps.Web7Mail\C#\OLAF\Web7Mail.csproj", "{2CFFCA13-B00A-4605-B6A4-D49A616CFCB4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PandoMail", "src\Web7.SVRN7.Apps.PandoMail\C#\OLAF\PandoMail.csproj", "{2CFFCA13-B00A-4605-B6A4-D49A616CFCB4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

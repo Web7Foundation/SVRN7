@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -37,7 +37,7 @@ namespace Web7.SVRN7.Apps
 			this.itemCountLabel.Text = String.Format(this.itemCountLabel.Text, _store.Messages.Count);
 
 			// Setup Online/Offline
-			_onlineImage = Web7.SVRN7.Apps.Properties.Resources.Web7Mail;
+			_onlineImage = Web7.SVRN7.Apps.Properties.Resources.PandoMail;
 			_offlineImage = Web7.SVRN7.Apps.Properties.Resources.Error;
 
 			// Check for Network Changes
@@ -47,7 +47,7 @@ namespace Web7.SVRN7.Apps
 			UpdateStatusBar();
 
 			// Set icon
-			this.Icon = Icon.FromHandle(Web7.SVRN7.Apps.Properties.Resources.Web7Mail.GetHicon());
+			this.Icon = Icon.FromHandle(Web7.SVRN7.Apps.Properties.Resources.PandoMail.GetHicon());
 
 			// Track Preference Changes
 			Microsoft.Win32.SystemEvents.UserPreferenceChanged += new UserPreferenceChangedEventHandler(Form1_UserPreferenceChanged);

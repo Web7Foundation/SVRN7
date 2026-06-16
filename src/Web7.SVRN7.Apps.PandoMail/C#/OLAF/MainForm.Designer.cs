@@ -1,4 +1,4 @@
-﻿namespace Web7.SVRN7.Apps
+namespace Web7.SVRN7.Apps
 {
 	partial class MainForm
 	{
@@ -60,7 +60,7 @@
             this.internetFaxToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator22 = new System.Windows.Forms.ToolStripSeparator();
             this.choseFormToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.web7mailDataFileToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.PandoMailDataFileToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator23 = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripSeparator24 = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripButton1 = new System.Windows.Forms.ToolStripButton();
@@ -104,7 +104,7 @@
             this.toolStripMenuItem11 = new System.Windows.Forms.ToolStripSeparator();
             this.chooseFormToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem12 = new System.Windows.Forms.ToolStripSeparator();
-            this.web7mailDataFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.PandoMailDataFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openItemsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.closeAllItemsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -216,10 +216,10 @@
             this.replytoAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.forwardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.web7mailHelpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.PandoMailHelpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showtheOfficeAssistantToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator17 = new System.Windows.Forms.ToolStripSeparator();
-            this.web7mailOnlineToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.PandoMailOnlineToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.contactUsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator18 = new System.Windows.Forms.ToolStripSeparator();
             this.checkforUpdatesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -227,7 +227,7 @@
             this.activateProductToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.customerFeedbackOptionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator19 = new System.Windows.Forms.ToolStripSeparator();
-            this.aboutWeb7MailToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.aboutPandoMailToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripComboBox1 = new System.Windows.Forms.ToolStripComboBox();
             this.messageArea1 = new Web7.SVRN7.Apps.MessageArea();
             this.toolStripContainer1.BottomToolStripPanel.SuspendLayout();
@@ -310,7 +310,7 @@
             // 
             // connectedImageLabel
             // 
-            this.connectedImageLabel.Image = global::Web7.SVRN7.Apps.Properties.Resources.Web7Mail;
+            this.connectedImageLabel.Image = global::Web7.SVRN7.Apps.Properties.Resources.PandoMail;
             this.connectedImageLabel.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
             this.connectedImageLabel.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.connectedImageLabel.Margin = new System.Windows.Forms.Padding(0);
@@ -440,7 +440,7 @@
             this.internetFaxToolStripMenuItem1,
             this.toolStripSeparator22,
             this.choseFormToolStripMenuItem,
-            this.web7mailDataFileToolStripMenuItem1,
+            this.PandoMailDataFileToolStripMenuItem1,
             this.toolStripSeparator23});
             this.toolStripSplitButton1.Image = global::Web7.SVRN7.Apps.Properties.Resources.New;
             this.toolStripSplitButton1.ImageTransparentColor = System.Drawing.Color.FromArgb(((int)(((byte)(238)))), ((int)(((byte)(238)))), ((int)(((byte)(238)))));
@@ -607,9 +607,9 @@
             // 
             // outlookDataFileToolStripMenuItem1
             // 
-            this.web7mailDataFileToolStripMenuItem1.Name = "outlookDataFileToolStripMenuItem1";
-            this.web7mailDataFileToolStripMenuItem1.Size = new System.Drawing.Size(287, 22);
-            this.web7mailDataFileToolStripMenuItem1.Text = "Web7Mail Data &File...";
+            this.PandoMailDataFileToolStripMenuItem1.Name = "outlookDataFileToolStripMenuItem1";
+            this.PandoMailDataFileToolStripMenuItem1.Size = new System.Drawing.Size(287, 22);
+            this.PandoMailDataFileToolStripMenuItem1.Text = "PandoMail Data &File...";
             // 
             // toolStripSeparator23
             // 
@@ -832,7 +832,7 @@
             this.toolStripMenuItem11,
             this.chooseFormToolStripMenuItem,
             this.toolStripMenuItem12,
-            this.web7mailDataFileToolStripMenuItem});
+            this.PandoMailDataFileToolStripMenuItem});
             this.newToolStripMenuItem.Name = "newToolStripMenuItem";
             this.newToolStripMenuItem.Size = new System.Drawing.Size(204, 22);
             this.newToolStripMenuItem.Text = "Ne&w";
@@ -989,9 +989,9 @@
             // 
             // outlookDataFileToolStripMenuItem
             // 
-            this.web7mailDataFileToolStripMenuItem.Name = "outlookDataFileToolStripMenuItem";
-            this.web7mailDataFileToolStripMenuItem.Size = new System.Drawing.Size(240, 22);
-            this.web7mailDataFileToolStripMenuItem.Text = "Web7Mail Data &File...";
+            this.PandoMailDataFileToolStripMenuItem.Name = "outlookDataFileToolStripMenuItem";
+            this.PandoMailDataFileToolStripMenuItem.Size = new System.Drawing.Size(240, 22);
+            this.PandoMailDataFileToolStripMenuItem.Text = "PandoMail Data &File...";
             // 
             // openToolStripMenuItem
             // 
@@ -1816,10 +1816,10 @@
             // helpToolStripMenuItem
             // 
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.web7mailHelpToolStripMenuItem,
+            this.PandoMailHelpToolStripMenuItem,
             this.showtheOfficeAssistantToolStripMenuItem,
             this.toolStripSeparator17,
-            this.web7mailOnlineToolStripMenuItem,
+            this.PandoMailOnlineToolStripMenuItem,
             this.contactUsToolStripMenuItem,
             this.toolStripSeparator18,
             this.checkforUpdatesToolStripMenuItem,
@@ -1827,19 +1827,19 @@
             this.activateProductToolStripMenuItem,
             this.customerFeedbackOptionsToolStripMenuItem,
             this.toolStripSeparator19,
-            this.aboutWeb7MailToolStripMenuItem});
+            this.aboutPandoMailToolStripMenuItem});
             this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
             this.helpToolStripMenuItem.Size = new System.Drawing.Size(40, 21);
             this.helpToolStripMenuItem.Text = "&Help";
             // 
-            // web7mailHelpToolStripMenuItem
+            // PandoMailHelpToolStripMenuItem
             // 
-            this.web7mailHelpToolStripMenuItem.Image = global::Web7.SVRN7.Apps.Properties.Resources.Help;
-            this.web7mailHelpToolStripMenuItem.ImageTransparentColor = System.Drawing.Color.FromArgb(((int)(((byte)(238)))), ((int)(((byte)(238)))), ((int)(((byte)(238)))));
-            this.web7mailHelpToolStripMenuItem.Name = "web7mailHelpToolStripMenuItem";
-            this.web7mailHelpToolStripMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F1;
-            this.web7mailHelpToolStripMenuItem.Size = new System.Drawing.Size(244, 22);
-            this.web7mailHelpToolStripMenuItem.Text = "Web7 Mail &Help";
+            this.PandoMailHelpToolStripMenuItem.Image = global::Web7.SVRN7.Apps.Properties.Resources.Help;
+            this.PandoMailHelpToolStripMenuItem.ImageTransparentColor = System.Drawing.Color.FromArgb(((int)(((byte)(238)))), ((int)(((byte)(238)))), ((int)(((byte)(238)))));
+            this.PandoMailHelpToolStripMenuItem.Name = "PandoMailHelpToolStripMenuItem";
+            this.PandoMailHelpToolStripMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F1;
+            this.PandoMailHelpToolStripMenuItem.Size = new System.Drawing.Size(244, 22);
+            this.PandoMailHelpToolStripMenuItem.Text = "Web7 Mail &Help";
             // 
             // showtheOfficeAssistantToolStripMenuItem
             // 
@@ -1852,11 +1852,11 @@
             this.toolStripSeparator17.Name = "toolStripSeparator17";
             this.toolStripSeparator17.Size = new System.Drawing.Size(241, 6);
             // 
-            // web7mailOnlineToolStripMenuItem
+            // PandoMailOnlineToolStripMenuItem
             // 
-            this.web7mailOnlineToolStripMenuItem.Name = "web7mailOnlineToolStripMenuItem";
-            this.web7mailOnlineToolStripMenuItem.Size = new System.Drawing.Size(244, 22);
-            this.web7mailOnlineToolStripMenuItem.Text = "&Web7 Office Online";
+            this.PandoMailOnlineToolStripMenuItem.Name = "PandoMailOnlineToolStripMenuItem";
+            this.PandoMailOnlineToolStripMenuItem.Size = new System.Drawing.Size(244, 22);
+            this.PandoMailOnlineToolStripMenuItem.Text = "&Web7 Office Online";
             // 
             // contactUsToolStripMenuItem
             // 
@@ -1898,11 +1898,11 @@
             this.toolStripSeparator19.Name = "toolStripSeparator19";
             this.toolStripSeparator19.Size = new System.Drawing.Size(241, 6);
             // 
-            // aboutWeb7MailToolStripMenuItem
+            // aboutPandoMailToolStripMenuItem
             // 
-            this.aboutWeb7MailToolStripMenuItem.Name = "aboutWeb7MailToolStripMenuItem";
-            this.aboutWeb7MailToolStripMenuItem.Size = new System.Drawing.Size(244, 22);
-            this.aboutWeb7MailToolStripMenuItem.Text = "&About Web7 Mail";
+            this.aboutPandoMailToolStripMenuItem.Name = "aboutPandoMailToolStripMenuItem";
+            this.aboutPandoMailToolStripMenuItem.Size = new System.Drawing.Size(244, 22);
+            this.aboutPandoMailToolStripMenuItem.Text = "&About Web7 Mail";
             // 
             // toolStripComboBox1
             // 
@@ -1930,7 +1930,7 @@
             this.Controls.Add(this.menuStrip1);
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "MainForm";
-            this.Text = "Web 7.0 Mail";
+            this.Text = "Web 7.0 Pando Mail";
             this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
             this.Load += new System.EventHandler(this.Form1_Load);
             this.toolStripContainer1.BottomToolStripPanel.ResumeLayout(false);
@@ -2005,7 +2005,7 @@
 		private System.Windows.Forms.ToolStripSeparator toolStripMenuItem11;
 		private System.Windows.Forms.ToolStripMenuItem chooseFormToolStripMenuItem;
 		private System.Windows.Forms.ToolStripSeparator toolStripMenuItem12;
-		private System.Windows.Forms.ToolStripMenuItem web7mailDataFileToolStripMenuItem;
+		private System.Windows.Forms.ToolStripMenuItem PandoMailDataFileToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem openItemsToolStripMenuItem;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
 		private System.Windows.Forms.ToolStripMenuItem setupToolStripMenuItem;
@@ -2095,10 +2095,10 @@
 		private System.Windows.Forms.ToolStripMenuItem replyToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem replytoAllToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem forwardToolStripMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem web7mailHelpToolStripMenuItem;
+		private System.Windows.Forms.ToolStripMenuItem PandoMailHelpToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem showtheOfficeAssistantToolStripMenuItem;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator17;
-		private System.Windows.Forms.ToolStripMenuItem web7mailOnlineToolStripMenuItem;
+		private System.Windows.Forms.ToolStripMenuItem PandoMailOnlineToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem contactUsToolStripMenuItem;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator18;
 		private System.Windows.Forms.ToolStripMenuItem checkforUpdatesToolStripMenuItem;
@@ -2106,7 +2106,7 @@
 		private System.Windows.Forms.ToolStripMenuItem activateProductToolStripMenuItem;
 		private System.Windows.Forms.ToolStripMenuItem customerFeedbackOptionsToolStripMenuItem;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator19;
-		private System.Windows.Forms.ToolStripMenuItem aboutWeb7MailToolStripMenuItem;
+		private System.Windows.Forms.ToolStripMenuItem aboutPandoMailToolStripMenuItem;
 		private System.Windows.Forms.ToolStripSplitButton toolStripSplitButton1;
 		private System.Windows.Forms.ToolStripMenuItem mailMessageToolStripMenuItem1;
 		private System.Windows.Forms.ToolStripMenuItem postinThisFolderToolStripMenuItem1;
@@ -2126,7 +2126,7 @@
 		private System.Windows.Forms.ToolStripMenuItem internetFaxToolStripMenuItem1;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator22;
 		private System.Windows.Forms.ToolStripMenuItem choseFormToolStripMenuItem;
-		private System.Windows.Forms.ToolStripMenuItem web7mailDataFileToolStripMenuItem1;
+		private System.Windows.Forms.ToolStripMenuItem PandoMailDataFileToolStripMenuItem1;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator23;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator24;
 		private System.Windows.Forms.ToolStripButton toolStripButton1;

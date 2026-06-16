@@ -1,10 +1,10 @@
-# Web 7.0 Mail — Web 7.0 Mail App
+# Web 7.0 Pando Mail — Web 7.0 Pando Mail App
 
 A C# Windows Forms sample application that faithfully recreates the Microsoft Outlook 2003 user interface using standard .NET Windows Forms controls. Originally authored by Microsoft (© 2004) as a demonstration of advanced WinForms rendering and layout techniques.
 
 ## Overview
 
-Web 7.0 Mail shows how to achieve the classic Outlook 2003 three-pane layout — navigation sidebar, message list, and reading pane — entirely with `ToolStrip`, `DataGridView`, `TreeView`, and custom owner-drawn controls. No third-party UI libraries are required.
+Web 7.0 Pando Mail shows how to achieve the classic Outlook 2003 three-pane layout — navigation sidebar, message list, and reading pane — entirely with `ToolStrip`, `DataGridView`, `TreeView`, and custom owner-drawn controls. No third-party UI libraries are required.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -37,9 +37,9 @@ Web 7.0 Mail shows how to achieve the classic Outlook 2003 three-pane layout —
 ## Project Structure
 
 ```
-Web 7.0 Mail/
-├── Web 7.0 Mail.sln
-└── Web 7.0 Mail/
+Web 7.0 Pando Mail/
+├── Web 7.0 Pando Mail.sln
+└── Web 7.0 Pando Mail/
     ├── Program.cs                   # Entry point
     ├── MainForm.cs / .Designer.cs   # Application shell, status bar, network monitoring
     ├── Custom Controls/
@@ -88,7 +88,7 @@ Web 7.0 Mail/
 
 ## Building and Running
 
-1. Open `Web 7.0 Mail.sln` in Visual Studio.
+1. Open `Web 7.0 Pando Mail.sln` in Visual Studio.
 2. Build the solution (`Ctrl+Shift+B`).
 3. Run (`F5`). The application launches directly into the Outlook-style inbox view.
 

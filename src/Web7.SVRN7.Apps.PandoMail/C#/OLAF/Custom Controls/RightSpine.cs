@@ -261,7 +261,7 @@ namespace Web7.SVRN7.Apps
 			this.subjectLabel.Name = "subjectLabel";
 			this.subjectLabel.Size = new System.Drawing.Size(103, 19);
 			this.subjectLabel.TabIndex = 0;
-			this.subjectLabel.Text = "Web7Mail grid";
+			this.subjectLabel.Text = "PandoMail grid";
 			// 
 			// RightSpine
 			// 

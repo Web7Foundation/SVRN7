@@ -16,7 +16,7 @@ SVRN7/
 │   ├── Svrn7.Identity/      DIDDocumentService, DID resolve pipeline
 │   ├── Svrn7.Ledger/        Epoch, supply, Merkle ledger
 │   ├── Svrn7.TDA/           Trusted Digital Assistant — Kestrel host + LOBE runtime
-│   └── Web7.SVRN7.Apps.Web7Mail/   WinForms email client (.NET Framework 4.5.2)
+│   └── Web7.SVRN7.Apps.PandoMail/   WinForms email client (.NET Framework 4.5.2)
 ├── tests/
 │   ├── Svrn7.Tests/
 │   ├── Svrn7.TDA.Tests/
@@ -241,19 +241,19 @@ On startup with an empty DID registry the TDA auto-generates a Wanderer identity
 
 ---
 
-## Web7Mail ↔ Citizen TDA Integration
+## PandoMail ↔ Citizen TDA Integration
 
 ### Overview
 
-`Web7.SVRN7.Apps.Web7Mail` is a .NET Framework 4.5.2 WinForms Outlook 2003-style email
+`Web7.SVRN7.Apps.PandoMail` is a .NET Framework 4.5.2 WinForms Outlook 2003-style email
 client. It integrates with the Web 7.0 Pando Citizen TDA in a **1:1 relationship**
-(one Web7Mail instance per Citizen TDA instance, same machine).
+(one PandoMail instance per Citizen TDA instance, same machine).
 
 ---
 
 ### Transport: DIDComm V2 over Local WebSocket
 
-The TDA pushes async notifications to Web7Mail. There is **no polling**.
+The TDA pushes async notifications to PandoMail. There is **no polling**.
 
 The notification channel is a **localhost-only WebSocket endpoint** on the TDA,
 separate from the public `POST /didcomm` surface:
@@ -267,11 +267,11 @@ private local UI attachment point, not a peer-to-peer TDA interface.
 
 Messages on this channel are **DIDComm V2 SignThenEncrypt envelopes**, identical
 in format to TDA-to-TDA envelopes. The `@type` field determines dispatch on the
-Web7Mail side.
+PandoMail side.
 
 ---
 
-### Inbound Flow (TDA → Web7Mail)
+### Inbound Flow (TDA → PandoMail)
 
 ```
 Sender TDA (remote)
@@ -283,7 +283,7 @@ Sender TDA (remote)
                           ├── Decode SMTP-over-DIDComm payload
                           └── Send DIDComm Email-Notify envelope
                                 └── ws://localhost:{port}/didcomm-notify
-                                      └── TdaMailClient (Web7Mail background thread)
+                                      └── TdaMailClient (PandoMail background thread)
                                             ├── DIDComm unpack (verify + decrypt)
                                             ├── Dispatch on @type
                                             └── BeginInvoke → MessageStore.Append()
@@ -293,10 +293,10 @@ Sender TDA (remote)
 
 ---
 
-### Outbound Flow (Web7Mail → Recipient TDA)
+### Outbound Flow (PandoMail → Recipient TDA)
 
 ```
-Web7Mail Compose UI
+PandoMail Compose UI
   └── TdaMailClient.Send(MailMessage)
         └── POST /didcomm (localhost, mTLS)
               └── Svrn7.Email LOBE
@@ -323,9 +323,9 @@ Protocol URIs use `svrn7.net` (not `svrn7.io`).
 
 | Component | Project | Purpose |
 |---|---|---|
-| `TdaMailClient` | `Web7.SVRN7.Apps.Web7Mail` | `Send()` → POST /didcomm; WebSocket receive loop |
-| `MessageStore` | `Web7.SVRN7.Apps.Web7Mail` | Replace `Inbox.xml` source with `TdaMailClient` initial load + live append |
-| `MainForm` | `Web7.SVRN7.Apps.Web7Mail` | `BeginInvoke` marshal on WebSocket notification receipt |
+| `TdaMailClient` | `Web7.SVRN7.Apps.PandoMail` | `Send()` → POST /didcomm; WebSocket receive loop |
+| `MessageStore` | `Web7.SVRN7.Apps.PandoMail` | Replace `Inbox.xml` source with `TdaMailClient` initial load + live append |
+| `MainForm` | `Web7.SVRN7.Apps.PandoMail` | `BeginInvoke` marshal on WebSocket notification receipt |
 | `Svrn7.Email` LOBE | `Svrn7.Email.psm1` | After LiteDB persist, send DIDComm Email-Notify envelope over WebSocket |
 
 ---
@@ -333,21 +333,21 @@ Protocol URIs use `svrn7.net` (not `svrn7.io`).
 ### Svrn7.Email LOBE
 
 - Handles **SMTP messages over DIDComm** — this LOBE already exists
-- On inbound message: persist to LiteDB first, then push notification to Web7Mail
+- On inbound message: persist to LiteDB first, then push notification to PandoMail
   via WebSocket
-- The LOBE does **not** write directly to any Web7Mail data structure —
+- The LOBE does **not** write directly to any PandoMail data structure —
   pass-by-reference semantics apply (LiteDB ObjectId passed, not payload copy)
 
 ---
 
 ### Open Decisions
 
-1. **Web7Mail DID identity:** Web7Mail may share/derive its DID from the Citizen
-   TDA DID using a key fragment (e.g. `did:drn:svrn7.net:alice#web7mail-ui`).
+1. **PandoMail DID identity:** PandoMail may share/derive its DID from the Citizen
+   TDA DID using a key fragment (e.g. `did:drn:svrn7.net:alice#PandoMail-ui`).
    Not yet decided — requires deliberate choice before implementing DIDComm unpack
    in `TdaMailClient`.
 
-2. **Initial inbox load:** How Web7Mail populates `MessageStore` on startup
+2. **Initial inbox load:** How PandoMail populates `MessageStore` on startup
    (before any WebSocket push arrives) — options are a DIDComm query message to
    the `Svrn7.Email` LOBE, or a localhost-only REST endpoint on the TDA.
 
@@ -355,10 +355,10 @@ Protocol URIs use `svrn7.net` (not `svrn7.io`).
 
 ### Architecture Constraints
 
-- Web7Mail targets **.NET Framework 4.5.2** (Windows only) — no HTTP/2 client support
+- PandoMail targets **.NET Framework 4.5.2** (Windows only) — no HTTP/2 client support
   in this target. The localhost WebSocket channel (`ws://`) avoids this constraint.
   `System.Net.WebSockets` is available at 4.5.2 and is the correct transport for
-  `TdaMailClient`. If Web7Mail is ever upgraded to .NET 8, `TdaMailClient` can use
+  `TdaMailClient`. If PandoMail is ever upgraded to .NET 8, `TdaMailClient` can use
   HTTP/2 + mTLS directly for `POST /didcomm`.
 - The TDA's public inbound surface remains **`POST /didcomm` only** (Kestrel,
   HTTP/2, mTLS). The WebSocket endpoint is a separate, localhost-scoped surface.
