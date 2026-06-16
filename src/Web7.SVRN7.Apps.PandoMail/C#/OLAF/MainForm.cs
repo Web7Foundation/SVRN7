@@ -70,10 +70,9 @@ namespace Web7.SVRN7.Apps
 			try
 			{
 				string tdaDid = await _tdaClient.GetTdaDidAsync();
-				if (!string.IsNullOrEmpty(tdaDid))
-					this.Text = this.Text + " - " + tdaDid;
+				this.Text = this.Text + " - " + (string.IsNullOrEmpty(tdaDid) ? "Not connected" : tdaDid);
 			}
-			catch { }  // non-fatal; title stays as "PandoMail"
+			catch { this.Text = this.Text + " - Not connected"; }
 
 			await RefreshInboxAsync();
 
