@@ -210,6 +210,14 @@ always picked up without a TDA restart (hot-update).  The ~30 ms reimport overhe
 is tracked in the backlog as TDA-001a.
 
 ```
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      Switchboard: processing 1 inbound message(s).
+
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      Switchboard: routing did:drn:solo.svrn7.net/inbox/msg/<id>
+          (type=did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/Query-TOD)
+          → Invoke-PandoDiagnosticsDateQuery [Pando.Diagnostics]
+
 info: Svrn7.TDA.LobeManager[0]
       LobeManager: importing into isolated runspace (JIT) — ...\Pando.Diagnostics.0.1.0.psm1
 
