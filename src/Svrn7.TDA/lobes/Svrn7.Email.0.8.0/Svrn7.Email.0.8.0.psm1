@@ -177,6 +177,86 @@ $Body
     }
 }
 
+# ── Invoke-PandoEmailList ────────────────────────────────────────────────────
+
+function Invoke-PandoEmailList {
+    <#
+    .SYNOPSIS
+        Handles a List-Emails query and replies with an Issue-EmailList response.
+
+    .DESCRIPTION
+        Reads the replyEndpoint from the request body, queries the local inbox
+        for processed email messages (newest-first, default limit 50), and
+        delivers an Issue-EmailList DIDComm message to the replyEndpoint.
+
+        Protocol (inbound):  did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-Emails
+        Protocol (outbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Issue-EmailList
+
+    .PARAMETER MessageDid
+        The TDA resource DID URL of the inbox message.
+
+    .OUTPUTS
+        [Svrn7.TDA.OutboundMessage] delivering Issue-EmailList to replyEndpoint,
+        or $null if replyEndpoint is absent.
+    #>
+    [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) {
+            Write-Warning "Email LOBE: List-Emails message $MessageDid not found."
+            return $null
+        }
+
+        $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+
+        $replyEndpoint = Get-BodyField $body 'replyEndpoint'
+        if (-not $replyEndpoint) {
+            Write-Warning "Email LOBE: List-Emails $MessageDid has no replyEndpoint — skipped."
+            return $null
+        }
+
+        $limit = 50
+        if ($body.PSObject.Properties['limit']) { $limit = [int]$body.limit }
+
+        $emails = $SVRN7.ListEmailsAsync($limit).GetAwaiter().GetResult()
+
+        $emailList = @(foreach ($e in $emails) {
+            $eBody = $e.PackedPayload | ConvertFrom-Json -ErrorAction SilentlyContinue
+            [ordered]@{
+                messageDid = $e.Id
+                senderDid  = $e.FromDid
+                subject    = (Get-Rfc5322Header -Raw $eBody.rfc5322Body -Header 'Subject')
+                fromHeader = (Get-Rfc5322Header -Raw $eBody.rfc5322Body -Header 'From')
+                toHeader   = (Get-Rfc5322Header -Raw $eBody.rfc5322Body -Header 'To')
+                receivedAt = $e.ReceivedAt.ToString('o')
+            }
+        })
+
+        $responseBody = [ordered]@{
+            emails = $emailList
+            count  = $emailList.Count
+        } | ConvertTo-Json -Compress -Depth 5
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Issue-EmailList'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($msg.FromDid)
+            body = $responseBody
+        } | ConvertTo-Json -Compress
+
+        Write-Verbose "Email LOBE: List-Emails returning $($emailList.Count) messages to $replyEndpoint"
+        [Svrn7.TDA.OutboundMessage]::new($replyEndpoint, $envelope)
+    }
+}
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Get-Rfc5322Header {
@@ -188,5 +268,6 @@ function Get-Rfc5322Header {
 
 Export-ModuleMember -Function @(
     'Dequeue-PandoEmail',
-    'Send-PandoEmail'
+    'Send-PandoEmail',
+    'Invoke-PandoEmailList'
 )

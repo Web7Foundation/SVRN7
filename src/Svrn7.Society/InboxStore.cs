@@ -286,6 +286,21 @@ public sealed class LiteInboxStore : IInboxStore
 
         return Task.FromResult<IReadOnlyDictionary<InboxMessageStatus, int>>(counts);
     }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(
+        string typePrefix, int limit = 50, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var messages = _ctx.InboxMessages
+            .Find(m => m.MessageType.StartsWith(typePrefix) && m.Status == InboxMessageStatus.Processed)
+            .OrderByDescending(m => m.ReceivedAt)
+            .Take(limit)
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<InboxMessage>>(messages);
+    }
 }
 
 /// <summary>

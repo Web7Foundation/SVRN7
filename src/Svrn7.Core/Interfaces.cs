@@ -300,6 +300,14 @@ public interface IInboxStore
     /// <summary>Returns the count of messages per status for monitoring.</summary>
     Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns up to <paramref name="limit"/> Processed messages whose
+    /// <see cref="InboxMessage.MessageType"/> starts with <paramref name="typePrefix"/>,
+    /// ordered newest-first. Used by LOBE cmdlets to satisfy list-query protocols.
+    /// </summary>
+    Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(
+        string typePrefix, int limit = 50, CancellationToken ct = default);
 }
 
 public interface ISocietyMembershipStore

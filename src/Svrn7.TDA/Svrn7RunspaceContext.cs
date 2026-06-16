@@ -85,6 +85,21 @@ public sealed class Svrn7RunspaceContext
     /// </summary>
     internal void SetEpoch(int epoch) => _currentEpoch = epoch;
 
+    /// <summary>
+    /// Returns up to <paramref name="limit"/> processed email messages, newest-first.
+    /// Called by the <c>Invoke-PandoEmailList</c> LOBE cmdlet to fulfil
+    /// <c>List-Emails</c> protocol requests.
+    /// </summary>
+    public async Task<IReadOnlyList<InboxMessageView>> ListEmailsAsync(
+        int limit = 50, CancellationToken ct = default)
+    {
+        const string emailTypePrefix = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/";
+        var messages = await _inbox.ListByTypeAsync(emailTypePrefix, limit, ct);
+        return messages
+            .Select(m => new InboxMessageView(m.Id, m.MessageType, m.PackedPayload, m.FromDid, m.AttemptCount, m.ReceivedAt))
+            .ToList();
+    }
+
     // ── Pass-by-reference message resolution ─────────────────────────────────
 
     /// <summary>
@@ -110,7 +125,7 @@ public sealed class Svrn7RunspaceContext
         var msg = await _inbox.GetByIdAsync(messageDid, ct);
         if (msg is null) return null;
 
-        var view = new InboxMessageView(msg.Id, msg.MessageType, msg.PackedPayload, msg.FromDid, msg.AttemptCount);
+        var view = new InboxMessageView(msg.Id, msg.MessageType, msg.PackedPayload, msg.FromDid, msg.AttemptCount, msg.ReceivedAt);
         _cache.Set(messageDid, view, TimeSpan.FromHours(24));
         return view;
     }
@@ -124,8 +139,9 @@ public sealed class Svrn7RunspaceContext
 /// The <see cref="Id"/> is the pass-by-reference handle passed through pipelines.
 /// </summary>
 public sealed record InboxMessageView(
-    string  Id,
-    string  MessageType,
-    string  PackedPayload,
-    string? FromDid,
-    int     AttemptCount);
+    string         Id,
+    string         MessageType,
+    string         PackedPayload,
+    string?        FromDid,
+    int            AttemptCount,
+    DateTimeOffset ReceivedAt);
