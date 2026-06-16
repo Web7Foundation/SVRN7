@@ -14,8 +14,10 @@
     RootModule        = 'Svrn7.Email.0.8.0.psm1'
 
     FunctionsToExport = @(
-        'Dequeue-PandoEmail',
-        'Enqueue-PandoEmail'
+        'Receive-PandoEmail',
+        'Send-PandoEmail',
+        'Invoke-PandoEmailList',
+        'Invoke-PandoEmailSend'
     )
 
     CmdletsToExport   = @()
