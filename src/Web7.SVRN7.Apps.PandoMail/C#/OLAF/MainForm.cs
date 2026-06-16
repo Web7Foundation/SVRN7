@@ -84,8 +84,8 @@ namespace Web7.SVRN7.Apps
 		#region New Mail
 		private void OpenNewMailForm_Click(object sender, EventArgs e)
 		{
-			NewMailMessageForm form = new NewMailMessageForm(_tdaClient);
-			form.Show();
+			using NewMailMessageForm form = new NewMailMessageForm(_tdaClient);
+			form.ShowDialog(this);
 		}
 		#endregion
 
