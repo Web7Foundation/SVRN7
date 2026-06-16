@@ -71,8 +71,7 @@ namespace Web7.SVRN7.Apps
             this.toolStripButton6 = new System.Windows.Forms.ToolStripButton();
             this.toolStripButton5 = new System.Windows.Forms.ToolStripButton();
             this.toolStripSeparator26 = new System.Windows.Forms.ToolStripSeparator();
-            this.toolStripSplitButton3 = new System.Windows.Forms.ToolStripSplitButton();
-            this.toolStripSeparator27 = new System.Windows.Forms.ToolStripSeparator();
+            this.toolStripSplitButton3 = new System.Windows.Forms.ToolStripButton();
             this.toolStripSeparator28 = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripButton7 = new System.Windows.Forms.ToolStripButton();
             this.toolStripButton8 = new System.Windows.Forms.ToolStripButton();
@@ -683,19 +682,12 @@ namespace Web7.SVRN7.Apps
             this.toolStripSeparator26.Size = new System.Drawing.Size(6, 25);
             // 
             // toolStripSplitButton3
-            // 
-            this.toolStripSplitButton3.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.toolStripSeparator27});
+            //
             this.toolStripSplitButton3.Image = global::Web7.SVRN7.Apps.Properties.Resources.Send;
             this.toolStripSplitButton3.ImageTransparentColor = System.Drawing.Color.FromArgb(((int)(((byte)(238)))), ((int)(((byte)(238)))), ((int)(((byte)(238)))));
             this.toolStripSplitButton3.Name = "toolStripSplitButton3";
             this.toolStripSplitButton3.Size = new System.Drawing.Size(105, 22);
             this.toolStripSplitButton3.Text = "Send/Re&ceive";
-            // 
-            // toolStripSeparator27
-            // 
-            this.toolStripSeparator27.Name = "toolStripSeparator27";
-            this.toolStripSeparator27.Size = new System.Drawing.Size(57, 6);
             // 
             // toolStripSeparator28
             // 
@@ -2137,8 +2129,7 @@ namespace Web7.SVRN7.Apps
 		private System.Windows.Forms.ToolStripButton toolStripButton6;
 		private System.Windows.Forms.ToolStripButton toolStripButton5;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator26;
-		private System.Windows.Forms.ToolStripSplitButton toolStripSplitButton3;
-		private System.Windows.Forms.ToolStripSeparator toolStripSeparator27;
+		private System.Windows.Forms.ToolStripButton toolStripSplitButton3;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator28;
 		private System.Windows.Forms.ToolStripButton toolStripButton7;
 		private System.Windows.Forms.ToolStripButton toolStripButton8;

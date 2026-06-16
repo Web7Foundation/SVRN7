@@ -49,7 +49,7 @@ namespace Web7.SVRN7.Apps
 			}
 
 			// Wire Send/Receive toolbar button
-			toolStripSplitButton3.ButtonClick += async (s, ev) => await RefreshInboxAsync();
+			toolStripSplitButton3.Click += async (s, ev) => await RefreshInboxAsync();
 
 			// Update message count
 			this.itemCountLabel.Text = String.Format(this.itemCountLabel.Text, _store.Messages.Count);
