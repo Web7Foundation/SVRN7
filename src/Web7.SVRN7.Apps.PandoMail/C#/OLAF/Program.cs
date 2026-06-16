@@ -13,7 +13,8 @@ namespace Web7.SVRN7.Apps
 		static void Main()
 		{
 			Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
+			Application.SetCompatibleTextRenderingDefault(false);
+			Application.SetHighDpiMode(HighDpiMode.SystemAware);
 			Application.Run(new MainForm());
 		}
 	}

@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using System.Reflection;
 
 using System.Drawing.Drawing2D;
+using Microsoft.Web.WebView2.WinForms;
 
 namespace Web7.SVRN7.Apps
 {
@@ -19,7 +20,7 @@ namespace Web7.SVRN7.Apps
 	{
 		private System.Windows.Forms.Panel panel1;
 
-		private System.Windows.Forms.WebBrowser webBrowser1;
+		private WebView2 webView1;
 
 		private System.Windows.Forms.Panel panel2;
 
@@ -46,6 +47,7 @@ namespace Web7.SVRN7.Apps
 		private bool _loaded = false;
 		private MessageStore _store = null;
 		private MailMessage _message = null;
+		private string _pendingHtml = null;
 
 		public RightSpine()
 		{
@@ -93,7 +95,7 @@ namespace Web7.SVRN7.Apps
 		private void InitializeComponent()
 		{
 			this.panel1 = new System.Windows.Forms.Panel();
-			this.webBrowser1 = new System.Windows.Forms.WebBrowser();
+			this.webView1 = new WebView2();
 			this.panel2 = new System.Windows.Forms.Panel();
 			this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
 			this.toText = new System.Windows.Forms.Label();
@@ -116,19 +118,19 @@ namespace Web7.SVRN7.Apps
 						| System.Windows.Forms.AnchorStyles.Right)));
 			this.panel1.BackColor = System.Drawing.SystemColors.Window;
 			this.panel1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-			this.panel1.Controls.Add(this.webBrowser1);
+			this.panel1.Controls.Add(this.webView1);
 			this.panel1.Controls.Add(this.panel2);
 			this.panel1.Location = new System.Drawing.Point(6, 6);
 			this.panel1.Name = "panel1";
 			this.panel1.Size = new System.Drawing.Size(444, 329);
 			this.panel1.TabIndex = 0;
-			// 
-			// webBrowser1
-			// 
-			this.webBrowser1.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.webBrowser1.Location = new System.Drawing.Point(0, 126);
-			this.webBrowser1.Name = "webBrowser1";
-			this.webBrowser1.Size = new System.Drawing.Size(442, 201);
+			//
+			// webView1
+			//
+			this.webView1.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.webView1.Location = new System.Drawing.Point(0, 126);
+			this.webView1.Name = "webView1";
+			this.webView1.Size = new System.Drawing.Size(442, 201);
 			// 
 			// panel2
 			// 
@@ -317,7 +319,14 @@ namespace Web7.SVRN7.Apps
 
                         if (null != doc)
                         {
-                            this.webBrowser1.DocumentStream = doc;
+                            string html;
+                            using (var reader = new StreamReader(doc))
+                                html = reader.ReadToEnd();
+
+                            if (webView1.CoreWebView2 != null)
+                                webView1.NavigateToString(html);
+                            else
+                                _pendingHtml = html;
                         }
                     }
 				}
@@ -345,7 +354,7 @@ namespace Web7.SVRN7.Apps
 			}
 		}
 
-		private void MessageView_Load(object sender, EventArgs e)
+		private async void MessageView_Load(object sender, EventArgs e)
 		{
 			// Set Dock Stlye
 			this.Dock = DockStyle.Fill;
@@ -360,16 +369,24 @@ namespace Web7.SVRN7.Apps
 
                 if ((null != _store) && (null != _store.SelectedMessage))
                 {
-                    // Get Current
+                    // Get Current — CoreWebView2 not yet initialized; setter stores pending HTML
                     this.Message = _store.SelectedMessage;
 
                     // Hook change notification
                     _store.PropertyChanged += new PropertyChangedEventHandler(MessageStore_PropertyChanged);
                 }
+
+				// Initialize WebView2; dispatch any HTML that was set before init completed
+				await webView1.EnsureCoreWebView2Async(null);
+				if (_pendingHtml != null)
+				{
+					webView1.NavigateToString(_pendingHtml);
+					_pendingHtml = null;
+				}
 			}
 			else if ((null != this.Parent) && (this.Parent.Site != null) && (this.Parent.Site.DesignMode == true))
 			{
-				this.webBrowser1.Visible = false;
+				this.webView1.Visible = false;
 			}
 
 			// Set parent padding
