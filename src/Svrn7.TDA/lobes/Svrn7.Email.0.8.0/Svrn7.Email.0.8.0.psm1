@@ -235,12 +235,6 @@ function Invoke-PandoMailList {
 
         $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
 
-        $replyEndpoint = Get-BodyField $body 'replyEndpoint'
-        if (-not $replyEndpoint) {
-            Write-Warning "Email LOBE: List-Emails $MessageDid has no replyEndpoint — skipped."
-            return $null
-        }
-
         $correlationId = Get-BodyField $body 'correlationId' ''
         $limit = 50
         if ($body.PSObject.Properties['limit']) { $limit = [int]$body.limit }
@@ -276,8 +270,8 @@ function Invoke-PandoMailList {
             body = $responseBody
         } | ConvertTo-Json -Compress
 
-        Write-Verbose "Email LOBE: List-Emails returning $($emailList.Count) messages to $replyEndpoint"
-        [Svrn7.TDA.OutboundMessage]::new($replyEndpoint, $envelope)
+        Write-Verbose "Email LOBE: List-Emails returning $($emailList.Count) messages via WebSocket."
+        [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $envelope)
     }
 }
 
@@ -364,9 +358,6 @@ function Get-TdaDid {
 
         $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
 
-        $replyEndpoint = Get-BodyField $body 'replyEndpoint'
-        if (-not $replyEndpoint) { return $null }
-
         $correlationId = Get-BodyField $body 'correlationId' ''
 
         $responseBody = [ordered]@{
@@ -382,7 +373,7 @@ function Get-TdaDid {
             body = $responseBody
         } | ConvertTo-Json -Compress
 
-        [Svrn7.TDA.OutboundMessage]::new($replyEndpoint, $envelope)
+        [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $envelope)
     }
 }
 

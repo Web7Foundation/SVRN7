@@ -60,17 +60,22 @@ namespace Web7.SVRN7.Apps
 			{
 				await _tdaClient.ConnectAsync();
 				_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
-
-				string tdaDid = await _tdaClient.GetTdaDidAsync();
-				if (!string.IsNullOrEmpty(tdaDid))
-					this.Text = this.Text + " - " + tdaDid;
-
-				await RefreshInboxAsync();
 			}
 			catch
 			{
 				// TDA not available — PandoMail starts in offline mode with empty inbox.
+				return;
 			}
+
+			try
+			{
+				string tdaDid = await _tdaClient.GetTdaDidAsync();
+				if (!string.IsNullOrEmpty(tdaDid))
+					this.Text = this.Text + " - " + tdaDid;
+			}
+			catch { }  // non-fatal; title stays as "PandoMail"
+
+			await RefreshInboxAsync();
 
 			toolStripSplitButton3.Click += async (s, ev) => await RefreshInboxAsync();
 		}

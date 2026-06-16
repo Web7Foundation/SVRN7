@@ -99,7 +99,6 @@ namespace Web7.SVRN7.Apps
             {
                 string msgBody = JsonSerializer.Serialize(new
                 {
-                    replyEndpoint = "ws://local/didcomm-notify",
                     correlationId,
                     limit
                 });
@@ -132,7 +131,6 @@ namespace Web7.SVRN7.Apps
             {
                 string msgBody = JsonSerializer.Serialize(new
                 {
-                    replyEndpoint = "ws://local/didcomm-notify",
                     correlationId
                 });
                 await SendEnvelopeAsync(

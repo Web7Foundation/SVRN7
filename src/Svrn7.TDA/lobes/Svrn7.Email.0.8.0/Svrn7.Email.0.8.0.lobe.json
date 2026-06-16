@@ -34,7 +34,7 @@
     {
       "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-Emails",
       "title": "List Emails Request",
-      "description": "Query for stored email messages. Body: { replyEndpoint: url, limit?: int }. Replies with Get-PandoMails.",
+      "description": "Query for stored email messages. Body: { limit?: int, correlationId?: string }. Replies with Get-PandoMails over WebSocket.",
       "direction": "inbound",
       "match": "exact",
       "entrypoint": "Invoke-PandoMailList",
@@ -52,7 +52,7 @@
     {
       "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Query-TdaDid",
       "title": "Query TDA DID",
-      "description": "Local UI request for this TDA's own DID. Body: { replyEndpoint: url, correlationId?: string }. Replies with Reply-TdaDid.",
+      "description": "Local UI request for this TDA's own DID. Body: { correlationId?: string }. Replies with Reply-TdaDid over WebSocket.",
       "direction": "inbound",
       "match": "exact",
       "entrypoint": "Get-TdaDid",
