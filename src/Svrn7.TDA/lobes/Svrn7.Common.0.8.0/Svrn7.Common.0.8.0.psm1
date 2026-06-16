@@ -219,7 +219,7 @@ function Resolve-SocietySenderEndpoint {
     [CmdletBinding()]
     param([Parameter(Mandatory)] [string] $Did)
     process {
-        $drv = Get-ActiveFederationDriver
+        $drv = Get-ActiveSocietyDriver
         $res = $drv.ResolveDidAsync($Did).GetAwaiter().GetResult()
         if (-not $res -or -not $res.Document -or -not $res.Document.Service) {
             return $null
