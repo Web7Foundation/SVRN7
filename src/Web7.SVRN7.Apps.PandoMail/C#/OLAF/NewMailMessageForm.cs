@@ -450,6 +450,15 @@ namespace Web7.SVRN7.Apps
             {
                 MessageBox.Show("Please enter a recipient DID in the To: field.",
                     "Web7 Mail", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtTo.Focus();
+                return;
+            }
+
+            if (string.IsNullOrEmpty(subject))
+            {
+                MessageBox.Show("Please enter a subject.",
+                    "Web7 Mail", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtSubject.Focus();
                 return;
             }
 
