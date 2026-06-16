@@ -14,6 +14,8 @@ namespace Web7.SVRN7.Apps
 {
 	public partial class MainForm : Form
 	{
+		private const string BaseTitle = "PandoMail";
+
 		// Message Server
 		private MessageStore		_store;
 		private	Bitmap				_onlineImage;
@@ -67,12 +69,7 @@ namespace Web7.SVRN7.Apps
 				return;
 			}
 
-			try
-			{
-				string tdaDid = await _tdaClient.GetTdaDidAsync();
-				this.Text = this.Text + " - " + (string.IsNullOrEmpty(tdaDid) ? "Not connected" : tdaDid);
-			}
-			catch { this.Text = this.Text + " - Not connected"; }
+			await UpdateTitleAsync();
 
 			await RefreshInboxAsync();
 
@@ -109,12 +106,24 @@ namespace Web7.SVRN7.Apps
 				this.itemCountLabel.Text = messages.Count + " Items";
 				MessageBox.Show($"{messages.Count} message(s) received from TDA.", "TDA Response",
 					MessageBoxButtons.OK, MessageBoxIcon.Information);
+				await UpdateTitleAsync();
 			}
 			catch (Exception ex)
 			{
 				MessageBox.Show($"TDA error: {ex.GetType().Name}\n{ex.Message}", "TDA Error",
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
+		}
+
+		private async Task UpdateTitleAsync()
+		{
+			string did = _tdaClient?.TdaDid ?? string.Empty;
+			if (string.IsNullOrEmpty(did))
+			{
+				try { did = await _tdaClient.GetTdaDidAsync(); }
+				catch { }
+			}
+			this.Text = BaseTitle + " - " + (string.IsNullOrEmpty(did) ? "Not connected" : did);
 		}
 
 		private void OnEmailNotifyReceived(string json)
