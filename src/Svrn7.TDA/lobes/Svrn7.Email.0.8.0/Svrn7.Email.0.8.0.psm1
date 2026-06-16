@@ -249,12 +249,14 @@ function Invoke-PandoEmailList {
 
         $emailList = @(foreach ($e in $emails) {
             $eBody = $e.PackedPayload | ConvertFrom-Json -ErrorAction SilentlyContinue
+            $rfc5322 = Get-BodyField $eBody 'rfc5322Body' ''
+            if (-not $rfc5322) { continue }
             [ordered]@{
                 messageDid = $e.Id
                 senderDid  = $e.FromDid
-                subject    = (Get-Rfc5322Header -Raw $eBody.rfc5322Body -Header 'Subject')
-                fromHeader = (Get-Rfc5322Header -Raw $eBody.rfc5322Body -Header 'From')
-                toHeader   = (Get-Rfc5322Header -Raw $eBody.rfc5322Body -Header 'To')
+                subject    = (Get-Rfc5322Header -Raw $rfc5322 -Header 'Subject')
+                fromHeader = (Get-Rfc5322Header -Raw $rfc5322 -Header 'From')
+                toHeader   = (Get-Rfc5322Header -Raw $rfc5322 -Header 'To')
                 receivedAt = $e.ReceivedAt.ToString('o')
             }
         })

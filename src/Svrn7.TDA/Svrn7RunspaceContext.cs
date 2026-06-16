@@ -100,7 +100,10 @@ public sealed class Svrn7RunspaceContext
     public async Task<IReadOnlyList<InboxMessageView>> ListEmailsAsync(
         int limit = 50, CancellationToken ct = default)
     {
-        const string emailTypePrefix = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/";
+        // Filter to the inbound email message type only — not protocol control messages
+        // (List-Emails, Send-PandoEmail, etc.) which share the same LOBE prefix but
+        // carry no rfc5322Body and must not appear in the inbox listing.
+        const string emailTypePrefix = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail";
         var messages = await _inbox.ListByTypeAsync(emailTypePrefix, limit, ct);
         return messages
             .Select(m => new InboxMessageView(m.Id, m.MessageType, m.PackedPayload, m.FromDid, m.AttemptCount, m.ReceivedAt))
