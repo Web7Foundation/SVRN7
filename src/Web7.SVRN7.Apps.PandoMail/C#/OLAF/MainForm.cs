@@ -30,12 +30,31 @@ namespace Web7.SVRN7.Apps
 		}
 
 		#region Event Handlers
-		private async void Form1_Load(object sender, EventArgs e)
+		private void Form1_Load(object sender, EventArgs e)
 		{
-			// Setup Message Store
 			_store = MessageStore.GetMessageStore();
 
-			// Setup TDA WebSocket client
+			// Show "0 Items" immediately; RefreshInboxAsync updates it after TDA connects.
+			this.itemCountLabel.Text = String.Format(this.itemCountLabel.Text, 0);
+
+			_onlineImage = Web7.SVRN7.Apps.Properties.Resources.PandoMail;
+			_offlineImage = Web7.SVRN7.Apps.Properties.Resources.Error;
+
+			NetworkChange.NetworkAvailabilityChanged += new NetworkAvailabilityChangedEventHandler(NetworkChange_NetworkAvailabilityChanged);
+			UpdateStatusBar();
+
+			this.Icon = Icon.FromHandle(Web7.SVRN7.Apps.Properties.Resources.PandoMail.GetHicon());
+
+			Microsoft.Win32.SystemEvents.UserPreferenceChanged += new UserPreferenceChangedEventHandler(Form1_UserPreferenceChanged);
+
+			// Defer TDA connection until after first paint so the window appears immediately.
+			this.Shown += MainForm_Shown;
+		}
+
+		private async void MainForm_Shown(object sender, EventArgs e)
+		{
+			this.Shown -= MainForm_Shown;
+
 			_tdaClient = new TdaMailClient(Program.TdaPort);
 			try
 			{
@@ -45,30 +64,10 @@ namespace Web7.SVRN7.Apps
 			}
 			catch
 			{
-				// TDA not available — PandoMail starts in offline mode with static inbox data.
+				// TDA not available — PandoMail starts in offline mode with empty inbox.
 			}
 
-			// Wire Send/Receive toolbar button
 			toolStripSplitButton3.Click += async (s, ev) => await RefreshInboxAsync();
-
-			// Update message count
-			this.itemCountLabel.Text = String.Format(this.itemCountLabel.Text, _store.Messages.Count);
-
-			// Setup Online/Offline
-			_onlineImage = Web7.SVRN7.Apps.Properties.Resources.PandoMail;
-			_offlineImage = Web7.SVRN7.Apps.Properties.Resources.Error;
-
-			// Check for Network Changes
-			NetworkChange.NetworkAvailabilityChanged += new NetworkAvailabilityChangedEventHandler(NetworkChange_NetworkAvailabilityChanged);
-
-			// Set Status Bar
-			UpdateStatusBar();
-
-			// Set icon
-			this.Icon = Icon.FromHandle(Web7.SVRN7.Apps.Properties.Resources.PandoMail.GetHicon());
-
-			// Track Preference Changes
-			Microsoft.Win32.SystemEvents.UserPreferenceChanged += new UserPreferenceChangedEventHandler(Form1_UserPreferenceChanged);
 		}
 
 		private void Form1_UserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
