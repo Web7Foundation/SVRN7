@@ -14,12 +14,12 @@
   },
   "protocols": [
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail",
       "title": "Inbound Email Message",
       "description": "Inbound RFC 5322 email tunneled over DIDComm. Body: { from: did, to: did, rfc5322Body: string }",
       "direction": "inbound",
       "match": "prefix",
-      "entrypoint": "Receive-PandoEmail",
+      "entrypoint": "Dequeue-PandoMail",
       "epochRequired": 0
     },
     {
@@ -28,31 +28,31 @@
       "description": "Delivery confirmation for a previously sent email.",
       "direction": "inbound",
       "match": "prefix",
-      "entrypoint": "Receive-PandoEmail",
+      "entrypoint": "Dequeue-PandoMail",
       "epochRequired": 0
     },
     {
       "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-Emails",
       "title": "List Emails Request",
-      "description": "Query for stored email messages. Body: { replyEndpoint: url, limit?: int }. Replies with Issue-EmailList.",
+      "description": "Query for stored email messages. Body: { replyEndpoint: url, limit?: int }. Replies with Get-PandoMails.",
       "direction": "inbound",
       "match": "exact",
-      "entrypoint": "Invoke-PandoEmailList",
+      "entrypoint": "Invoke-PandoMailList",
       "epochRequired": 0
     },
     {
-      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Send-PandoEmail",
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Enqueue-PandoMail",
       "title": "Send Email (from PandoMail UI)",
       "description": "Accepted from local PandoMail UI via TdaMailClient. Body: { recipientDid, subject, bodyText }. Wraps as RFC 5322 and delivers to recipient TDA.",
       "direction": "inbound",
       "match": "exact",
-      "entrypoint": "Invoke-PandoEmailSend",
+      "entrypoint": "Invoke-PandoMailSend",
       "epochRequired": 0
     }
   ],
   "cmdlets": [
     {
-      "name": "Receive-PandoEmail",
+      "name": "Dequeue-PandoMail",
       "title": "Receive Email",
       "description": "Processes an inbound email/1.0/message. Extracts RFC 5322 body, verifies sender DID from DIDComm envelope, returns an email record.",
       "epochRequired": 0,
@@ -126,11 +126,11 @@
           }
         }
       },
-      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Receive-PandoEmail",
-      "example": "Receive-PandoEmail -MessageDid \"did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678\""
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Dequeue-PandoMail",
+      "example": "Dequeue-PandoMail -MessageDid \"did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678\""
     },
     {
-      "name": "Send-PandoEmail",
+      "name": "Enqueue-PandoMail",
       "title": "Send Email",
       "description": "Sends an RFC 5322 email to a recipient DID via DIDComm. Returns an OutboundMessage for the Switchboard.",
       "epochRequired": 0,
@@ -193,8 +193,8 @@
         },
         "additionalProperties": false
       },
-      "pipelineExample": "Send-PandoEmail -RecipientDid $did -Subject $subj -Body $body | Send-Svrn7Message",
-      "example": "Send-PandoEmail -RecipientDid \"did:drn:beta.svrn7.net/citizen/bob\" -Subject \"Hello\" -Body \"Hi Bob\""
+      "pipelineExample": "Enqueue-PandoMail -RecipientDid $did -Subject $subj -Body $body | Send-Svrn7Message",
+      "example": "Enqueue-PandoMail -RecipientDid \"did:drn:beta.svrn7.net/citizen/bob\" -Subject \"Hello\" -Body \"Hi Bob\""
     }
   ],
   "dependencies": {
@@ -210,10 +210,10 @@
       "Cross-Society correspondence between TDA operators"
     ],
     "compositionHints": [
-      "Chain Receive-PandoEmail after Dequeue-Svrn7Message for any pipeline handling email/1.0/* types",
-      "Use Send-PandoEmail to reply to an inbound email",
+      "Chain Dequeue-PandoMail after Dequeue-Svrn7Message for any pipeline handling email/1.0/* types",
+      "Use Enqueue-PandoMail to reply to an inbound email",
       "SenderDid in the returned record is authoritative \u2014 not the RFC 5322 From header",
-      "Receive-PandoEmail is idempotent: processing the same MessageDid twice is safe"
+      "Dequeue-PandoMail is idempotent: processing the same MessageDid twice is safe"
     ],
     "limitations": [
       "Epoch 0 only: plain text body. No MIME multipart, no attachments.",

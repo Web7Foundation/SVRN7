@@ -22,8 +22,8 @@ namespace Web7.SVRN7.Apps
 
     /// <summary>
     /// PandoMail ↔ local Citizen TDA transport over WebSocket (ws://localhost:{port}/didcomm-notify).
-    /// All outbound messages (Send-PandoEmail, List-Emails requests) go over the WebSocket.
-    /// All inbound messages (Issue-EmailList replies, Email-Notify pushes) arrive over the same socket.
+    /// All outbound messages (Enqueue-PandoMail, List-Emails requests) go over the WebSocket.
+    /// All inbound messages (Get-PandoMails replies, Email-Notify pushes) arrive over the same socket.
     /// TDA→TDA mail delivery remains HTTP/2 — this client is local-only.
     /// </summary>
     public sealed class TdaMailClient : IDisposable
@@ -66,7 +66,9 @@ namespace Web7.SVRN7.Apps
 
         public async Task ConnectAsync(CancellationToken ct = default)
         {
+            Debug.WriteLine($"[TdaMailClient] WS CONNECT {_wsUri}");
             await _ws.ConnectAsync(new Uri(_wsUri), _http, ct);
+            Debug.WriteLine($"[TdaMailClient] WS CONNECT complete state={_ws.State}");
             _ = Task.Run(() => ReceiveLoopAsync(_cts.Token));
         }
 
@@ -77,7 +79,7 @@ namespace Web7.SVRN7.Apps
         {
             string msgBody = JsonSerializer.Serialize(new { recipientDid, subject, bodyText });
             await SendEnvelopeAsync(
-                "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Send-PandoEmail",
+                "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Enqueue-PandoMail",
                 msgBody, ct);
         }
 
@@ -127,9 +129,17 @@ namespace Web7.SVRN7.Apps
                 body
             });
             byte[] bytes = Encoding.UTF8.GetBytes(envelope);
-            Debug.WriteLine($"[TdaMailClient] WS SEND type={type} bytes={bytes.Length}");
-            await _ws.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, ct);
-            Debug.WriteLine($"[TdaMailClient] WS SEND complete type={type}");
+            Debug.WriteLine($"[TdaMailClient] WS SEND type={type} bytes={bytes.Length} state={_ws.State}");
+            try
+            {
+                await _ws.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, ct);
+                Debug.WriteLine($"[TdaMailClient] WS SEND complete type={type}");
+            }
+            catch (WebSocketException ex)
+            {
+                Debug.WriteLine($"[TdaMailClient] WS SEND FAILED: {ex.Message} (WebSocketErrorCode={ex.WebSocketErrorCode} InnerException={ex.InnerException?.Message})");
+                throw;
+            }
         }
 
         // ── Receive loop ────────────────────────────────────────────────────────
@@ -171,7 +181,7 @@ namespace Web7.SVRN7.Apps
 
                 Debug.WriteLine($"[TdaMailClient] WS DISPATCH type={type}");
 
-                if (type.EndsWith("/Issue-EmailList", StringComparison.Ordinal))
+                if (type.EndsWith("/Get-PandoMails", StringComparison.Ordinal))
                 {
                     string cid = ExtractCorrelationId(root);
                     if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))

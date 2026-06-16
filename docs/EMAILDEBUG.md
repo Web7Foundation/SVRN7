@@ -127,7 +127,7 @@ Expected response: `Status: Accepted`
 Expected TDA log (timestamps vary):
 
 ```
-20:49:13.432 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing did:drn:alpha.svrn7.net/inbox/msg/<id> (type=did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/message) → Dequeue-PandoEmail [Svrn7.Email]
+20:49:13.432 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing did:drn:alpha.svrn7.net/inbox/msg/<id> (type=did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/message) → Dequeue-PandoMail [Svrn7.Email]
 20:49:13.441 dbug: Svrn7.TDA.LobeManager[0] LobeManager: EnsureLoadedAsync - JIT 'C:\...\lobes\Svrn7.Email.0.8.0\Svrn7.Email.0.8.0.psm1'.
 20:49:13.512 info: Svrn7.TDA.LobeManager[0] LobeManager: import complete - ...\Svrn7.Email.0.8.0.psm1
 20:49:13.518 dbug: Svrn7.TDA.DIDCommMessageSwitchboard[0]   [PS Verbose] Email LOBE: stored email from did:drn:foundation.svrn7.net — 'Hello from the Foundation'
@@ -168,7 +168,7 @@ The import lines appear again — JIT LOBEs reimport on every dispatch (see Step
 
 ## Step 6 — Send an email delivery receipt
 
-The `email/1.0/receipt` protocol is also handled by `Dequeue-PandoEmail`.  A receipt
+The `email/1.0/receipt` protocol is also handled by `Dequeue-PandoMail`.  A receipt
 body conventionally carries `originalMessageId` and `deliveredAt`:
 
 ```powershell
@@ -195,18 +195,18 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-20:49:14.101 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/receipt) → Dequeue-PandoEmail [Svrn7.Email]
+20:49:14.101 info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/receipt) → Dequeue-PandoMail [Svrn7.Email]
 20:49:14.104 dbug: ...   [PS Verbose] Email LOBE: stored email from did:drn:foundation.svrn7.net — 'Delivery receipt'
 ```
 
-Both `email/1.0/message` and `email/1.0/receipt` route to `Dequeue-PandoEmail` —
+Both `email/1.0/message` and `email/1.0/receipt` route to `Dequeue-PandoMail` —
 the handler stores whichever arrives and returns the record for pipeline chaining.
 
 ---
 
 ## Step 7 — Inspect the email record
 
-`Dequeue-PandoEmail` returns a hashtable with these fields:
+`Dequeue-PandoMail` returns a hashtable with these fields:
 
 | Field | Value |
 |---|---|
@@ -283,7 +283,7 @@ re-running these steps.
 ## Step 10 — List stored emails (List-Emails protocol)
 
 Send a `List-Emails` query to retrieve stored email messages from the TDA inbox.
-The TDA responds with an `Issue-EmailList` message to `replyEndpoint`.
+The TDA responds with an `Get-PandoMails` message to `replyEndpoint`.
 
 ```powershell
 $replyEndpoint = "http://localhost:8442/didcomm"   # endpoint of a second TDA to receive the reply
@@ -308,11 +308,11 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=.../List-Emails) → Invoke-PandoEmailList [Svrn7.Email]
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=.../List-Emails) → Invoke-PandoMailList [Svrn7.Email]
 dbug: ...   [PS Verbose] Email LOBE: List-Emails returning N messages to http://localhost:8442/didcomm
 ```
 
-The `Issue-EmailList` reply is delivered as a DIDComm message to `replyEndpoint`. Each email entry:
+The `Get-PandoMails` reply is delivered as a DIDComm message to `replyEndpoint`. Each email entry:
 
 | Field | Value |
 |---|---|

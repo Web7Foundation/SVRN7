@@ -14,7 +14,7 @@
   },
   "protocols": [
     {
-      "uri": "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail",
+      "uri": "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail",
       "title": "Test Email Message",
       "description": "Test email message type.",
       "direction": "inbound",

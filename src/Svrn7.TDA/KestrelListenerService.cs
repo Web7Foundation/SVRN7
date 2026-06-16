@@ -240,7 +240,7 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
     /// <summary>
     /// Accepts a WebSocket connection from local PandoMail on /didcomm-notify.
     /// Bidirectional: TDA pushes notifications; PandoMail sends requests (List-Emails,
-    /// Send-PandoEmail). Incoming messages go through the same UnpackAsync + EnqueueAsync
+    /// Enqueue-PandoMail). Incoming messages go through the same UnpackAsync + EnqueueAsync
     /// pipeline as POST /didcomm — the Switchboard routes them by @type to LOBEs.
     /// LOBE responses with PeerEndpoint == WebSocketNotifyHub.LocalEndpoint are
     /// delivered back over this socket by the Switchboard instead of via HTTP/2 POST.

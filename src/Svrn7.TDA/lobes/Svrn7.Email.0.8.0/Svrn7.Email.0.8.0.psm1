@@ -12,7 +12,7 @@
 
 .NOTES
     Protocol URIs:
-        did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail   — inbound/outbound email
+        did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail   — inbound/outbound email
         did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/issue-receipt   — delivery confirmation
 
     Key:
@@ -24,9 +24,9 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── Receive-PandoEmail ──────────────────────────────────────────────────────────
+# ── Dequeue-PandoMail ──────────────────────────────────────────────────────────
 
-function Receive-PandoEmail {
+function Dequeue-PandoMail {
     <#
     .SYNOPSIS
         Processes an inbound DIDComm email/1.0/message and stores it locally.
@@ -38,7 +38,7 @@ function Receive-PandoEmail {
         record to the IInboxStore long-term memory.
 
         Derived from: Email LOBE (Agent 1 LOBE) — DSA 0.24 Epoch 0 (PPML).
-        Protocol: did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail
 
     .PARAMETER MessageDid
         The TDA resource DID URL of the inbox message.
@@ -48,7 +48,7 @@ function Receive-PandoEmail {
         EmailRecord — the stored email record, or $null if processing failed.
 
     .EXAMPLE
-        Receive-PandoEmail -MessageDid "did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678"
+        Dequeue-PandoMail -MessageDid "did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678"
 
     .NOTES
         The From header in the RFC 5322 payload is treated as display metadata only.
@@ -115,9 +115,9 @@ function Receive-PandoEmail {
     }
 }
 
-# ── Send-PandoEmail ─────────────────────────────────────────────────────────────
+# ── Enqueue-PandoMail ─────────────────────────────────────────────────────────────
 
-function Send-PandoEmail {
+function Enqueue-PandoMail {
     <#
     .SYNOPSIS
         Sends an RFC 5322 email message to a recipient TDA via DIDComm.
@@ -127,7 +127,7 @@ function Send-PandoEmail {
         message. Resolves the recipient's DID to their TDA endpoint and returns
         an OutboundMessage for the Switchboard to deliver.
 
-        Protocol: did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail
 
     .PARAMETER RecipientDid
         The recipient citizen's did:drn DID.
@@ -146,7 +146,7 @@ function Send-PandoEmail {
         OutboundMessage — packed DIDComm message ready for Switchboard delivery.
 
     .EXAMPLE
-        Send-PandoEmail -RecipientDid "did:drn:beta.svrn7.net/citizen/bob" -Subject "Hello" -Body "Hi Bob"
+        Enqueue-PandoMail -RecipientDid "did:drn:beta.svrn7.net/citizen/bob" -Subject "Hello" -Body "Hi Bob"
     #>
     [CmdletBinding()]
     param(
@@ -180,14 +180,14 @@ $Body
 
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $RecipientDid
         if (-not $peerEndpoint) {
-            Write-Warning "Send-PandoEmail: no DIDComm service endpoint for '$RecipientDid' — reply skipped."
+            Write-Warning "Enqueue-PandoMail: no DIDComm service endpoint for '$RecipientDid' — reply skipped."
             return
         }
 
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail'
             from = $SVRN7.LocalDid
             to   = @($RecipientDid)
             body = $payload
@@ -197,26 +197,26 @@ $Body
     }
 }
 
-# ── Invoke-PandoEmailList ────────────────────────────────────────────────────
+# ── Invoke-PandoMailList ────────────────────────────────────────────────────
 
-function Invoke-PandoEmailList {
+function Invoke-PandoMailList {
     <#
     .SYNOPSIS
-        Handles a List-Emails query and replies with an Issue-EmailList response.
+        Handles a List-Emails query and replies with an Get-PandoMails response.
 
     .DESCRIPTION
         Reads the replyEndpoint from the request body, queries the local inbox
         for processed email messages (newest-first, default limit 50), and
-        delivers an Issue-EmailList DIDComm message to the replyEndpoint.
+        delivers an Get-PandoMails DIDComm message to the replyEndpoint.
 
         Protocol (inbound):  did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-Emails
-        Protocol (outbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Issue-EmailList
+        Protocol (outbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Get-PandoMails
 
     .PARAMETER MessageDid
         The TDA resource DID URL of the inbox message.
 
     .OUTPUTS
-        [Svrn7.TDA.OutboundMessage] delivering Issue-EmailList to replyEndpoint,
+        [Svrn7.TDA.OutboundMessage] delivering Get-PandoMails to replyEndpoint,
         or $null if replyEndpoint is absent.
     #>
     [CmdletBinding()]
@@ -270,7 +270,7 @@ function Invoke-PandoEmailList {
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Issue-EmailList'
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Get-PandoMails'
             from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
             body = $responseBody
@@ -281,18 +281,18 @@ function Invoke-PandoEmailList {
     }
 }
 
-# ── Invoke-PandoEmailSend ─────────────────────────────────────────────────────
+# ── Invoke-PandoMailSend ─────────────────────────────────────────────────────
 
-function Invoke-PandoEmailSend {
+function Invoke-PandoMailSend {
     <#
     .SYNOPSIS
-        Handles a Send-PandoEmail request from TdaMailClient and delivers to the recipient TDA.
+        Handles a Enqueue-PandoMail request from TdaMailClient and delivers to the recipient TDA.
 
     .DESCRIPTION
         Accepts a DIDComm message from local PandoMail UI. Body: { recipientDid, subject, bodyText }.
-        Builds an RFC 5322 message via Send-PandoEmail and returns an OutboundMessage for delivery.
+        Builds an RFC 5322 message via Enqueue-PandoMail and returns an OutboundMessage for delivery.
 
-        Protocol (inbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Send-PandoEmail
+        Protocol (inbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Enqueue-PandoMail
 
     .PARAMETER MessageDid
         The TDA resource DID URL of the inbox message.
@@ -310,7 +310,7 @@ function Invoke-PandoEmailSend {
     process {
         $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
         if (-not $msg) {
-            Write-Warning "Email LOBE: Send-PandoEmail message $MessageDid not found."
+            Write-Warning "Email LOBE: Enqueue-PandoMail message $MessageDid not found."
             return $null
         }
 
@@ -318,15 +318,15 @@ function Invoke-PandoEmailSend {
 
         $recipientDid = Get-BodyField $body 'recipientDid'
         if (-not $recipientDid) {
-            Write-Warning "Email LOBE: Send-PandoEmail $MessageDid missing recipientDid — skipped."
+            Write-Warning "Email LOBE: Enqueue-PandoMail $MessageDid missing recipientDid — skipped."
             return $null
         }
 
         $subject  = Get-BodyField $body 'subject'  ''
         $bodyText = Get-BodyField $body 'bodyText'  ''
 
-        Write-Verbose "Email LOBE: Send-PandoEmail — forwarding to $recipientDid ('$subject')"
-        Send-PandoEmail -RecipientDid $recipientDid -Subject $subject -Body $bodyText
+        Write-Verbose "Email LOBE: Enqueue-PandoMail — forwarding to $recipientDid ('$subject')"
+        Enqueue-PandoMail -RecipientDid $recipientDid -Subject $subject -Body $bodyText
     }
 }
 
@@ -340,8 +340,8 @@ function Get-Rfc5322Header {
 }
 
 Export-ModuleMember -Function @(
-    'Receive-PandoEmail',
-    'Send-PandoEmail',
-    'Invoke-PandoEmailList',
-    'Invoke-PandoEmailSend'
+    'Dequeue-PandoMail',
+    'Enqueue-PandoMail',
+    'Invoke-PandoMailList',
+    'Invoke-PandoMailSend'
 )

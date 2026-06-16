@@ -101,9 +101,10 @@ namespace Web7.SVRN7.Apps
 				MessageBox.Show($"{messages.Count} message(s) received from TDA.", "TDA Response",
 					MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
-			catch
+			catch (Exception ex)
 			{
-				// TDA unavailable — silently ignore; existing inbox data remains.
+				MessageBox.Show($"TDA error: {ex.GetType().Name}\n{ex.Message}", "TDA Error",
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 

@@ -419,7 +419,7 @@ public class LobeDescriptorTests
         d.Protocols.Should().HaveCount(2);
 
         var prefix = d.Protocols[0];
-        prefix.Uri.Should().Be("https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail");
+        prefix.Uri.Should().Be("https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail");
         prefix.Match.Should().Be("prefix");
         prefix.Entrypoint.Should().Be("Receive-TestEmail");
         prefix.Direction.Should().Be("inbound");
@@ -589,9 +589,9 @@ public class LobeManagerRegistryTests : IDisposable
         var path = Path.Combine(_tmpDir, "Test.Email.lobe.json");
         _manager.RegisterFromDescriptor(path);
 
-        // Prefix match: "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail" prefix
+        // Prefix match: "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail" prefix
         var reg = _manager.TryResolveProtocol(
-            "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail");
+            "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail");
         reg.Should().NotBeNull();
         reg!.Entrypoint.Should().Be("Receive-TestEmail");
         reg.LobeName.Should().Be("Test.Email");
@@ -667,7 +667,7 @@ public class LobeManagerRegistryTests : IDisposable
         _manager.RegisterFromDescriptor(Path.Combine(_tmpDir, "Test.Email.lobe.json"));
 
         // The receipt URI matches both:
-        //   prefix: "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail" (prefix of receipt? no)
+        //   prefix: "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail" (prefix of receipt? no)
         //   exact:  "https://test.example/protocols/Svrn7.Email.0.8.0/issue-receipt"
         // Exact should win
         var reg = _manager.TryResolveProtocol(
@@ -680,10 +680,10 @@ public class LobeManagerRegistryTests : IDisposable
     {
         _manager.RegisterFromDescriptor(Path.Combine(_tmpDir, "Test.Email.lobe.json"));
 
-        // The prefix "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail" should match
+        // The prefix "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail" should match
         // any URI starting with that string
         var reg = _manager.TryResolveProtocol(
-            "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail/extended");
+            "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail/extended");
         reg.Should().NotBeNull();
         reg!.Entrypoint.Should().Be("Receive-TestEmail");
     }
