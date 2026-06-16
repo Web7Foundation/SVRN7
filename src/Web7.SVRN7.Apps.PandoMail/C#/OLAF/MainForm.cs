@@ -41,6 +41,7 @@ namespace Web7.SVRN7.Apps
 			{
 				await _tdaClient.ConnectAsync();
 				_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
+				await RefreshInboxAsync();
 			}
 			catch
 			{
