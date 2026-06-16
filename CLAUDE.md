@@ -57,6 +57,26 @@ POST /didcomm (HTTP/2, Kestrel)
 
 ---
 
+## Design Rationale: HTTP/2 for `POST /didcomm`
+
+The TDA's public inbound surface is HTTP/2-only (no HTTP/1.1 fallback). Reasons:
+
+1. **mTLS mutual peer authentication** — TDA-to-TDA communication requires both sides to authenticate with certificates. HTTP/2 + TLS 1.3 via ALPN is the modern standard for this on Kestrel; it eliminates downgrade attacks that are possible when HTTP/1.1 is allowed as a fallback.
+
+2. **Multiplexed concurrent streams without HOL blocking** — A TDA may receive many inbound DIDComm messages simultaneously from multiple peers. HTTP/2 multiplexes them over a single connection; HTTP/1.1 head-of-line blocking would serialize them.
+
+3. **Minimal, single-endpoint attack surface** — One verb (`POST`), one path (`/didcomm`), one protocol, one port. Disabling HTTP/1.1 removes an entire class of HTTP/1.1-specific parsing vulnerabilities (request smuggling, header injection).
+
+4. **Mature on Kestrel / same transport as gRPC** — .NET's HTTP/2 stack is battle-tested via gRPC. Same deployment, same operational patterns, no additional runtime dependency.
+
+5. **HPACK header compression** — DIDComm headers (`Content-Type: application/didcomm-encrypted+json`, etc.) are identical on every message. HTTP/2 compresses them after the first exchange.
+
+**Why not gRPC directly?** gRPC framing (Protobuf + length-prefixed binary) adds schema complexity for third-party LOBE authors and clients that only need to POST a JSON envelope. Raw HTTP/2 POST keeps the wire format simple.
+
+**Consequence for local UI clients (PandoMail):** .NET Framework 4.5.2 has no HTTP/2 client. Local UI apps use the `ws://localhost:{port}/didcomm-notify` WebSocket channel instead — a separate, localhost-scoped surface not published in the DID Document.
+
+---
+
 ## LOBE Authoring
 
 ### Folder and file convention
@@ -256,11 +276,35 @@ client. It integrates with the Web 7.0 Pando Citizen TDA in a **1:1 relationship
 The TDA pushes async notifications to PandoMail. There is **no polling**.
 
 The notification channel is a **localhost-only WebSocket endpoint** on the TDA,
-separate from the public `POST /didcomm` surface:
+on the **same port** as `POST /didcomm`:
 
 ```
 ws://localhost:{port}/didcomm-notify
 ```
+
+Single port serves both surfaces:
+
+| Path | Protocol | Direction |
+|---|---|---|
+| `/didcomm` | HTTP/2 (`POST`) | Inbound DIDComm from remote TDAs |
+| `/didcomm-notify` | WebSocket (HTTP/1.1 upgrade) | Outbound push to local UI clients |
+
+**Kestrel must be configured with `HttpProtocols.Http1AndHttp2`** (not `Http2` alone) —
+WebSocket upgrade requests arrive as HTTP/1.1 and Kestrel rejects them if only HTTP/2
+is enabled on the listener.
+
+**HTTP/1.1 exposure trade-off:** enabling `Http1AndHttp2` re-introduces HTTP/1.1 on
+the port, partially negating the HTTP/2-only attack surface rationale. The gap is
+closed at the middleware layer:
+- Reject HTTP/1.1 requests to `POST /didcomm` → 426 Upgrade Required
+- Reject WebSocket connections to `/didcomm-notify` from non-loopback addresses
+
+mTLS still filters unauthorized remote peers at the TLS layer regardless.
+
+**Future path:** RFC 8441 (WebSocket over HTTP/2 extended CONNECT) would allow
+`HttpProtocols.Http2` only and eliminate the HTTP/1.1 exposure entirely. .NET 8
+Kestrel supports it server-side, but PandoMail on .NET Framework 4.5.2 cannot use it.
+Re-evaluate if PandoMail is ever upgraded to .NET 8.
 
 This endpoint is **not published in the Citizen TDA's DID Document** — it is a
 private local UI attachment point, not a peer-to-peer TDA interface.
@@ -360,8 +404,14 @@ Protocol URIs use `svrn7.net` (not `svrn7.io`).
   `System.Net.WebSockets` is available at 4.5.2 and is the correct transport for
   `TdaMailClient`. If PandoMail is ever upgraded to .NET 8, `TdaMailClient` can use
   HTTP/2 + mTLS directly for `POST /didcomm`.
+- Both `/didcomm` and `/didcomm-notify` are on the **same port** for a given TDA.
+  Kestrel uses `HttpProtocols.Http1AndHttp2` on that port — HTTP/2 for DIDComm,
+  HTTP/1.1 upgrade for WebSocket. No second port is opened. Middleware enforces
+  HTTP/2-only on `POST /didcomm` (426 on HTTP/1.1) and loopback-only on
+  `GET /didcomm-notify`, restoring the intended attack surface.
 - The TDA's public inbound surface remains **`POST /didcomm` only** (Kestrel,
-  HTTP/2, mTLS). The WebSocket endpoint is a separate, localhost-scoped surface.
+  HTTP/2, mTLS). The WebSocket endpoint is a separate, localhost-scoped path on the
+  same port.
 - The WebSocket Local UI Attachment Point pattern is **reusable** — any local UI
   app (calendar, contacts, tasks) on any OS where the TDA runs can connect to the
   same WebSocket endpoint and dispatch on `@type`. Future notification types:
