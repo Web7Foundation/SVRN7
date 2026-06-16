@@ -53,6 +53,13 @@ public sealed class Svrn7RunspaceContext
     public string LocalDid => Driver.SocietyDid;
 
     /// <summary>
+    /// The Wanderer/Agent DID shown at TDA startup — sourced from agent-identity.json.
+    /// This is the peer-to-peer identity of the TDA instance, distinct from the
+    /// Society DID. Use this when the local UI needs to display the TDA's own identity.
+    /// </summary>
+    public string AgentDid { get; }
+
+    /// <summary>
     /// The functional role of this TDA instance. Exposed to LOBE cmdlets as
     /// <c>$SVRN7.Role</c> for role-based guards.
     /// </summary>
@@ -76,10 +83,12 @@ public sealed class Svrn7RunspaceContext
         IMemoryCache         cache,
         IProcessedOrderStore processedOrders,
         int                  initialEpoch = 0,
-        Svrn7Role              role         = Svrn7Role.Federation)
+        Svrn7Role            role         = Svrn7Role.Federation,
+        string               agentDid     = "")
     {
         Driver           = driver;
         Role             = role;
+        AgentDid         = agentDid;
         _inbox           = inbox;
         _cache           = cache;
         _processedOrders = processedOrders;

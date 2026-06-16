@@ -370,7 +370,7 @@ function Get-TdaDid {
         $correlationId = Get-BodyField $body 'correlationId' ''
 
         $responseBody = [ordered]@{
-            did           = $SVRN7.LocalDid
+            did           = $SVRN7.AgentDid
             correlationId = $correlationId
         } | ConvertTo-Json -Compress
 
@@ -378,7 +378,7 @@ function Get-TdaDid {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Reply-TdaDid'
-            from = $SVRN7.LocalDid
+            from = $SVRN7.AgentDid
             body = $responseBody
         } | ConvertTo-Json -Compress
 

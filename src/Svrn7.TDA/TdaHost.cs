@@ -34,6 +34,13 @@ public sealed class TdaOptions
     public string SocietyDid { get; set; } = string.Empty;
 
     /// <summary>
+    /// The Wanderer/Agent DID shown at startup — read from agent-identity.json.
+    /// Set by Program.cs after first-run bootstrap, before host.StartAsync().
+    /// Falls back to SocietyDid when agent-identity.json is absent.
+    /// </summary>
+    public string AgentDid { get; set; } = string.Empty;
+
+    /// <summary>
     /// Society Ed25519 messaging private key (raw 32 bytes).
     /// Used by KestrelListenerService for UnpackAsync (DIDComm V2 Messaging boundary).
     /// </summary>
@@ -214,7 +221,8 @@ public static class TdaServiceCollectionExtensions
             var orders = sp.GetRequiredService<IProcessedOrderStore>();
             return new Svrn7RunspaceContext(driver, inbox, cache, orders,
                 initialEpoch: Svrn7.Core.Svrn7Constants.Epochs.Endowment,
-                role:         opts.Role);
+                role:         opts.Role,
+                agentDid:     opts.AgentDid);
         });
 
         // 4a. WebSocketNotifyHub — local PandoMail push channel singleton.

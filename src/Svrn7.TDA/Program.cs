@@ -141,8 +141,8 @@ var host = Host.CreateDefaultBuilder(args)
         {
             // In production, load these from environment variables or a secrets manager.
             // These defaults are for development/test only.
-            opts.SocietyDid                        = ctx.Configuration["Svrn7:SocietyDid"]   ?? "did:drn:solo.svrn7.net";
-            opts.FederationDid                     = ctx.Configuration["Svrn7:FederationDid"] ?? "did:drn:solo.svrn7.net";
+            opts.SocietyDid                        = ctx.Configuration["Svrn7:SocietyDid"]   ?? string.Empty;
+            opts.FederationDid                     = ctx.Configuration["Svrn7:FederationDid"] ?? string.Empty;
             opts.Svrn7DbPath                       = ResolvePath(ctx.Configuration["Svrn7:DbPath"],         "svrn7.db",        port);
             opts.DidsDbPath                        = ResolvePath(ctx.Configuration["Svrn7:DidsDbPath"],     "svrn7-dids.db",   port);
             opts.VcsDbPath                         = ResolvePath(ctx.Configuration["Svrn7:VcsDbPath"],      "svrn7-vcs.db",    port);
@@ -157,7 +157,7 @@ var host = Host.CreateDefaultBuilder(args)
         // ── 2. TDA Host: five Critical DSA 0.24 components ───────────────────
         services.AddSvrn7Tda(opts =>
         {
-            opts.SocietyDid                        = ctx.Configuration["Tda:SocietyDid"] ?? "did:drn:solo.svrn7.net";
+            opts.SocietyDid                        = ctx.Configuration["Tda:SocietyDid"] ?? string.Empty;
             opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
             opts.ListenPort                        = port;
             opts.Role                              = Svrn7Role.Wanderer;
@@ -222,6 +222,10 @@ else
         svrn7Name  = result.Document?.Svrn7Name;
     }
 }
+
+// Publish the resolved agent DID into TdaOptions so Svrn7RunspaceContext
+// (constructed lazily during host.StartAsync) picks it up via the factory.
+tdaOpts.AgentDid = agentDid ?? tdaOpts.SocietyDid;
 
 // ── Startup banner ────────────────────────────────────────────────────────────
 {

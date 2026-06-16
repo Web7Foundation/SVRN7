@@ -21,6 +21,8 @@ namespace Web7.SVRN7.Apps
         private ToolStripButton btnSend;
         private Panel panel2;
         private TableLayoutPanel tableLayoutPanel1;
+        private Label lblFromCaption;
+        private TextBox txtFrom;
         private Label lblToCaption;
         private TextBox txtTo;
         private Label lblCcCaption;
@@ -246,6 +248,8 @@ namespace Web7.SVRN7.Apps
             this.btnSend            = new ToolStripButton();
             this.panel2             = new Panel();
             this.tableLayoutPanel1  = new TableLayoutPanel();
+            this.lblFromCaption     = new Label();
+            this.txtFrom            = new TextBox();
             this.lblToCaption       = new Label();
             this.txtTo              = new TextBox();
             this.lblCcCaption       = new Label();
@@ -281,6 +285,23 @@ namespace Web7.SVRN7.Apps
             this.toolStrip1.GripStyle = ToolStripGripStyle.Hidden;
             this.toolStrip1.Items.AddRange(new ToolStripItem[] { this.btnSend });
             this.toolStrip1.Name      = "toolStrip1";
+
+            // lblFromCaption
+            this.lblFromCaption.AutoSize  = true;
+            this.lblFromCaption.Font      = captionFont;
+            this.lblFromCaption.ForeColor = captionColor;
+            this.lblFromCaption.Anchor    = AnchorStyles.Left;
+            this.lblFromCaption.Margin    = new Padding(4, 5, 0, 0);
+            this.lblFromCaption.Name      = "lblFromCaption";
+            this.lblFromCaption.Text      = "From:";
+
+            // txtFrom — read-only, pre-populated with TDA agent DID
+            this.txtFrom.Dock      = DockStyle.Fill;
+            this.txtFrom.Margin    = new Padding(2, 4, 4, 2);
+            this.txtFrom.Name      = "txtFrom";
+            this.txtFrom.ReadOnly  = true;
+            this.txtFrom.BackColor = SystemColors.Control;
+            this.txtFrom.Text      = _client.TdaDid;
 
             // lblToCaption
             this.lblToCaption.AutoSize  = true;
@@ -329,16 +350,19 @@ namespace Web7.SVRN7.Apps
             this.tableLayoutPanel1.ColumnCount = 2;
             this.tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             this.tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.tableLayoutPanel1.RowCount = 3;
+            this.tableLayoutPanel1.RowCount = 4;
             this.tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
             this.tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
             this.tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
-            this.tableLayoutPanel1.Controls.Add(this.lblToCaption,      0, 0);
-            this.tableLayoutPanel1.Controls.Add(this.txtTo,             1, 0);
-            this.tableLayoutPanel1.Controls.Add(this.lblCcCaption,      0, 1);
-            this.tableLayoutPanel1.Controls.Add(this.txtCc,             1, 1);
-            this.tableLayoutPanel1.Controls.Add(this.lblSubjectCaption, 0, 2);
-            this.tableLayoutPanel1.Controls.Add(this.txtSubject,        1, 2);
+            this.tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            this.tableLayoutPanel1.Controls.Add(this.lblFromCaption,    0, 0);
+            this.tableLayoutPanel1.Controls.Add(this.txtFrom,           1, 0);
+            this.tableLayoutPanel1.Controls.Add(this.lblToCaption,      0, 1);
+            this.tableLayoutPanel1.Controls.Add(this.txtTo,             1, 1);
+            this.tableLayoutPanel1.Controls.Add(this.lblCcCaption,      0, 2);
+            this.tableLayoutPanel1.Controls.Add(this.txtCc,             1, 2);
+            this.tableLayoutPanel1.Controls.Add(this.lblSubjectCaption, 0, 3);
+            this.tableLayoutPanel1.Controls.Add(this.txtSubject,        1, 3);
             this.tableLayoutPanel1.Dock    = DockStyle.Fill;
             this.tableLayoutPanel1.Name    = "tableLayoutPanel1";
             this.tableLayoutPanel1.Padding = new Padding(4, 2, 4, 2);
@@ -346,7 +370,7 @@ namespace Web7.SVRN7.Apps
             // panel2 — header-field container (Dock=Top, sits below toolStrip1)
             this.panel2.Controls.Add(this.tableLayoutPanel1);
             this.panel2.Dock   = DockStyle.Top;
-            this.panel2.Height = 82;
+            this.panel2.Height = 108;
             this.panel2.Name   = "panel2";
 
             // panelDivider — 1-px separator, matches RightSpine's label3

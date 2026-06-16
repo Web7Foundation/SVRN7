@@ -39,6 +39,9 @@ namespace Web7.SVRN7.Apps
         /// <summary>Fired on the thread-pool when TDA pushes an Email-Notify envelope.</summary>
         public event Action<string> EmailNotifyReceived;
 
+        /// <summary>The connected TDA's agent DID, populated after GetTdaDidAsync() completes.</summary>
+        public string TdaDid { get; private set; } = string.Empty;
+
         public TdaMailClient(int port)
         {
             _wsUri = $"ws://localhost:{port}/didcomm-notify";
@@ -141,7 +144,8 @@ namespace Web7.SVRN7.Apps
                 timeout.Token.Register(() => tcs.TrySetCanceled());
 
                 string replyJson = await tcs.Task;
-                return ParseTdaDid(replyJson);
+                TdaDid = ParseTdaDid(replyJson);
+                return TdaDid;
             }
             finally
             {
