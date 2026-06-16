@@ -148,6 +148,10 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         _log.LogInformation(
             "KestrelListenerService: listening on port {Port} (mTLS={Mtls}).",
             _opts.ListenPort, _opts.RequireMutualTls);
+        _log.LogDebug(
+            "KestrelListenerService: POST /didcomm (HTTP/2 inbound) and " +
+            "GET /didcomm-notify (WebSocket RFC 8441) active on port {Port}.",
+            _opts.ListenPort);
     }
 
     public async Task StopAsync(CancellationToken ct)
