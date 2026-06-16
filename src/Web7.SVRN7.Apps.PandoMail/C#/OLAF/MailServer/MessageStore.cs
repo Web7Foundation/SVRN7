@@ -3,10 +3,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
-
 using System.ComponentModel;
-using System.Data;
 using System.Reflection;
 using System.Windows.Forms;
 
@@ -29,58 +26,7 @@ namespace Web7.SVRN7.Apps
 		#region Private Constructor
 		private MessageStore()
 		{
-			if (null == _messages)
-			{
-				// Load Messages
-				DataSet     ds = new DataSet();
-				int         unread = 0;
-
-				// Create the data connector
-				_messages = new SortableBindingList<MailMessage>();
-
-				// Load data from Inbox (XML file)
-				Assembly        assembly = this.GetType().Assembly;
-				DataView        view;
-				MailMessage     message;
-
-				// Load into
-                string[] res = assembly.GetManifestResourceNames();
-
-                foreach (string rs in res)
-                {
-                    System.Diagnostics.Debug.WriteLine(rs);
-                }
-
-				string inboxResource = Array.Find(res, r => r.EndsWith(".Mail.Inbox.xml"));
-				ds.ReadXml(assembly.GetManifestResourceStream(inboxResource));
-				view = ds.Tables[0].DefaultView;
-
-				foreach (DataRowView row in view)
-				{
-					// Creat the message
-					message = new MailMessage();
-					message.Cc = row["CC"] as string;
-					message.From = row["From"] as string;
-					message.To = row["To"] as string;
-					message.SentDate = (DateTime)row["SentDate"];
-					message.Subject = row["Subject"] as string;
-					message.Path = row["Path"] as string;
-					message.Read = (bool)row["Read"];
-
-					// Add the message
-					_messages.Add(message);
-
-					// Update count
-					if (!message.Read)
-					{
-						unread++;
-					}
-				}
-
-				// Select first message
-				this.UnreadCount = unread;
-				this.SelectedMessage = (_messages[0] as MailMessage);
-			}
+			_messages = new SortableBindingList<MailMessage>();
 		}
 		#endregion
 
@@ -102,32 +48,21 @@ namespace Web7.SVRN7.Apps
 			get { return _selectedMessage; }
 			set
 			{
-				if (_selectedMessage != value)
+				if (value == null || _selectedMessage == value) return;
+
+				int pos = _messages.IndexOf(value);
+				if (_previous != pos)
 				{
-					// Called when the selected item changes
-					int pos = _messages.IndexOf(value);
-
-					// See if a new item is selected
-					if (_previous != pos)
+					if (!value.Read)
 					{
-						// Check Previous (to mark as read)
-						if (!value.Read)
-						{
-							// Mark as read
-							value.Read = true;
-
-							// Decrement unread count
-							this.UnreadCount--;
-						}
-
-						// Set this to previous
-						_previous = pos;
+						value.Read = true;
+						this.UnreadCount--;
 					}
-
-					// Update Selected
-					_selectedMessage = value;
-					OnPropertyChanged("SelectedMessage");
+					_previous = pos;
 				}
+
+				_selectedMessage = value;
+				OnPropertyChanged("SelectedMessage");
 			}
 		}
 
