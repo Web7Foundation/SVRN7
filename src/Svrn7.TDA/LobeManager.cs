@@ -231,9 +231,10 @@ public sealed class LobeManager : IDisposable
 
         ps.Commands.Clear();
         ps.AddCommand("Import-Module")
-          .AddParameter("Name",   modulePath)
-          .AddParameter("Force",  !isEager)  // JIT: re-exec .psm1 on every call to pick up hot-updates; Eager: idempotent
-          .AddParameter("Global", true);     // must be global-scope so subsequent pipeline commands see it
+          .AddParameter("Name",                modulePath)
+          .AddParameter("Force",               !isEager)  // JIT: re-exec .psm1 on every call to pick up hot-updates; Eager: idempotent
+          .AddParameter("Global",              true)      // must be global-scope so subsequent pipeline commands see it
+          .AddParameter("DisableNameChecking", true);     // suppress unapproved-verb warnings (e.g. Dequeue, Enqueue)
 
         await Task.Run(() => ps.Invoke(), ct);
 

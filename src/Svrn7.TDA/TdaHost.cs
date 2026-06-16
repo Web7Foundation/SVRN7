@@ -29,8 +29,7 @@ public sealed class TdaOptions
 
     // ── Society identity ──────────────────────────────────────────────────────
 
-    /// <summary>Society DID — e.g., "did:drn:alpha.svrn7.net".</summary>
-    [Required]
+    /// <summary>Society DID — e.g., "did:drn:alpha.svrn7.net". Empty until Society role is initialized.</summary>
     public string SocietyDid { get; set; } = string.Empty;
 
     /// <summary>
