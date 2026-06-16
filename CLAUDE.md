@@ -1,10 +1,251 @@
 # Web 7.0 Pando — Claude Code Project Context
 
+---
+
+## Repository Structure
+
+```
+SVRN7/
+├── src/
+│   ├── Svrn7.Core/          Models, interfaces, enums (DidDocument, Svrn7Role, DidStatus, etc.)
+│   ├── Svrn7.Crypto/        secp256k1 key generation, Base58, signing (CryptoService)
+│   ├── Svrn7.DIDComm/       DIDComm V2 pack/unpack (plaintext only — see Known Limitations)
+│   ├── Svrn7.Store/         LiteDB registries: LiteDidDocumentRegistry, LiteInboxStore, etc.
+│   ├── Svrn7.Federation/    ISvrn7Driver, Svrn7Driver — federation + DID management
+│   ├── Svrn7.Society/       ISvrn7SocietyDriver — adds citizen/VC/transfer layer
+│   ├── Svrn7.Identity/      DIDDocumentService, DID resolve pipeline
+│   ├── Svrn7.Ledger/        Epoch, supply, Merkle ledger
+│   ├── Svrn7.TDA/           Trusted Digital Assistant — Kestrel host + LOBE runtime
+│   └── Web7.SVRN7.Apps.Web7Mail/   WinForms email client (.NET Framework 4.5.2)
+├── tests/
+│   ├── Svrn7.Tests/
+│   ├── Svrn7.TDA.Tests/
+│   └── Svrn7.Society.Tests/
+├── tools/                   Initialize-Testnet.ps1, Build-LOBEPackages.ps1, Pando.Packaging.psm1
+└── docs/                    DEBUG.md, DIDDEBUG.md, WANDERERDEBUG.md, LOBEDEBUG.md, etc.
+```
+
+---
+
+## TDA Architecture
+
+```
+POST /didcomm (HTTP/2, Kestrel)
+  └── KestrelListenerService
+        └── IDIDCommService.UnpackAsync       ← plaintext only today (see Known Limitations)
+              └── LiteInboxStore.EnqueueAsync
+                    └── DIDCommMessageSwitchboard (drain loop)
+                          └── LobeManager.TryResolveProtocol(@type)
+                                └── LobeManager.EnsureLoadedAsync(modulePath)
+                                      └── Import-Module [-Force] in IsolatedRunspaceFactory
+                                            └── Cmdlet invocation (PowerShell.Invoke())
+                                                  └── OutboundMessage → DeliverAsync (HTTP/2)
+```
+
+**Key components:**
+
+| Class | Role |
+|---|---|
+| `KestrelListenerService` | Single inbound gate: `POST /didcomm` only |
+| `DIDCommMessageSwitchboard` | Inbox drain loop; routes by `@type`; outbound delivery |
+| `LobeManager` | Protocol registry; eager/JIT import; `EnsureLoadedAsync` |
+| `IsolatedRunspaceFactory` | Runspace pool (min 2, max ProcessorCount×2) |
+| `TdaHost` / `$SVRN7` | Context object injected into every runspace; exposes `Driver`, `GetMessageAsync`, `CurrentEpoch`, etc. |
+
+**Eager LOBEs** are loaded once at startup into the `InitialSessionState`.
+**JIT LOBEs** run `Import-Module -Force` on every dispatch — hot-update without TDA restart (overhead ~30 ms, tracked as TDA-001a).
+
+---
+
+## LOBE Authoring
+
+### Folder and file convention
+
+```
+lobes/
+└── {Name}.{version}/
+      ├── {Name}.{version}.psm1       ← entry-point module (exported cmdlets only)
+      ├── {Name}.{version}.lobe.json  ← descriptor
+      └── {Name}.Impl.{version}.psm1  ← optional implementation module
+```
+
+### `lobe.json` required fields
+
+```json
+{
+  "lobe": { "name": "Pando.Diagnostics", "version": "0.1.0", "module": "Pando.Diagnostics.0.1.0.psm1" },
+  "protocols": [
+    {
+      "uri":        "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/Query-TOD",
+      "direction":  "inbound",
+      "match":      "exact",
+      "entrypoint": "Invoke-PandoDiagnosticsDateQuery"
+    }
+  ]
+}
+```
+
+`match` is `"exact"` or `"prefix"`. `direction` is always `"inbound"` for handler protocols.
+
+### psm1 rules
+
+- `#Requires -Version 7.2` and `Set-StrictMode -Version Latest` at the top of every LOBE psm1.
+- `$ErrorActionPreference = 'Stop'`
+- Use `Assert-BodyFields` / `Get-BodyField` (from `Svrn7.Common`) for all body field access — `Set-StrictMode` throws on absent `PSCustomObject` properties before guards can fire.
+- Every handler returns either `[Svrn7.TDA.OutboundMessage]` (to trigger outbound delivery) or `$null` (no reply).
+- `Export-ModuleMember -Function @(...)` must be explicit.
+
+### Handler signature
+
+```powershell
+function Invoke-MyLobeVerb {
+    [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+    process {
+        $msg  = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+        # ... handle ...
+        [Svrn7.TDA.OutboundMessage]::new($replyEndpoint, $envelope)
+    }
+}
+```
+
+---
+
+## Protocol URI Convention
+
+```
+did:drn:svrn7.net/protocols/{LOBE}.{version}/{Verb-Noun}
+```
+
+Examples:
+- `did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/Query-TOD`
+- `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation`
+- `did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/message`
+
+`svrn7.net` always (never `svrn7.io`). Verb-Noun uses PascalCase or kebab-case consistently within a LOBE.
+
+**Outbound `PeerEndpoint`** is the full URL including path — used verbatim, no suffix appended:
+```
+http://localhost:8443/didcomm
+```
+
+---
+
+## TDA Launch and Data Layout
+
+```powershell
+dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA [--url http://localhost] [--reset]
+```
+
+| Parameter | Default | Notes |
+|---|---|---|
+| `--port` | (required) | Listen port; also scopes all data |
+| `--name` | (required) | Stored as `Svrn7Name` in Wanderer DID Document |
+| `--url` | `http://localhost` | Base URL for DID Document service endpoint; full endpoint = `{url}:{port}/didcomm` |
+| `--reset` | off | Deletes `{port}/mem/` before start; forces fresh Wanderer bootstrap |
+
+**Data layout** (relative to `Svrn7.TDA.dll`):
+
+```
+{BaseDir}/
+├── lobes/                    shared LOBE catalog (all TDA instances on this machine)
+│   └── lobes.config.json
+└── {port}/
+      └── mem/
+            ├── svrn7.db
+            ├── svrn7-dids.db
+            ├── svrn7-inbox.db
+            ├── svrn7-vcs.db
+            ├── svrn7-schemas.db
+            └── agent-identity.json
+```
+
+Testnet script: `tools/Initialize-Testnet.ps1` launches Wanderer1–4 on ports 8441–8444 in separate titled console windows.
+
+---
+
+## DID and Role Model
+
+### Roles (additive, not exclusive)
+
+| Role | `Svrn7Role` enum | DID format |
+|---|---|---|
+| Wanderer | `Wanderer` | `did:drn:wanderer.testnet.svrn7.net/agent/1.0/{guid-N}` (GUID-based, auto-generated) |
+| Citizen | `Citizen` | `did:{method}:{base58-secp256k1-pubkey}` |
+| Society | `Society` | Human-assigned (e.g. `did:drn:bindloss.svrn7.net`) |
+| Federation | `Federation` | Human-assigned (e.g. `did:drn:solo.svrn7.net`) |
+
+`New-Svrn7Did` produces crypto-derived (Citizen) DIDs only. Society/Federation DIDs are specified literally in registration message bodies.
+
+### `DidStatus` enum
+
+`Active` | `Suspended` | `Deactivated`
+
+### `Svrn7Role` enum (partial)
+
+`Wanderer` | `Citizen` | `Society` | `Federation` | `LOBEPackageManager` | `LOBEMarketplace`
+
+### First-run Wanderer bootstrap
+
+On startup with an empty DID registry the TDA auto-generates a Wanderer identity and writes it to `{port}/mem/agent-identity.json`:
+
+```json
+{ "did": "did:drn:wanderer.testnet.svrn7.net/agent/1.0/<guid>", "publicKeyHex": "...", "privateKeyHex": "...", "role": "Wanderer" }
+```
+
+---
+
+## Commit Convention
+
+- **Never** add `Co-Authored-By`, `Generated by`, or any AI attribution to commits or source files.
+- Commit messages: imperative mood, concise subject line, blank line before body if needed.
+
+---
+
+## PowerShell Requirements
+
+- **PowerShell 7.2+ required** everywhere — LOBE psm1 files, debug guides, tooling scripts.
+- `Set-StrictMode -Version Latest` is active in all LOBEs — never access `PSCustomObject` properties without guards (`Assert-BodyFields` / `Get-BodyField`).
+- Dot-sourcing `.psm1` files in PS 7 applies module-context scoping. Use `[scriptblock]::Create([System.IO.File]::ReadAllText($path)).Invoke()` for dynamic loading outside the LOBE runtime.
+- `Initialize-Svrn7Assemblies -ModuleRoot $PSScriptRoot` must be called before accessing any `Svrn7.*` .NET types in a standalone PS session (outside a TDA runspace). It is called automatically by `New-Svrn7KeyPair`, `New-Svrn7Did`, etc. if the driver is not already initialised.
+- `Send-DIDCommMessage` (in `Svrn7.Common`) is send-only from PS — there is no inbound listener in a PS session. A running TDA is required to receive DIDComm replies.
+
+---
+
+## Known Limitations
+
+| Limitation | Detail | Backlog ref |
+|---|---|---|
+| `UnpackAsync` plaintext only | JWE decryption not implemented — `recipientPrivateKey` accepted but ignored. Encrypted inbound messages are dead-lettered immediately. Only plaintext (`"type"` at root) messages are routed end-to-end. | — |
+| JIT LOBE reimport on every dispatch | `Import-Module -Force` runs each time for hot-update support; ~30 ms overhead per message | TDA-001a |
+| No "who-are-you" DIDComm protocol | No identity-query protocol exists to retrieve a running TDA's own DID via DIDComm. Current workaround: read `agent-identity.json` (last resort) or note the DID from the startup banner. | — |
+| PS cannot receive DIDComm replies | A standalone PowerShell session has no HTTP/2 listener — `replyEndpoint` must point at a running TDA | — |
+
+---
+
+## Naming Conventions (apply everywhere)
+
+- Protocol URIs: `svrn7.net` (never `svrn7.io`)
+- Cmdlets: `Verb-Noun` PascalCase — e.g. `Send-EmailNotify`, `Invoke-PandoDiagnosticsDateQuery`
+- "DID Document Resolver" / "DID Document Resolution" (not "DID Resolver")
+- Interfaces: `IDidDocumentResolver`, `ISvrn7Driver`, `ISvrn7SocietyDriver`
+- Implementations: `LocalDidDocumentResolver`, `FederationDidDocumentResolver`
+- "Shared Reserve Currency (SRC)" (not "Reserve Currency")
+- `DidDocument` (one word, not `DIDDocument`) in C# types; `DIDDocument` in prose
+- LiteDB registry classes: `Lite{Entity}Registry` / `Lite{Entity}Store`
+
+---
+
 ## Web7Mail ↔ Citizen TDA Integration
 
 ### Overview
 
-`Web7.SVRN7.Apps.Web7Mail` is a .NET Framework 4.0 WinForms Outlook 2003-style email
+`Web7.SVRN7.Apps.Web7Mail` is a .NET Framework 4.5.2 WinForms Outlook 2003-style email
 client. It integrates with the Web 7.0 Pando Citizen TDA in a **1:1 relationship**
 (one Web7Mail instance per Citizen TDA instance, same machine).
 
@@ -109,17 +350,6 @@ Protocol URIs use `svrn7.net` (not `svrn7.io`).
 2. **Initial inbox load:** How Web7Mail populates `MessageStore` on startup
    (before any WebSocket push arrives) — options are a DIDComm query message to
    the `Svrn7.Email` LOBE, or a localhost-only REST endpoint on the TDA.
-
----
-
-### Naming Conventions (apply everywhere)
-
-- Protocol URIs: `svrn7.net` (not `svrn7.io`)
-- DIDComm verb-noun cmdlet convention: e.g. `Send-EmailNotify` not `send-emailnotify`
-- "DID Document Resolver" / "DID Document Resolution" (not "DID Resolver")
-- Interface: `IDidDocumentResolver`
-- Implementations: `LocalDidDocumentResolver`, `FederationDidDocumentResolver`
-- "Shared Reserve Currency (SRC)" (not "Reserve Currency")
 
 ---
 
