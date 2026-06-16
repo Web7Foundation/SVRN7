@@ -98,6 +98,8 @@ namespace Web7.SVRN7.Apps
 				List<MailMessage> messages = MapToMailMessages(summaries);
 				_store.ReplaceAll(messages);
 				this.itemCountLabel.Text = messages.Count + " Items";
+				MessageBox.Show($"{messages.Count} message(s) received from TDA.", "TDA Response",
+					MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 			catch
 			{

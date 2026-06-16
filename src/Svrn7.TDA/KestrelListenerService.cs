@@ -281,8 +281,12 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
             do
             {
                 result = await ws.ReceiveAsync(buffer, ct);
+                _log.LogDebug(
+                    "KestrelListenerService: WebSocket frame received — {Bytes} bytes, endOfMessage={Eom}.",
+                    result.Count, result.EndOfMessage);
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
+                    _log.LogDebug("KestrelListenerService: WebSocket close frame received — closing.");
                     if (ws.State == WebSocketState.Open || ws.State == WebSocketState.CloseReceived)
                         await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, ct);
                     return;
@@ -291,6 +295,9 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
             }
             while (!result.EndOfMessage);
 
+            _log.LogDebug(
+                "KestrelListenerService: WebSocket complete message assembled — {TotalBytes} bytes.",
+                ms.Length);
             var json = System.Text.Encoding.UTF8.GetString(ms.ToArray());
             _ = Task.Run(() => ProcessWebSocketMessageAsync(json, ct), ct);
         }
@@ -299,6 +306,10 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
     private async Task ProcessWebSocketMessageAsync(string json, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(json)) return;
+
+        _log.LogDebug(
+            "KestrelListenerService: WebSocket processing message — length={Length}, preview='{Preview}'.",
+            json.Length, json.Length > 120 ? json[..120] : json);
 
         DIDCommUnpackedMessage unpacked;
         try
@@ -313,6 +324,10 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
             _log.LogWarning(ex, "KestrelListenerService: WebSocket UnpackAsync failed — ignoring message.");
             return;
         }
+
+        _log.LogDebug(
+            "KestrelListenerService: WebSocket UnpackAsync OK — type='{Type}', from='{From}'.",
+            unpacked.Type, unpacked.From);
 
         try
         {

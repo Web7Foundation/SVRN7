@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.WebSockets;
@@ -126,7 +127,9 @@ namespace Web7.SVRN7.Apps
                 body
             });
             byte[] bytes = Encoding.UTF8.GetBytes(envelope);
+            Debug.WriteLine($"[TdaMailClient] WS SEND type={type} bytes={bytes.Length}");
             await _ws.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, ct);
+            Debug.WriteLine($"[TdaMailClient] WS SEND complete type={type}");
         }
 
         // ── Receive loop ────────────────────────────────────────────────────────
@@ -148,7 +151,9 @@ namespace Web7.SVRN7.Apps
                     }
                     while (!result.EndOfMessage);
 
-                    DispatchReceived(Encoding.UTF8.GetString(ms.ToArray()));
+                    var recvJson = Encoding.UTF8.GetString(ms.ToArray());
+                    Debug.WriteLine($"[TdaMailClient] WS RECV {ms.Length} bytes");
+                    DispatchReceived(recvJson);
                 }
             }
             catch (OperationCanceledException) { }
@@ -163,6 +168,8 @@ namespace Web7.SVRN7.Apps
                 JsonElement root = doc.RootElement;
                 string type = root.TryGetProperty("type", out JsonElement t)
                     ? t.GetString() ?? "" : "";
+
+                Debug.WriteLine($"[TdaMailClient] WS DISPATCH type={type}");
 
                 if (type.EndsWith("/Issue-EmailList", StringComparison.Ordinal))
                 {

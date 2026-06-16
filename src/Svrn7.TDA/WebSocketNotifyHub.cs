@@ -1,5 +1,6 @@
 using System.Net.WebSockets;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace Svrn7.TDA;
 
@@ -20,8 +21,14 @@ public sealed class WebSocketNotifyHub
     /// </summary>
     public const string LocalEndpoint = "ws://local/didcomm-notify";
 
+    private readonly ILogger<WebSocketNotifyHub> _log;
     private WebSocket?            _socket;
     private readonly SemaphoreSlim _sendLock = new(1, 1);
+
+    public WebSocketNotifyHub(ILogger<WebSocketNotifyHub> log)
+    {
+        _log = log;
+    }
 
     public bool IsConnected
     {
@@ -45,20 +52,29 @@ public sealed class WebSocketNotifyHub
     public async Task PushAsync(string json, CancellationToken ct = default)
     {
         var ws = Volatile.Read(ref _socket);
-        if (ws is null || ws.State != WebSocketState.Open) return;
+        if (ws is null || ws.State != WebSocketState.Open)
+        {
+            _log.LogDebug("WebSocketNotifyHub: PushAsync — no connected client (skipping).");
+            return;
+        }
 
         await _sendLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             if (ws.State != WebSocketState.Open) return;
             var bytes = Encoding.UTF8.GetBytes(json);
+            _log.LogDebug("WebSocketNotifyHub: sending {Bytes} bytes to PandoMail.", bytes.Length);
             await ws.SendAsync(
                 new ReadOnlyMemory<byte>(bytes),
                 WebSocketMessageType.Text,
                 endOfMessage: true,
                 ct).ConfigureAwait(false);
+            _log.LogDebug("WebSocketNotifyHub: send complete.");
         }
-        catch (WebSocketException) { }
+        catch (WebSocketException ex)
+        {
+            _log.LogDebug(ex, "WebSocketNotifyHub: send failed (WebSocketException).");
+        }
         catch (OperationCanceledException) { }
         finally
         {
