@@ -42,6 +42,9 @@ namespace Web7.SVRN7.Apps
         /// <summary>The connected TDA's agent DID, populated after GetTdaDidAsync() completes.</summary>
         public string TdaDid { get; private set; } = string.Empty;
 
+        /// <summary>True when the WebSocket connection to the TDA is open.</summary>
+        public bool IsConnected => _ws.State == WebSocketState.Open;
+
         public TdaMailClient(int port)
         {
             _wsUri = $"ws://localhost:{port}/didcomm-notify";
@@ -70,9 +73,22 @@ namespace Web7.SVRN7.Apps
         public async Task ConnectAsync(CancellationToken ct = default)
         {
             Debug.WriteLine($"[TdaMailClient] WS CONNECT {_wsUri}");
-            await _ws.ConnectAsync(new Uri(_wsUri), _http, ct);
-            Debug.WriteLine($"[TdaMailClient] WS CONNECT complete state={_ws.State}");
-            _ = Task.Run(() => ReceiveLoopAsync(_cts.Token));
+            try
+            {
+                await _ws.ConnectAsync(new Uri(_wsUri), _http, ct);
+                Debug.WriteLine($"[TdaMailClient] WS CONNECT complete state={_ws.State}");
+                _ = Task.Run(() => ReceiveLoopAsync(_cts.Token));
+            }
+            catch (WebSocketException ex)
+            {
+                Debug.WriteLine($"[TdaMailClient] WS CONNECT FAILED: {ex.Message} (WebSocketErrorCode={ex.WebSocketErrorCode} HttpStatusCode={ex.WebSocketErrorCode} InnerException={ex.InnerException?.Message})");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[TdaMailClient] WS CONNECT FAILED ({ex.GetType().Name}): {ex.Message}  InnerException={ex.InnerException?.GetType().Name}: {ex.InnerException?.Message}");
+                throw;
+            }
         }
 
         // ── Outbound: Send a composed email ────────────────────────────────────

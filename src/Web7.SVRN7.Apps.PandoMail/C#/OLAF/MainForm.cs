@@ -14,7 +14,7 @@ namespace Web7.SVRN7.Apps
 {
 	public partial class MainForm : Form
 	{
-		private const string BaseTitle = "PandoMail";
+		private const string BaseTitle = "Web 7.0 Pando Mail";
 
 		// Message Server
 		private MessageStore		_store;
@@ -36,6 +36,8 @@ namespace Web7.SVRN7.Apps
 		{
 			_store = MessageStore.GetMessageStore();
 
+			this.Text = BaseTitle + " - Not connected";
+
 			// Show "0 Items" immediately; RefreshInboxAsync updates it after TDA connects.
 			this.itemCountLabel.Text = String.Format(this.itemCountLabel.Text, 0);
 
@@ -48,6 +50,8 @@ namespace Web7.SVRN7.Apps
 			this.Icon = Icon.FromHandle(Web7.SVRN7.Apps.Properties.Resources.PandoMail.GetHicon());
 
 			Microsoft.Win32.SystemEvents.UserPreferenceChanged += new UserPreferenceChangedEventHandler(Form1_UserPreferenceChanged);
+
+			toolStripSplitButton3.Click += async (s, ev) => await RefreshInboxAsync();
 
 			// Defer TDA connection until after first paint so the window appears immediately.
 			this.Shown += MainForm_Shown;
@@ -72,8 +76,6 @@ namespace Web7.SVRN7.Apps
 			await UpdateTitleAsync();
 
 			await RefreshInboxAsync();
-
-			toolStripSplitButton3.Click += async (s, ev) => await RefreshInboxAsync();
 		}
 
 		private void Form1_UserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
@@ -98,6 +100,27 @@ namespace Web7.SVRN7.Apps
 		#region Send/Receive
 		private async Task RefreshInboxAsync()
 		{
+			if (_tdaClient == null || !_tdaClient.IsConnected)
+			{
+				_tdaClient?.Dispose();
+				_tdaClient = new TdaMailClient(Program.TdaPort);
+				try
+				{
+					await _tdaClient.ConnectAsync();
+					_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
+					await UpdateTitleAsync();
+				}
+				catch
+				{
+					MessageBox.Show(
+						$"Unable to connect to the TDA on port {Program.TdaPort}.",
+						"Not Connected",
+						MessageBoxButtons.OK,
+						MessageBoxIcon.Warning);
+					return;
+				}
+			}
+
 			try
 			{
 				List<EmailSummary> summaries = await _tdaClient.ListEmailsAsync();
