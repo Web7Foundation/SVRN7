@@ -17,7 +17,8 @@
         'Dequeue-PandoMail',
         'Enqueue-PandoMail',
         'Invoke-PandoMailList',
-        'Invoke-PandoMailSend'
+        'Invoke-PandoMailSend',
+        'Get-TdaDid'
     )
 
     CmdletsToExport   = @()

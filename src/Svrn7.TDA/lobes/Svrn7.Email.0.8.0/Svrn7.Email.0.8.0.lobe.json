@@ -48,6 +48,15 @@
       "match": "exact",
       "entrypoint": "Invoke-PandoMailSend",
       "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Query-TdaDid",
+      "title": "Query TDA DID",
+      "description": "Local UI request for this TDA's own DID. Body: { replyEndpoint: url, correlationId?: string }. Replies with Reply-TdaDid.",
+      "direction": "inbound",
+      "match": "exact",
+      "entrypoint": "Get-TdaDid",
+      "epochRequired": 0
     }
   ],
   "cmdlets": [

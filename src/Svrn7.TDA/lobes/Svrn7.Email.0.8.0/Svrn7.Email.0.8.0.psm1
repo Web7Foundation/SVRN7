@@ -330,6 +330,62 @@ function Invoke-PandoMailSend {
     }
 }
 
+# ── Get-TdaDid ────────────────────────────────────────────────────────────────
+
+function Get-TdaDid {
+    <#
+    .SYNOPSIS
+        Returns this TDA's own DID to a requesting local UI client.
+
+    .DESCRIPTION
+        Handles a Query-TdaDid request from TdaMailClient. Replies with the
+        TDA's LocalDid over the WebSocket push channel.
+
+        Protocol (inbound):  did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Query-TdaDid
+        Protocol (outbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Reply-TdaDid
+
+    .PARAMETER MessageDid
+        The TDA resource DID URL of the inbox message.
+
+    .OUTPUTS
+        [Svrn7.TDA.OutboundMessage] delivering Reply-TdaDid to replyEndpoint,
+        or $null if replyEndpoint is absent.
+    #>
+    [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) { return $null }
+
+        $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+
+        $replyEndpoint = Get-BodyField $body 'replyEndpoint'
+        if (-not $replyEndpoint) { return $null }
+
+        $correlationId = Get-BodyField $body 'correlationId' ''
+
+        $responseBody = [ordered]@{
+            did           = $SVRN7.LocalDid
+            correlationId = $correlationId
+        } | ConvertTo-Json -Compress
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Reply-TdaDid'
+            from = $SVRN7.LocalDid
+            body = $responseBody
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($replyEndpoint, $envelope)
+    }
+}
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Get-Rfc5322Header {
@@ -343,5 +399,6 @@ Export-ModuleMember -Function @(
     'Dequeue-PandoMail',
     'Enqueue-PandoMail',
     'Invoke-PandoMailList',
-    'Invoke-PandoMailSend'
+    'Invoke-PandoMailSend',
+    'Get-TdaDid'
 )

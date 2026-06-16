@@ -60,6 +60,11 @@ namespace Web7.SVRN7.Apps
 			{
 				await _tdaClient.ConnectAsync();
 				_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
+
+				string tdaDid = await _tdaClient.GetTdaDidAsync();
+				if (!string.IsNullOrEmpty(tdaDid))
+					this.Text = this.Text + " - " + tdaDid;
+
 				await RefreshInboxAsync();
 			}
 			catch

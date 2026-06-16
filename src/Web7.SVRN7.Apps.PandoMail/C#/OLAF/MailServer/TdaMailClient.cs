@@ -117,6 +117,38 @@ namespace Web7.SVRN7.Apps
             }
         }
 
+        // ── Query: TDA's own DID ────────────────────────────────────────────────
+
+        public async Task<string> GetTdaDidAsync(CancellationToken ct = default)
+        {
+            string correlationId = Guid.NewGuid().ToString("N");
+            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pending[correlationId] = tcs;
+
+            try
+            {
+                string msgBody = JsonSerializer.Serialize(new
+                {
+                    replyEndpoint = "ws://local/didcomm-notify",
+                    correlationId
+                });
+                await SendEnvelopeAsync(
+                    "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Query-TdaDid",
+                    msgBody, ct);
+
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeout.CancelAfter(TimeSpan.FromSeconds(10));
+                timeout.Token.Register(() => tcs.TrySetCanceled());
+
+                string replyJson = await tcs.Task;
+                return ParseTdaDid(replyJson);
+            }
+            finally
+            {
+                _pending.TryRemove(correlationId, out _);
+            }
+        }
+
         // ── Core send ───────────────────────────────────────────────────────────
 
         private async Task SendEnvelopeAsync(string type, string body, CancellationToken ct)
@@ -181,7 +213,13 @@ namespace Web7.SVRN7.Apps
 
                 Debug.WriteLine($"[TdaMailClient] WS DISPATCH type={type}");
 
-                if (type.EndsWith("/Get-PandoMails", StringComparison.Ordinal))
+                if (type.EndsWith("/Reply-TdaDid", StringComparison.Ordinal))
+                {
+                    string cid = ExtractCorrelationId(root);
+                    if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
+                        tcs.TrySetResult(json);
+                }
+                else if (type.EndsWith("/Get-PandoMails", StringComparison.Ordinal))
                 {
                     string cid = ExtractCorrelationId(root);
                     if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
@@ -227,6 +265,27 @@ namespace Web7.SVRN7.Apps
         }
 
         // ── Parsing ─────────────────────────────────────────────────────────────
+
+        private static string ParseTdaDid(string envelopeJson)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(envelopeJson);
+                JsonElement root = doc.RootElement;
+                if (!root.TryGetProperty("body", out JsonElement bodyEl)) return string.Empty;
+
+                JsonElement resolved = bodyEl;
+                if (bodyEl.ValueKind == JsonValueKind.String)
+                {
+                    using JsonDocument inner = JsonDocument.Parse(bodyEl.GetString()!);
+                    resolved = inner.RootElement.Clone();
+                }
+
+                return resolved.TryGetProperty("did", out JsonElement didEl)
+                    ? didEl.GetString() ?? string.Empty : string.Empty;
+            }
+            catch { return string.Empty; }
+        }
 
         private static List<EmailSummary> ParseEmailList(string envelopeJson)
         {
