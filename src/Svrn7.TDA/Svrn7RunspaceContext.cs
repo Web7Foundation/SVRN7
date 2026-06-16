@@ -46,6 +46,13 @@ public sealed class Svrn7RunspaceContext
     public ISvrn7SocietyDriver Driver { get; }
 
     /// <summary>
+    /// The DID of this TDA instance — available regardless of role (Wanderer,
+    /// Citizen, Society, or Federation). LOBE cmdlets should use this instead of
+    /// Driver.SocietyDid to avoid implying Society-level initialization.
+    /// </summary>
+    public string LocalDid => Driver.SocietyDid;
+
+    /// <summary>
     /// The functional role of this TDA instance. Exposed to LOBE cmdlets as
     /// <c>$SVRN7.Role</c> for role-based guards.
     /// </summary>

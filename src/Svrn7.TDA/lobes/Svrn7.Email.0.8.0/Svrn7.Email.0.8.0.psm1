@@ -157,7 +157,7 @@ function Send-PandoEmail {
     )
 
     process {
-        if (-not $From) { $From = $SVRN7.Driver.SocietyDid }
+        if (-not $From) { $From = $SVRN7.LocalDid }
 
         $date = [datetime]::UtcNow.ToString('ddd, dd MMM yyyy HH:mm:ss') + ' +0000'
 
@@ -173,7 +173,7 @@ Content-Type: text/plain; charset=utf-8
 $Body
 "@
         $payload = @{
-            from        = $SVRN7.Driver.SocietyDid
+            from        = $SVRN7.LocalDid
             to          = $RecipientDid
             rfc5322Body = $rfc5322
         } | ConvertTo-Json -Compress
@@ -188,7 +188,7 @@ $Body
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoEmail'
-            from = $SVRN7.Driver.SocietyDid
+            from = $SVRN7.LocalDid
             to   = @($RecipientDid)
             body = $payload
         } | ConvertTo-Json -Compress
@@ -269,7 +269,7 @@ function Invoke-PandoEmailList {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Issue-EmailList'
-            from = $SVRN7.Driver.SocietyDid
+            from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
             body = $responseBody
         } | ConvertTo-Json -Compress
