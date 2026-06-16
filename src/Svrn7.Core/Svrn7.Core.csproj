@@ -14,4 +14,7 @@
     <Copyright>Copyright (c) 2026 Michael Herman (Alberta, Canada)</Copyright>
     <Description>SOVRON (SVRN7) — Core models, interfaces, exceptions and constants. Zero outbound dependencies.</Description>
   </PropertyGroup>
+  <!-- No-op: satisfies VS2022 EF6 design-time tooling's BeforeBuild EntityDeploy hook. -->
+  <Target Name="EntityDeploy" />
+
 </Project>

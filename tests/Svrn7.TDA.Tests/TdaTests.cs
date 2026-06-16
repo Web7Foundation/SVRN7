@@ -822,6 +822,7 @@ internal sealed class NullInboxStore : Svrn7.Core.Interfaces.IInboxStore
     public Task MarkFailedAsync(string id, string err, bool retry = true, int max = Svrn7Constants.InboxMaxAttempts, CancellationToken ct = default) => Task.CompletedTask;
     public Task ResetStuckMessagesAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task<System.Collections.Generic.IReadOnlyDictionary<Svrn7.Core.Models.InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyDictionary<Svrn7.Core.Models.InboxMessageStatus, int>>(new System.Collections.Generic.Dictionary<Svrn7.Core.Models.InboxMessageStatus, int>());
+    public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboxMessage>>(System.Array.Empty<Svrn7.Core.Models.InboxMessage>());
 }
 
 internal sealed class NullProcessedOrderStore : Svrn7.Core.Interfaces.IProcessedOrderStore
@@ -1082,6 +1083,8 @@ internal sealed class RecordingInboxStore : IInboxStore
     public Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyDictionary<InboxMessageStatus, int>>(
             new Dictionary<InboxMessageStatus, int>());
+    public Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
 }
 
 /// <summary>Stub IDIDCommService: UnpackAsync always returns a pre-configured message.</summary>
@@ -1525,6 +1528,7 @@ internal sealed class TrackingInboxStore : IInboxStore
     public Task MarkProcessedAsync(string id, CancellationToken ct = default) => Task.CompletedTask;
     public Task MarkFailedAsync(string id, string err, bool retry = true, int maxAttempts = Svrn7Constants.InboxMaxAttempts, CancellationToken ct = default) => Task.CompletedTask;
     public Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<InboxMessageStatus, int>>(new Dictionary<InboxMessageStatus, int>());
+    public Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
     public Task ResetStuckMessagesAsync(CancellationToken ct = default)
     {
         ResetStuckCalled = true;
@@ -1563,6 +1567,7 @@ internal sealed class ThrowingResetInboxStore : IInboxStore
     public Task MarkProcessedAsync(string id, CancellationToken ct = default) => Task.CompletedTask;
     public Task MarkFailedAsync(string id, string err, bool retry = true, int maxAttempts = Svrn7Constants.InboxMaxAttempts, CancellationToken ct = default) => Task.CompletedTask;
     public Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<InboxMessageStatus, int>>(new Dictionary<InboxMessageStatus, int>());
+    public Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
     public Task ResetStuckMessagesAsync(CancellationToken ct = default)
         => throw new InvalidOperationException("Simulated inbox store failure on reset.");
 }
