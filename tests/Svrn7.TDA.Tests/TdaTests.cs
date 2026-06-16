@@ -947,7 +947,7 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
             opts,
             new StubDIDCommService("test/1.0/msg", """{"amount":500}"""),
             _inbox,
-            new WebSocketNotifyHub(),
+            new WebSocketNotifyHub(NullLogger<WebSocketNotifyHub>.Instance),
             NullLogger<KestrelListenerService>.Instance);
     }
 
@@ -1023,7 +1023,7 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
             }),
             new ThrowingDIDCommService(),
             inbox,
-            new WebSocketNotifyHub(),
+            new WebSocketNotifyHub(NullLogger<WebSocketNotifyHub>.Instance),
             NullLogger<KestrelListenerService>.Instance);
 
         await badListener.StartAsync(CancellationToken.None);
@@ -1390,7 +1390,7 @@ public class SwitchboardStartupTests : IDisposable
         return new DIDCommMessageSwitchboard(
             ctx, pool, inbox, outbox, lobes,
             new NullHttpClientFactory(),
-            new WebSocketNotifyHub(),
+            new WebSocketNotifyHub(NullLogger<WebSocketNotifyHub>.Instance),
             Options.Create(tdaOpts),
             NullLogger<DIDCommMessageSwitchboard>.Instance);
     }
@@ -1424,7 +1424,7 @@ public sealed class KestrelListenerRateLimitTests : IAsyncLifetime
             }),
             new StubDIDCommService("test/1.0/msg", "{}"),
             new RecordingInboxStore(),
-            new WebSocketNotifyHub(),
+            new WebSocketNotifyHub(NullLogger<WebSocketNotifyHub>.Instance),
             NullLogger<KestrelListenerService>.Instance);
     }
 
@@ -1478,7 +1478,7 @@ public sealed class KestrelListenerRateLimitTests : IAsyncLifetime
             }),
             new StubDIDCommService("test/1.0/msg", "{}"),
             new RecordingInboxStore(),
-            new WebSocketNotifyHub(),
+            new WebSocketNotifyHub(NullLogger<WebSocketNotifyHub>.Instance),
             NullLogger<KestrelListenerService>.Instance);
 
         await noLimit.StartAsync(CancellationToken.None);
