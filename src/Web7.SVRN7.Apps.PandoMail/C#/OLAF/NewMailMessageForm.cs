@@ -470,6 +470,14 @@ namespace Web7.SVRN7.Apps
                 bodyText = System.Text.Json.JsonSerializer.Deserialize<string>(json) ?? string.Empty;
             }
 
+            if (string.IsNullOrWhiteSpace(bodyText))
+            {
+                MessageBox.Show("Please enter a message body.",
+                    "Web7 Mail", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                webView.Focus();
+                return;
+            }
+
             btnSend.Enabled = false;
             try
             {
