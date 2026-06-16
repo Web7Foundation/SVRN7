@@ -171,6 +171,23 @@ namespace Web7.SVRN7.Apps
 			// Force clients to re-read thier data
 			OnPropertyChanged(null);
 		}
+
+		public void ReplaceAll(IList<MailMessage> incoming)
+		{
+			_messages.RaiseListChangedEvents = false;
+			_messages.Clear();
+			int unread = 0;
+			foreach (MailMessage msg in incoming)
+			{
+				_messages.Add(msg);
+				if (!msg.Read) unread++;
+			}
+			_messages.RaiseListChangedEvents = true;
+			_messages.ResetBindings();
+			this.UnreadCount = unread;
+			if (_messages.Count > 0)
+				this.SelectedMessage = _messages[0];
+		}
 		#endregion
 
 		#region INotifyPropertyChanged Members

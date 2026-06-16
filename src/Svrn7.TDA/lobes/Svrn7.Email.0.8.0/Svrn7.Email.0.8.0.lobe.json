@@ -39,6 +39,15 @@
       "match": "exact",
       "entrypoint": "Invoke-PandoEmailList",
       "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Send-PandoEmail",
+      "title": "Send Email (from PandoMail UI)",
+      "description": "Accepted from local PandoMail UI via TdaMailClient. Body: { recipientDid, subject, bodyText }. Wraps as RFC 5322 and delivers to recipient TDA.",
+      "direction": "inbound",
+      "match": "exact",
+      "entrypoint": "Invoke-PandoEmailSend",
+      "epochRequired": 0
     }
   ],
   "cmdlets": [

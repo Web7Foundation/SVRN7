@@ -217,6 +217,9 @@ public static class TdaServiceCollectionExtensions
                 role:         opts.Role);
         });
 
+        // 4a. WebSocketNotifyHub — local PandoMail push channel singleton.
+        services.AddSingleton<WebSocketNotifyHub>();
+
         // 4. LobeManager
         // Derived from: "LobeManager" (LOBE layer) — DSA 0.24 Epoch 0.
         services.AddSingleton<LobeManager>();
@@ -257,6 +260,7 @@ public static class TdaServiceCollectionExtensions
                 sp.GetRequiredService<Svrn7.Core.Interfaces.IOutboxStore>(),
                 sp.GetRequiredService<LobeManager>(),
                 sp.GetRequiredService<IHttpClientFactory>(),
+                sp.GetRequiredService<WebSocketNotifyHub>(),
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TdaOptions>>(),
                 sp.GetRequiredService<ILogger<DIDCommMessageSwitchboard>>()));
 

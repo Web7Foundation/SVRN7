@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 using System.Net.NetworkInformation;
@@ -17,6 +18,7 @@ namespace Web7.SVRN7.Apps
 		private MessageStore		_store;
 		private	Bitmap				_onlineImage;
 		private Bitmap				_offlineImage;
+		private TdaMailClient		_tdaClient;
 
 		public MainForm()
 		{
@@ -28,10 +30,25 @@ namespace Web7.SVRN7.Apps
 		}
 
 		#region Event Handlers
-		private void Form1_Load(object sender, EventArgs e)
+		private async void Form1_Load(object sender, EventArgs e)
 		{
-			// Setup Message Server
+			// Setup Message Store
 			_store = MessageStore.GetMessageStore();
+
+			// Setup TDA WebSocket client
+			_tdaClient = new TdaMailClient(Program.TdaPort);
+			try
+			{
+				await _tdaClient.ConnectAsync();
+				_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
+			}
+			catch
+			{
+				// TDA not available — PandoMail starts in offline mode with static inbox data.
+			}
+
+			// Wire Send/Receive toolbar button
+			toolStripSplitButton3.ButtonClick += async (s, ev) => await RefreshInboxAsync();
 
 			// Update message count
 			this.itemCountLabel.Text = String.Format(this.itemCountLabel.Text, _store.Messages.Count);
@@ -67,8 +84,50 @@ namespace Web7.SVRN7.Apps
 		#region New Mail
 		private void OpenNewMailForm_Click(object sender, EventArgs e)
 		{
-			NewMailMessageForm form = new NewMailMessageForm();
+			NewMailMessageForm form = new NewMailMessageForm(_tdaClient);
 			form.Show();
+		}
+		#endregion
+
+		#region Send/Receive
+		private async Task RefreshInboxAsync()
+		{
+			try
+			{
+				List<EmailSummary> summaries = await _tdaClient.ListEmailsAsync();
+				List<MailMessage> messages = MapToMailMessages(summaries);
+				_store.ReplaceAll(messages);
+				this.itemCountLabel.Text = messages.Count + " Items";
+			}
+			catch
+			{
+				// TDA unavailable — silently ignore; existing inbox data remains.
+			}
+		}
+
+		private void OnEmailNotifyReceived(string json)
+		{
+			// Marshal to UI thread and refresh the inbox when a new email arrives.
+			if (this.IsHandleCreated)
+				BeginInvoke(new MethodInvoker(async () => await RefreshInboxAsync()));
+		}
+
+		private static List<MailMessage> MapToMailMessages(List<EmailSummary> summaries)
+		{
+			var result = new List<MailMessage>();
+			foreach (EmailSummary s in summaries)
+			{
+				result.Add(new MailMessage
+				{
+					From     = s.FromHeader ?? s.SenderDid,
+					To       = s.ToHeader ?? string.Empty,
+					Subject  = s.Subject ?? "(no subject)",
+					SentDate = s.ReceivedAt,
+					Path     = s.MessageDid,
+					Read     = false
+				});
+			}
+			return result;
 		}
 		#endregion
 

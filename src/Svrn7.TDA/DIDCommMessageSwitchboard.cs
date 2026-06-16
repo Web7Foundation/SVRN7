@@ -46,6 +46,7 @@ public sealed class DIDCommMessageSwitchboard
     private readonly Svrn7.Core.Interfaces.IOutboxStore _outbox;
     private readonly LobeManager                        _lobes;
     private readonly IHttpClientFactory     _httpFactory;
+    private readonly WebSocketNotifyHub     _hub;
     private readonly TdaOptions             _opts;
     private readonly ILogger<DIDCommMessageSwitchboard> _log;
 
@@ -70,6 +71,7 @@ public sealed class DIDCommMessageSwitchboard
         Svrn7.Core.Interfaces.IOutboxStore  outbox,
         LobeManager                         lobes,
         IHttpClientFactory                  httpFactory,
+        WebSocketNotifyHub                  hub,
         Microsoft.Extensions.Options.IOptions<TdaOptions> opts,
         ILogger<DIDCommMessageSwitchboard>  log)
     {
@@ -79,6 +81,7 @@ public sealed class DIDCommMessageSwitchboard
         _outbox      = outbox;
         _lobes       = lobes;
         _httpFactory = httpFactory;
+        _hub         = hub;
         _opts        = opts.Value;
         _log         = log;
     }
@@ -480,6 +483,17 @@ public sealed class DIDCommMessageSwitchboard
             Svrn7Telemetry.ActivityDeliver,
             ActivityKind.Producer);
         deliverActivity?.SetTag(Svrn7Telemetry.TagPeerEndpoint, msg.PeerEndpoint);
+
+        // WebSocket delivery: LOBEs targeting the local UI use the sentinel endpoint.
+        if (msg.PeerEndpoint.StartsWith("ws://", StringComparison.OrdinalIgnoreCase))
+        {
+            await _hub.PushAsync(msg.PackedMessage, ct);
+            deliverActivity?.SetTag(Svrn7Telemetry.TagOutcome, "ws_pushed")
+                            .SetStatus(ActivityStatusCode.Ok);
+            _log.LogDebug("Switchboard: pushed to local WebSocket ({Connected}).",
+                _hub.IsConnected ? "connected" : "not connected");
+            return;
+        }
 
         var client   = _httpFactory.CreateClient("didcomm");
         var endpoint = msg.PeerEndpoint.TrimEnd('/');

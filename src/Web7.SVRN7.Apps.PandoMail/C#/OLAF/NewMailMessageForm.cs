@@ -14,6 +14,8 @@ namespace Web7.SVRN7.Apps
     /// </summary>
     public class NewMailMessageForm : Form
     {
+        private readonly TdaMailClient _client;
+
         private Panel panel1;
         private ToolStrip toolStrip1;
         private ToolStripButton btnSend;
@@ -231,8 +233,9 @@ namespace Web7.SVRN7.Apps
 </body>
 </html>";
 
-        public NewMailMessageForm()
+        public NewMailMessageForm(TdaMailClient client)
         {
+            _client = client;
             InitializeComponent();
         }
 
@@ -438,17 +441,42 @@ namespace Web7.SVRN7.Apps
             }
         }
 
-        // -----------------------------------------------------------------
-        // Send button — stub handler
-        // -----------------------------------------------------------------
-        private void btnSend_Click(object sender, EventArgs e)
+        private async void btnSend_Click(object sender, EventArgs e)
         {
-            MessageBox.Show(
-                "Mail message sent.",
-                "Web7 Mail",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-            this.Close();
+            string to      = txtTo.Text.Trim();
+            string subject = txtSubject.Text.Trim();
+
+            if (string.IsNullOrEmpty(to))
+            {
+                MessageBox.Show("Please enter a recipient DID in the To: field.",
+                    "Web7 Mail", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string bodyText = string.Empty;
+            if (webView.CoreWebView2 != null)
+            {
+                string json = await webView.CoreWebView2.ExecuteScriptAsync(
+                    "document.getElementById('editor').innerText");
+                bodyText = System.Text.Json.JsonSerializer.Deserialize<string>(json) ?? string.Empty;
+            }
+
+            btnSend.Enabled = false;
+            try
+            {
+                await _client.SendAsync(to, subject, bodyText);
+                MessageBox.Show("Mail message sent.", "Web7 Mail",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                this.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Failed to send: is the Citizen TDA running on port " +
+                    Program.TdaPort + "?\n\nDetail: " + ex.Message,
+                    "Web7 Mail", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                btnSend.Enabled = true;
+            }
         }
     }
 }

@@ -91,7 +91,27 @@ function Dequeue-PandoEmail {
         }
 
         Write-Verbose "Email LOBE: stored email from $($record.SenderDid) — '$($record.Subject)'"
-        return $record
+
+        # Push Email-Notify to PandoMail via the local WebSocket hub.
+        # The Switchboard delivers any OutboundMessage whose PeerEndpoint starts
+        # with "ws://" through WebSocketNotifyHub.PushAsync instead of HTTP/2 POST.
+        $notifyBody = [ordered]@{
+            messageDid = $MessageDid
+            senderDid  = $record.SenderDid
+            subject    = $record.Subject
+            receivedAt = $record.ReceivedAt
+        } | ConvertTo-Json -Compress
+
+        $notifyEnvelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Email-Notify/1.0/new-message'
+            body = $notifyBody
+        } | ConvertTo-Json -Compress
+
+        # Output the record for any pipeline caller, then the notification OutboundMessage.
+        $record
+        [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $notifyEnvelope)
     }
 }
 
@@ -221,6 +241,7 @@ function Invoke-PandoEmailList {
             return $null
         }
 
+        $correlationId = Get-BodyField $body 'correlationId' ''
         $limit = 50
         if ($body.PSObject.Properties['limit']) { $limit = [int]$body.limit }
 
@@ -239,8 +260,9 @@ function Invoke-PandoEmailList {
         })
 
         $responseBody = [ordered]@{
-            emails = $emailList
-            count  = $emailList.Count
+            emails        = $emailList
+            count         = $emailList.Count
+            correlationId = $correlationId
         } | ConvertTo-Json -Compress -Depth 5
 
         $envelope = [ordered]@{
@@ -257,6 +279,55 @@ function Invoke-PandoEmailList {
     }
 }
 
+# ── Invoke-PandoEmailSend ─────────────────────────────────────────────────────
+
+function Invoke-PandoEmailSend {
+    <#
+    .SYNOPSIS
+        Handles a Send-PandoEmail request from TdaMailClient and delivers to the recipient TDA.
+
+    .DESCRIPTION
+        Accepts a DIDComm message from local PandoMail UI. Body: { recipientDid, subject, bodyText }.
+        Builds an RFC 5322 message via Send-PandoEmail and returns an OutboundMessage for delivery.
+
+        Protocol (inbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Send-PandoEmail
+
+    .PARAMETER MessageDid
+        The TDA resource DID URL of the inbox message.
+
+    .OUTPUTS
+        [Svrn7.TDA.OutboundMessage] for the Switchboard to deliver, or $null on validation failure.
+    #>
+    [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) {
+            Write-Warning "Email LOBE: Send-PandoEmail message $MessageDid not found."
+            return $null
+        }
+
+        $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+
+        $recipientDid = Get-BodyField $body 'recipientDid'
+        if (-not $recipientDid) {
+            Write-Warning "Email LOBE: Send-PandoEmail $MessageDid missing recipientDid — skipped."
+            return $null
+        }
+
+        $subject  = Get-BodyField $body 'subject'  ''
+        $bodyText = Get-BodyField $body 'bodyText'  ''
+
+        Write-Verbose "Email LOBE: Send-PandoEmail — forwarding to $recipientDid ('$subject')"
+        Send-PandoEmail -RecipientDid $recipientDid -Subject $subject -Body $bodyText
+    }
+}
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Get-Rfc5322Header {
@@ -269,5 +340,6 @@ function Get-Rfc5322Header {
 Export-ModuleMember -Function @(
     'Dequeue-PandoEmail',
     'Send-PandoEmail',
-    'Invoke-PandoEmailList'
+    'Invoke-PandoEmailList',
+    'Invoke-PandoEmailSend'
 )

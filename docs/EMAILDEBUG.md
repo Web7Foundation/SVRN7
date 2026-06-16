@@ -280,6 +280,54 @@ re-running these steps.
 
 ---
 
+## Step 10 — List stored emails (List-Emails protocol)
+
+Send a `List-Emails` query to retrieve stored email messages from the TDA inbox.
+The TDA responds with an `Issue-EmailList` message to `replyEndpoint`.
+
+```powershell
+$replyEndpoint = "http://localhost:8442/didcomm"   # endpoint of a second TDA to receive the reply
+
+$body = @{
+    replyEndpoint = $replyEndpoint
+    limit         = 10
+} | ConvertTo-Json -Compress
+
+$msg = @{
+    typ  = "application/didcomm-plain+json"
+    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
+    type = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-Emails"
+    from = "did:drn:foundation.svrn7.net"
+    to   = @("did:drn:bindloss.svrn7.net")
+    body = $body
+} | ConvertTo-Json
+
+Send-DIDCommMessage -Body $msg
+```
+
+Expected TDA log:
+
+```
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=.../List-Emails) → Invoke-PandoEmailList [Svrn7.Email]
+dbug: ...   [PS Verbose] Email LOBE: List-Emails returning N messages to http://localhost:8442/didcomm
+```
+
+The `Issue-EmailList` reply is delivered as a DIDComm message to `replyEndpoint`. Each email entry:
+
+| Field | Value |
+|---|---|
+| `messageDid` | TDA resource DID URL of the inbox record |
+| `senderDid` | Authoritative sender DID (from DIDComm envelope `from` field) |
+| `subject` | Extracted `Subject:` header, or `$null` |
+| `fromHeader` | Extracted `From:` header, or `$null` |
+| `toHeader` | Extracted `To:` header, or `$null` |
+| `receivedAt` | ISO 8601 UTC timestamp |
+
+**Note:** `replyEndpoint` must be the full URL (`http://localhost:{port}/didcomm`) of a running TDA.
+A standalone PowerShell session cannot receive the reply — route it to a second TDA.
+
+---
+
 ## Common Error Conditions
 
 | Symptom | Cause | Fix |

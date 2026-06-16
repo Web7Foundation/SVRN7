@@ -1,4 +1,5 @@
 using System.Net.Security;
+using System.Net.WebSockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Builder;
@@ -45,6 +46,7 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
     private readonly TdaOptions               _opts;
     private readonly IDIDCommService          _didComm;
     private readonly IInboxStore              _inbox;
+    private readonly WebSocketNotifyHub       _hub;
     private readonly ILogger<KestrelListenerService> _log;
 
     private WebApplication? _app;
@@ -53,11 +55,13 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         IOptions<TdaOptions>               opts,
         IDIDCommService                    didComm,
         IInboxStore                        inbox,
+        WebSocketNotifyHub                 hub,
         ILogger<KestrelListenerService>    log)
     {
         _opts    = opts.Value;
         _didComm = didComm;
         _inbox   = inbox;
+        _hub     = hub;
         _log     = log;
     }
 
@@ -128,10 +132,17 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         if (_opts.RateLimitRequestsPerSecond > 0)
             _app.UseRateLimiter();
 
-        // ── Single route: POST /didcomm ───────────────────────────────────────
+        // WebSocket support (RFC 8441 over HTTP/2 for the /didcomm-notify path).
+        _app.UseWebSockets();
+
+        // ── Single inbound route: POST /didcomm ───────────────────────────────
         var route = _app.MapPost("/didcomm", HandleInboundAsync);
         if (_opts.RateLimitRequestsPerSecond > 0)
             route.RequireRateLimiting(rateLimitPolicy);
+
+        // ── Local UI push channel: /didcomm-notify (WebSocket, localhost only) ─
+        // Not published in the TDA's DID Document; not rate-limited (local only).
+        _app.Map("/didcomm-notify", HandleWebSocketAsync);
 
         await _app.StartAsync(ct);
         _log.LogInformation(
@@ -218,6 +229,102 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         _log.LogDebug("KestrelListenerService: accepted message:\n{Json}", unpacked.ToFormattedJson());
 
         http.Response.StatusCode = StatusCodes.Status202Accepted;
+    }
+
+    // ── /didcomm-notify WebSocket handler ────────────────────────────────────
+
+    /// <summary>
+    /// Accepts a WebSocket connection from local PandoMail on /didcomm-notify.
+    /// Bidirectional: TDA pushes notifications; PandoMail sends requests (List-Emails,
+    /// Send-PandoEmail). Incoming messages go through the same UnpackAsync + EnqueueAsync
+    /// pipeline as POST /didcomm — the Switchboard routes them by @type to LOBEs.
+    /// LOBE responses with PeerEndpoint == WebSocketNotifyHub.LocalEndpoint are
+    /// delivered back over this socket by the Switchboard instead of via HTTP/2 POST.
+    /// </summary>
+    private async Task HandleWebSocketAsync(HttpContext http)
+    {
+        if (!http.WebSockets.IsWebSocketRequest)
+        {
+            http.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await http.Response.WriteAsync("Expected a WebSocket request.", http.RequestAborted);
+            return;
+        }
+
+        using var ws = await http.WebSockets.AcceptWebSocketAsync();
+        _hub.Attach(ws);
+        _log.LogInformation("KestrelListenerService: PandoMail WebSocket attached on /didcomm-notify.");
+
+        try
+        {
+            await ReceiveWebSocketLoopAsync(ws, http.RequestAborted);
+        }
+        finally
+        {
+            _hub.Detach(ws);
+            _log.LogInformation("KestrelListenerService: PandoMail WebSocket detached.");
+        }
+    }
+
+    private async Task ReceiveWebSocketLoopAsync(WebSocket ws, CancellationToken ct)
+    {
+        var buffer = new byte[64 * 1024];
+
+        while (ws.State == WebSocketState.Open && !ct.IsCancellationRequested)
+        {
+            using var ms = new MemoryStream();
+            WebSocketReceiveResult result;
+
+            do
+            {
+                result = await ws.ReceiveAsync(buffer, ct);
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    if (ws.State == WebSocketState.Open || ws.State == WebSocketState.CloseReceived)
+                        await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, ct);
+                    return;
+                }
+                ms.Write(buffer, 0, result.Count);
+            }
+            while (!result.EndOfMessage);
+
+            var json = System.Text.Encoding.UTF8.GetString(ms.ToArray());
+            _ = Task.Run(() => ProcessWebSocketMessageAsync(json, ct), ct);
+        }
+    }
+
+    private async Task ProcessWebSocketMessageAsync(string json, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return;
+
+        DIDCommUnpackedMessage unpacked;
+        try
+        {
+            unpacked = await _didComm.UnpackAsync(
+                json,
+                _opts.SocietyMessagingPrivateKeyEd25519,
+                ct);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "KestrelListenerService: WebSocket UnpackAsync failed — ignoring message.");
+            return;
+        }
+
+        try
+        {
+            await _inbox.EnqueueAsync(
+                unpacked.Type,
+                unpacked.Body,
+                unpacked.From,
+                unpacked.Id,
+                json,
+                ct);
+            _log.LogDebug("KestrelListenerService: WebSocket message enqueued (type='{Type}').", unpacked.Type);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "KestrelListenerService: WebSocket inbox enqueue failed.");
+        }
     }
 
     // ── mTLS peer certificate validation ─────────────────────────────────────

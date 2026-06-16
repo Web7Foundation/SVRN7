@@ -374,10 +374,9 @@ Protocol URIs use `svrn7.net` (not `svrn7.io`).
 
 ### Open Decisions
 
-1. **PandoMail DID identity:** PandoMail may share/derive its DID from the Citizen
-   TDA DID using a key fragment (e.g. `did:drn:svrn7.net:alice#PandoMail-ui`).
-   Not yet decided — requires deliberate choice before implementing DIDComm unpack
-   in `TdaMailClient`.
+1. **PandoMail DID identity: shared DID (decided).** PandoMail shares the Citizen TDA's
+   DID — same identity, no key fragment or sub-DID. `TdaMailClient` posts to the local TDA
+   using the shared DID; the TDA signs and forwards using its own key material.
 
 2. **Initial inbox load:** How PandoMail populates `MessageStore` on startup
    (before any WebSocket push arrives) — options are a DIDComm query message to
