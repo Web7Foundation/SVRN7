@@ -1,0 +1,107 @@
+# OLAF — Outlook Look And Feel
+
+> A C# Windows Forms sample application that recreates the Microsoft Outlook 2003 UI using standard .NET controls. Originally authored by Microsoft (© 2004) as an MSDN sample demonstrating advanced WinForms 2.0 rendering and layout.
+
+## Project Metadata
+
+- **Solution file:** `OLAF.sln`
+- **Project file:** `OLAF/OLAF.csproj`
+- **Namespace:** `System.Windows.Forms.Samples`
+- **Target framework:** .NET Framework 4.0
+- **Platform:** Windows (Win32), WinForms
+- **Assembly name:** OLAF
+- **Company:** Microsoft
+- **Copyright:** Copyright Microsoft 2004
+
+## Purpose
+
+Demonstrates how to achieve a pixel-accurate Outlook 2003 three-pane mail client layout — folder navigation, message list, reading pane — using only inbox .NET Windows Forms controls: `ToolStrip`, `DataGridView`, `TreeView`, `SplitContainer`, `BindingSource`, and custom owner-drawn rendering. No third-party UI libraries.
+
+## Source Files
+
+### Entry Point
+- `OLAF/Program.cs` — `[STAThread]` Main; enables visual styles; runs `MainForm`
+
+### Application Shell
+- `OLAF/MainForm.cs` — Top-level `Form`; loads `MessageStore`; wires `NetworkChange.NetworkAvailabilityChanged` for online/offline status bar updates; responds to `UserPreferenceChanged` to re-scale system fonts
+- `OLAF/MainForm.Designer.cs` — Designer-generated layout
+
+### Custom Controls (`OLAF/Custom Controls/`)
+
+- **`BaseStackStrip.cs`** — Abstract `ToolStrip` base class. Installs a `ToolStripProfessionalRenderer` with `RoundedEdges=false` and overrides `RenderToolStripBackground` to paint a vertical `LinearGradientBrush` using the professional color table. Responds to `UserPreferenceChanged` for font refresh. Protected virtual hook: `OnSetRenderer(ToolStripProfessionalRenderer)`.
+
+- **`StackStrip.cs`** — Extends `BaseStackStrip`. `LayoutStyle = VerticalStackWithOverflow`. Hosts `ToolStripButton` items in a radio-group (only one checked at a time). Exposes `ItemCount`, `InitialDisplayCount` (min of count and 4), `ItemHeight`, and `ItemHeightChanged` event. Bold system font via `OnSetFonts`.
+
+- **`HeaderStrip.cs`** — `ToolStrip` with `AreaHeaderStyle` enum (`Large` / `Small`). Large: bold Arial at system menu font size + 3.75pt, white foreground, blue gradient. Small: system menu font, black foreground, reversed gradient. Auto-sizes height from a probe `ToolStripLabel`. Responds to `UserPreferenceChanged`.
+
+- **`LeftSpine.cs` / `.resx`** — `UserControl` (designer: `ParentControlDesigner`). Composes a `SplitContainer` containing `FolderView` on top and `StackStrip` + `overflowStrip` on the bottom. Splitter snaps to `stackStrip.ItemHeight` increments. Overflow `ToolStripButton` items (icon-only, right-aligned) are shown/hidden as the splitter moves to match the visible `StackStrip` button count. Paints grip dots on the splitter using `ProfessionalColorTable`.
+
+- **`FolderView.cs` / `.resx`** — `UserControl` wrapping a borderless `TreeView` with an `ImageList` of 25 Outlook-style folder icons. Tree is owner-drawn (`TreeViewDrawMode.OwnerDrawText`). `DrawAnnotatedText` renders folder names in bold when counts > 0 and appends colored count annotations: Inbox unread in green `[n]`, Drafts and Deleted in blue `(n)`. Listens to `MessageStore.PropertyChanged` to invalidate the tree when counts change.
+
+- **`MessageList.cs` / `.resx`** — `UserControl` wrapping a `DataGridView` in virtual mode. Three columns: image (read/unread icon, 25px), merged sender+subject text (fill), date (105px). `CellPainting` custom-draws column 1 as two lines (sender bold if unread, subject in grey if unselected). `CellValueNeeded` supplies read/unread bitmaps. `CellFormatting` shows today's messages as short time instead of date. `RowPostPaint` draws focus rectangle on selected row and light grey border on others. Sorted descending by `SentDate` on load. Notifies `MessageStore.SelectedMessage` on `BindingSource.PositionChanged`.
+
+- **`MessageArea.cs` / `.resx`** — Thin `UserControl` reading pane container. Sets `Parent.Padding = (0,3,0,3)` and docks fill.
+
+- **`RightSpine.cs` / `.resx`** — Right panel container.
+
+### Data Layer (`OLAF/MailServer/`)
+
+- **`MailMessage.cs`** — Data model implementing `INotifyPropertyChanged`. Properties: `From` (string), `To` (string), `Cc` (string), `Subject` (string), `Read` (bool), `SentDate` (DateTime), `Path` (string — relative path to HTML body file in Mail/).
+
+- **`MessageStore.cs`** — Singleton (`GetMessageStore()`). Constructor deserializes `Mail/Inbox.xml` from the embedded assembly manifest resource into a `SortableBindingList<MailMessage>`. Tracks `SelectedMessage` (setting it marks unread messages read and decrements `UnreadCount`), `UnreadCount`, `DraftsCount` (hardcoded 3), `DeletedCount` (hardcoded 16). Implements `INotifyPropertyChanged`; `Reset()` fires null property to force full refresh.
+
+- **`SortableBindingList<T>`** (in MessageStore.cs) — `BindingList<T>` subclass. Overrides `SupportsSortingCore=true`, `ApplySortCore` (delegates to `PropertyComparer<T>`), `IsSortedCore`, `RemoveSortCore`.
+
+- **`PropertyComparer<T>`** (in MessageStore.cs) — `IComparer<T>` that resolves the named property via reflection and compares using `IComparable` if available, string comparison otherwise. Supports ascending/descending via `ListSortDirection`.
+
+### Mail Data (`OLAF/Mail/`)
+
+- **`Inbox.xml`** — Embedded XML resource. Loaded via `DataSet.ReadXml`. Schema columns: `From`, `To`, `CC`, `Subject`, `SentDate`, `Read` (bool), `Path`.
+- **`*.htm`** — Individual email HTML body files referenced by `MailMessage.Path` (Brian.htm, Chris.htm, Erick.htm, Harsh.htm, Hender.htm, Iain.htm, Jamie.htm, Jeff.htm, Laurie.htm, Mark.htm, Other.htm, Rideout.htm, Shawn.htm, Simon.htm, Steve.htm, VoiceMail.htm).
+
+### Properties (`OLAF/Properties/`)
+
+- **`AssemblyInfo.cs`** — Assembly metadata; version 1.0.0.0
+- **`Resources.Designer.cs`** — Strongly-typed resource accessor for embedded bitmaps including: `Outlook` (app icon, online status image), `Error` (offline status image), `Read`, `Unread`, and all toolbar/folder icon bitmaps referenced by name in `LeftSpine` and `FolderView`
+- **`Settings.Designer.cs`** — Application settings (default, empty)
+
+## Architecture
+
+```
+MainForm
+  └── (designer layout)
+        ├── LeftSpine (UserControl)
+        │     ├── FolderView (UserControl) — TreeView, owner-drawn, live counts
+        │     ├── StackStrip (BaseStackStrip) — vertical nav buttons
+        │     └── overflowStrip (BaseStackStrip) — icon-only overflow
+        ├── MessageList (UserControl) — DataGridView, virtual mode
+        ├── MessageArea (UserControl) — reading pane
+        └── RightSpine (UserControl)
+
+MessageStore (Singleton)
+  ├── SortableBindingList<MailMessage>  ← loaded from Inbox.xml
+  └── INotifyPropertyChanged → FolderView, MainForm (item count label)
+
+MailMessage (INotifyPropertyChanged)
+  └── Path → Mail/*.htm (HTML email body)
+```
+
+## Data Flow
+
+1. `MessageStore.GetMessageStore()` loads `Inbox.xml` into `SortableBindingList<MailMessage>` at startup.
+2. `MessageList` binds its `DataGridView` to a `BindingSource` over `_store.Messages`, sorted descending by `SentDate`.
+3. User selects a row → `BindingSource.PositionChanged` → `MessageStore.SelectedMessage` setter → marks message read, decrements `UnreadCount`, fires `PropertyChanged("UnreadCount")`.
+4. `FolderView` receives `PropertyChanged` → updates internal count → invalidates `TreeView` → `DrawNode` repaints the Inbox node label with the new count.
+5. `MessageArea` displays the HTML body from `MailMessage.Path`.
+
+## Key Techniques Demonstrated
+
+- `ToolStripProfessionalRenderer` subclassing and `RenderToolStripBackground` override for gradient painting
+- `DataGridView` virtual mode (`VirtualMode=true`, `CellValueNeeded`) with full custom cell painting (`CellPainting`) for multi-line rows
+- Owner-drawn `TreeView` (`DrawMode = OwnerDrawText`) with per-node font and color annotation
+- `SplitContainer` with programmatic splitter-distance clamping and increment snapping
+- Embedded assembly resources (`GetManifestResourceStream`) for XML data and bitmaps
+- `INotifyPropertyChanged` as the data-binding backbone across `MailMessage` and `MessageStore`
+- `SortableBindingList<T>` + reflection-based `PropertyComparer<T>` for column sorting
+- `NetworkChange.NetworkAvailabilityChanged` + `Control.Invoke` for cross-thread UI update
+- `Microsoft.Win32.SystemEvents.UserPreferenceChanged` for live system font updates across all custom controls
