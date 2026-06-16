@@ -121,7 +121,14 @@ namespace Web7.SVRN7.Apps
 			_messages.ResetBindings();
 			this.UnreadCount = unread;
 			if (_messages.Count > 0)
+			{
 				this.SelectedMessage = _messages[0];
+			}
+			else
+			{
+				_selectedMessage = null;
+				OnPropertyChanged("SelectedMessage");
+			}
 		}
 		#endregion
 

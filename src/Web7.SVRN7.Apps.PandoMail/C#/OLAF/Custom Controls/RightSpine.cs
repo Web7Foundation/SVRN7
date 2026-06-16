@@ -192,7 +192,7 @@ namespace Web7.SVRN7.Apps
 			this.toLabel.Padding = new System.Windows.Forms.Padding(6, 1, 1, 1);
 			this.toLabel.Size = new System.Drawing.Size(76, 16);
 			this.toLabel.TabIndex = 6;
-			this.toLabel.Text = "Joe Stegman";
+			this.toLabel.Text = "";
 			// 
 			// ccLabel
 			// 
@@ -205,7 +205,7 @@ namespace Web7.SVRN7.Apps
 			this.ccLabel.Padding = new System.Windows.Forms.Padding(6, 1, 1, 1);
 			this.ccLabel.Size = new System.Drawing.Size(131, 16);
 			this.ccLabel.TabIndex = 7;
-			this.ccLabel.Text = "Regis Brid, Mark Rideout";
+			this.ccLabel.Text = "";
 			// 
 			// ccText
 			// 
@@ -242,7 +242,7 @@ namespace Web7.SVRN7.Apps
 			this.repliedLabel.Name = "repliedLabel";
 			this.repliedLabel.Size = new System.Drawing.Size(422, 16);
 			this.repliedLabel.TabIndex = 2;
-			this.repliedLabel.Text = "You replied on 10/22/2003 4:26 PM";
+			this.repliedLabel.Text = "";
 			this.repliedLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
 			// 
 			// fromLabel
@@ -253,7 +253,7 @@ namespace Web7.SVRN7.Apps
 			this.fromLabel.Name = "fromLabel";
 			this.fromLabel.Size = new System.Drawing.Size(89, 17);
 			this.fromLabel.TabIndex = 1;
-			this.fromLabel.Text = "Mark Boulter";
+			this.fromLabel.Text = "";
 			// 
 			// subjectLabel
 			// 
@@ -263,7 +263,7 @@ namespace Web7.SVRN7.Apps
 			this.subjectLabel.Name = "subjectLabel";
 			this.subjectLabel.Size = new System.Drawing.Size(103, 19);
 			this.subjectLabel.TabIndex = 0;
-			this.subjectLabel.Text = "PandoMail grid";
+			this.subjectLabel.Text = "";
 			// 
 			// RightSpine
 			// 
@@ -294,16 +294,16 @@ namespace Web7.SVRN7.Apps
 			{
 				_message = value;
 
-				if ((null != value) && (_loaded))
-				{
-					// Set values
-					this.subjectLabel.Text = _message.Subject;
-					this.fromLabel.Text = _message.From;
-					this.toLabel.Text = _message.To;
-					this.ccLabel.Text = _message.Cc;
+				if (!_loaded) return;
 
-					// Add code to look for "RE:" and subtrack time of Sent
-					if (_message.Subject.Contains("RE:"))
+				if (value != null)
+				{
+					this.subjectLabel.Text = _message.Subject ?? string.Empty;
+					this.fromLabel.Text = _message.From ?? string.Empty;
+					this.toLabel.Text = _message.To ?? string.Empty;
+					this.ccLabel.Text = _message.Cc ?? string.Empty;
+
+					if (_message.Subject != null && _message.Subject.Contains("RE:"))
 					{
 						DateTime time = _message.SentDate;
 						this.repliedLabel.Text = " You replied to this message on " + time.Subtract(new TimeSpan(3, 3, 3)).ToShortDateString();
@@ -329,6 +329,17 @@ namespace Web7.SVRN7.Apps
                                 _pendingHtml = html;
                         }
                     }
+				}
+				else
+				{
+					this.subjectLabel.Text = string.Empty;
+					this.fromLabel.Text = string.Empty;
+					this.toLabel.Text = string.Empty;
+					this.ccLabel.Text = string.Empty;
+					this.repliedLabel.Text = string.Empty;
+					_pendingHtml = null;
+					if (webView1.CoreWebView2 != null)
+						webView1.NavigateToString("<html><body></body></html>");
 				}
 			}
 		}
@@ -367,13 +378,13 @@ namespace Web7.SVRN7.Apps
 			{
 				_store = MessageStore.GetMessageStore();
 
-                if ((null != _store) && (null != _store.SelectedMessage))
+                if (null != _store)
                 {
-                    // Get Current — CoreWebView2 not yet initialized; setter stores pending HTML
-                    this.Message = _store.SelectedMessage;
-
-                    // Hook change notification
+                    // Hook change notification before setting Message so we never miss an update.
                     _store.PropertyChanged += new PropertyChangedEventHandler(MessageStore_PropertyChanged);
+
+                    // Get Current — CoreWebView2 not yet initialized; setter stores pending HTML.
+                    this.Message = _store.SelectedMessage;
                 }
 
 				// Initialize WebView2; dispatch any HTML that was set before init completed
