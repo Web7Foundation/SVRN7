@@ -125,10 +125,11 @@ Protocol URIs use `svrn7.net` (not `svrn7.io`).
 
 ### Architecture Constraints
 
-- Web7Mail targets **.NET Framework 4.0** (Windows only) — no HTTP/2 client support
+- Web7Mail targets **.NET Framework 4.5.2** (Windows only) — no HTTP/2 client support
   in this target. The localhost WebSocket channel (`ws://`) avoids this constraint.
-  If Web7Mail is ever upgraded to .NET 8, `TdaMailClient` can use HTTP/2 + mTLS
-  directly for `POST /didcomm`.
+  `System.Net.WebSockets` is available at 4.5.2 and is the correct transport for
+  `TdaMailClient`. If Web7Mail is ever upgraded to .NET 8, `TdaMailClient` can use
+  HTTP/2 + mTLS directly for `POST /didcomm`.
 - The TDA's public inbound surface remains **`POST /didcomm` only** (Kestrel,
   HTTP/2, mTLS). The WebSocket endpoint is a separate, localhost-scoped surface.
 - The WebSocket Local UI Attachment Point pattern is **reusable** — any local UI
