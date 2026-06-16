@@ -63,13 +63,24 @@ public sealed class WebSocketNotifyHub
         {
             if (ws.State != WebSocketState.Open) return;
             var bytes = Encoding.UTF8.GetBytes(json);
-            _log.LogDebug("WebSocketNotifyHub: sending {Bytes} bytes to PandoMail.", bytes.Length);
+
+            string msgType = "(unknown)";
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("type", out var t))
+                    msgType = t.GetString() ?? msgType;
+            }
+            catch { }
+            _log.LogDebug("WebSocketNotifyHub: → PandoMail type={Type} bytes={Bytes} preview='{Preview}'",
+                msgType, bytes.Length, json.Length > 120 ? json[..120] : json);
+
             await ws.SendAsync(
                 new ReadOnlyMemory<byte>(bytes),
                 WebSocketMessageType.Text,
                 endOfMessage: true,
                 ct).ConfigureAwait(false);
-            _log.LogDebug("WebSocketNotifyHub: send complete.");
+            _log.LogDebug("WebSocketNotifyHub: send complete type={Type}.", msgType);
         }
         catch (WebSocketException ex)
         {

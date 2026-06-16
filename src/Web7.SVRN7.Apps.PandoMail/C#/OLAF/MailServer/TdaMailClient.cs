@@ -196,7 +196,7 @@ namespace Web7.SVRN7.Apps
                     while (!result.EndOfMessage);
 
                     var recvJson = Encoding.UTF8.GetString(ms.ToArray());
-                    Debug.WriteLine($"[TdaMailClient] WS RECV {ms.Length} bytes");
+                    Debug.WriteLine($"[TdaMailClient] WS RECV {ms.Length} bytes preview='{(recvJson.Length > 120 ? recvJson[..120] : recvJson)}'");
                     DispatchReceived(recvJson);
                 }
             }
