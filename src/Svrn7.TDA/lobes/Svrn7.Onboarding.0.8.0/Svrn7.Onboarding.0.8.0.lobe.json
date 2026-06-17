@@ -24,11 +24,20 @@
     },
     {
       "uri": "did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt",
-      "title": "Onboarding Receipt",
-      "description": "Society confirms registration and endowment. Body: { success, citizenDid, societyDid, endowmentGrana, endowmentVcId }",
+      "title": "Onboarding Receipt (outbound — Society side)",
+      "description": "Society confirms registration and endowment. Body: { success, citizenDid, citizenDidDocument, societyDid, societyDidDocument, societyEndpointUrl, endowmentGrana, endowmentVcId }",
       "direction": "outbound",
       "match": "prefix",
       "entrypoint": "New-Web7OnboardReceipt",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt",
+      "title": "Onboarding Receipt (inbound — Citizen side)",
+      "description": "Citizen receives registration confirmation. Stores citizenDidDocument and societyDidDocument in local registry; wires Society as parent TDA via SetParentTda.",
+      "direction": "inbound",
+      "match": "prefix",
+      "entrypoint": "Invoke-Web7OnboardReceipt",
       "epochRequired": 0
     }
   ],

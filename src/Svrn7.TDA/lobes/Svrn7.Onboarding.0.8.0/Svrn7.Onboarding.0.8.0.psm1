@@ -111,16 +111,22 @@ function New-Web7OnboardReceipt {
     process {
         $mySocietyDid = $SVRN7.Driver.SocietyDid
 
+        $citizenDocJson = $SVRN7.GetDidDocumentJson($RegistrationResult.CitizenDid)
+        $societyDocJson = $SVRN7.GetDidDocumentJson($mySocietyDid)
+
         $payload = @{
-            from            = $mySocietyDid
-            to              = $RegistrationResult.CitizenDid
-            success         = $true
-            citizenDid      = $RegistrationResult.CitizenDid
-            societyDid      = $RegistrationResult.SocietyDid
-            endowmentGrana  = $RegistrationResult.EndowmentGrana
-            endowmentVcId   = $RegistrationResult.EndowmentVcId
-            registeredAt    = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Compress
+            from               = $mySocietyDid
+            to                 = $RegistrationResult.CitizenDid
+            success            = $true
+            citizenDid         = $RegistrationResult.CitizenDid
+            citizenDidDocument = if ($citizenDocJson) { $citizenDocJson | ConvertFrom-Json } else { $null }
+            societyDid         = $RegistrationResult.SocietyDid
+            societyDidDocument = if ($societyDocJson) { $societyDocJson | ConvertFrom-Json } else { $null }
+            societyEndpointUrl = $SVRN7.ServiceEndpointUrl
+            endowmentGrana     = $RegistrationResult.EndowmentGrana
+            endowmentVcId      = $RegistrationResult.EndowmentVcId
+            registeredAt       = [datetimeoffset]::UtcNow.ToString('o')
+        } | ConvertTo-Json -Depth 15 -Compress
 
         $endpoint = Resolve-SocietySenderEndpoint -Did $RegistrationResult.CitizenDid
         if (-not $endpoint) {
@@ -140,6 +146,59 @@ function New-Web7OnboardReceipt {
         } | ConvertTo-Json -Compress
 
         [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
+    }
+}
+
+# ── Invoke-Web7OnboardReceipt ──────────────────────────────────────────────────
+
+function Invoke-Web7OnboardReceipt {
+    <#
+    .SYNOPSIS
+        Handles Svrn7.Onboarding.0.8.0/receipt on the Citizen TDA.
+
+    .DESCRIPTION
+        Stores the Citizen's own DID Document and the Society's DID Document in the
+        local registry, then wires the Society as the Citizen's parent TDA (persisted
+        to agent-identity.json via $SVRN7.SetParentTda).
+
+    .PARAMETER MessageDid
+        TDA resource DID URL of the inbox message.
+    #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) {
+            Write-Warning "Invoke-Web7OnboardReceipt: message $MessageDid not found."
+            return
+        }
+
+        $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+        Assert-BodyFields $body @('citizenDid','societyDid','societyEndpointUrl','citizenDidDocument','societyDidDocument') 'Invoke-Web7OnboardReceipt'
+
+        if (-not $body.success) {
+            Write-Warning "Invoke-Web7OnboardReceipt: registration failed — $($body.error)"
+            return
+        }
+
+        # Store Citizen's own DID Document (created by Society during registration)
+        $SVRN7.StoreReceivedDidDocumentAsync(
+            ($body.citizenDidDocument | ConvertTo-Json -Depth 15 -Compress)
+        ).GetAwaiter().GetResult()
+
+        # Store Society's DID Document (enables future DID resolution without network)
+        $SVRN7.StoreReceivedDidDocumentAsync(
+            ($body.societyDidDocument | ConvertTo-Json -Depth 15 -Compress)
+        ).GetAwaiter().GetResult()
+
+        # Wire parent TDA — updates memory and persists to agent-identity.json
+        $SVRN7.SetParentTda($body.societyDid, $body.societyEndpointUrl)
+
+        Write-Information "Invoke-Web7OnboardReceipt: registered with $($body.societyDid) at $($body.societyEndpointUrl)"
     }
 }
 
@@ -197,6 +256,7 @@ function Send-Web7OnboardError {
 
 Export-ModuleMember -Function @(
     'ConvertFrom-Web7OnboardRequest',
+    'Invoke-Web7OnboardReceipt',
     'New-Web7OnboardReceipt',
     'Send-Web7OnboardError'
 )

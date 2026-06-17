@@ -126,6 +126,19 @@ public sealed class TdaOptions
     /// </summary>
     public string ParentTdaEndpointUrl { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Full DIDComm endpoint URL of this TDA (e.g., <c>http://localhost:8443/didcomm</c>).
+    /// Set by Program.cs from --url and --port. Exposed as <c>$SVRN7.ServiceEndpointUrl</c>.
+    /// </summary>
+    public string ServiceEndpointUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Absolute path to agent-identity.json for this TDA instance.
+    /// Set by Program.cs; used by <see cref="Svrn7RunspaceContext.SetParentTda"/> to persist
+    /// parent TDA wiring across restarts.
+    /// </summary>
+    public string AgentIdentityPath { get; set; } = string.Empty;
+
     // ── Data Storage databases ────────────────────────────────────────────────
 
     /// <summary>Path to svrn7-inbox.db (Long-Term Message Memory).</summary>
@@ -239,11 +252,13 @@ public static class TdaServiceCollectionExtensions
             var orders  = sp.GetRequiredService<IProcessedOrderStore>();
             var pending = sp.GetRequiredService<PendingResolutionStore>();
             return new Svrn7RunspaceContext(driver, inbox, cache, orders, pending,
-                initialEpoch:        Svrn7.Core.Svrn7Constants.Epochs.Endowment,
-                role:                opts.Role,
-                agentDid:            opts.AgentDid,
-                parentTdaDid:        opts.ParentTdaDid,
-                parentTdaEndpointUrl: opts.ParentTdaEndpointUrl);
+                initialEpoch:         Svrn7.Core.Svrn7Constants.Epochs.Endowment,
+                role:                 opts.Role,
+                agentDid:             opts.AgentDid,
+                parentTdaDid:         opts.ParentTdaDid,
+                parentTdaEndpointUrl: opts.ParentTdaEndpointUrl,
+                serviceEndpointUrl:   opts.ServiceEndpointUrl,
+                agentIdentityPath:    opts.AgentIdentityPath);
         });
 
         // 4a. WebSocketNotifyHub — local PandoMail push channel singleton.

@@ -30,7 +30,7 @@
     {
       "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list-result",
       "title": "Society List Result",
-      "description": "Inbound reply to a society-list request. Body: count, activeCount, societies[], queriedAt. Terminal — no reply is sent.",
+      "description": "Inbound reply to a society-list request. Body: count, activeCount, societies[{ societyDid, societyName, endpointUrl, didDocument }], queriedAt. Stores each Society DID Document in the local registry.",
       "entrypoint": "Invoke-Web7SocietyListResult",
       "epochRequired": 0
     },
@@ -65,7 +65,7 @@
     {
       "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society-result",
       "title": "Register Society Result",
-      "description": "Inbound reply to a register-society request. Body: societyDid, societyName, primaryDidMethodName, drawAmountGrana, overdraftCeilingGrana, success, registeredAt. Terminal — no reply is sent.",
+      "description": "Inbound reply to a register-society request. Body: societyDid, societyDidDocument, federationDid, federationEndpointUrl, federationDidDocument, drawAmountGrana, success, registeredAt. Stores both DID Documents and wires Federation as parent TDA.",
       "entrypoint": "Invoke-Web7RegisterSocietyResult",
       "epochRequired": 0
     }

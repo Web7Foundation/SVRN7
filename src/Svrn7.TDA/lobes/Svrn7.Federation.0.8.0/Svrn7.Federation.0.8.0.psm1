@@ -1464,10 +1464,13 @@ function Invoke-Web7SocietyList {
         $activeSocs  = @($societies | Where-Object { $_.IsActive })
 
         $societyList = @($societies | ForEach-Object {
+            $docJson = $SVRN7.GetDidDocumentJson($_.Did)
             @{
                 societyDid           = $_.Did
                 societyName          = $_.SocietyName
                 primaryDidMethodName = $_.PrimaryDidMethodName
+                endpointUrl          = Resolve-SocietySenderEndpoint -Did $_.Did
+                didDocument          = if ($docJson) { $docJson | ConvertFrom-Json } else { $null }
                 isActive             = $_.IsActive
                 registeredAt         = $_.RegisteredAt.ToString('o')
             }
@@ -1478,9 +1481,7 @@ function Invoke-Web7SocietyList {
             activeCount = $activeSocs.Count
             societies   = $societyList
             queriedAt   = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Compress -Depth 5
-
-        Write-Information $payload
+        } | ConvertTo-Json -Depth 15 -Compress
 
         $replyEndpoint = if ($body.PSObject.Properties['replyEndpoint']) { $body.replyEndpoint } else { $null }
         $endpoint = if ($replyEndpoint) {
@@ -1495,7 +1496,16 @@ function Invoke-Web7SocietyList {
         }
         Write-Information "Invoke-Web7SocietyList: $($societies.Count) society/societies, replying to $endpoint"
 
-        [Svrn7.TDA.OutboundMessage]::new($endpoint, $payload)
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list-result'
+            from = $SVRN7.LocalDid
+            to   = @($msg.FromDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
 }
 
@@ -1619,15 +1629,22 @@ function Invoke-Web7RegisterSociety {
         $result = $drv.RegisterSocietyAsync($request).GetAwaiter().GetResult()
         Resolve-OperationResult $result 'RegisterSociety' | Out-Null
 
+        $societyDocJson    = $SVRN7.GetDidDocumentJson($body.societyDid)
+        $federationDocJson = $SVRN7.GetDidDocumentJson($SVRN7.LocalDid)
+
         $payload = @{
-            societyDid           = $body.societyDid
-            societyName          = $body.societyName
-            primaryDidMethodName = $body.primaryDidMethodName
-            drawAmountGrana      = $request.DrawAmountGrana
-            overdraftCeilingGrana= $request.OverdraftCeilingGrana
-            success              = $true
-            registeredAt         = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Compress
+            societyDid            = $body.societyDid
+            societyName           = $body.societyName
+            primaryDidMethodName  = $body.primaryDidMethodName
+            societyDidDocument    = if ($societyDocJson)    { $societyDocJson    | ConvertFrom-Json } else { $null }
+            federationDid         = $SVRN7.LocalDid
+            federationEndpointUrl = $SVRN7.ServiceEndpointUrl
+            federationDidDocument = if ($federationDocJson) { $federationDocJson | ConvertFrom-Json } else { $null }
+            drawAmountGrana       = $request.DrawAmountGrana
+            overdraftCeilingGrana = $request.OverdraftCeilingGrana
+            success               = $true
+            registeredAt          = [datetimeoffset]::UtcNow.ToString('o')
+        } | ConvertTo-Json -Depth 15 -Compress
 
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
         if (-not $endpoint) {
@@ -1636,7 +1653,111 @@ function Invoke-Web7RegisterSociety {
         }
         Write-Information "Invoke-Web7RegisterSociety: registered '$($body.societyDid)', replying to $($msg.FromDid)"
 
-        [Svrn7.TDA.OutboundMessage]::new($endpoint, $payload)
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society-result'
+            from = $SVRN7.LocalDid
+            to   = @($msg.FromDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
+    }
+}
+
+function Invoke-Web7RegisterSocietyResult {
+    <#
+    .SYNOPSIS
+        Handles Svrn7.Federation.0.8.0/register-society-result on the Society TDA.
+
+    .DESCRIPTION
+        Stores the Society's own DID Document and the Federation's DID Document in the
+        local registry, then wires the Federation as the Society's parent TDA (persisted
+        to agent-identity.json via $SVRN7.SetParentTda).
+
+    .PARAMETER MessageDid
+        TDA resource DID URL of the inbox message.
+    #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) {
+            Write-Warning "Invoke-Web7RegisterSocietyResult: message $MessageDid not found."
+            return
+        }
+
+        $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+        Assert-BodyFields $body @('societyDid','federationDid','federationEndpointUrl','societyDidDocument','federationDidDocument','success') 'Invoke-Web7RegisterSocietyResult'
+
+        if (-not $body.success) {
+            Write-Warning "Invoke-Web7RegisterSocietyResult: registration failed — parent TDA not updated."
+            return
+        }
+
+        # Store Society's own DID Document (created by Federation during registration)
+        $SVRN7.StoreReceivedDidDocumentAsync(
+            ($body.societyDidDocument | ConvertTo-Json -Depth 15 -Compress)
+        ).GetAwaiter().GetResult()
+
+        # Store Federation's DID Document (enables future DID resolution without network)
+        $SVRN7.StoreReceivedDidDocumentAsync(
+            ($body.federationDidDocument | ConvertTo-Json -Depth 15 -Compress)
+        ).GetAwaiter().GetResult()
+
+        # Wire parent TDA — updates memory and persists to agent-identity.json
+        $SVRN7.SetParentTda($body.federationDid, $body.federationEndpointUrl)
+
+        Write-Information "Invoke-Web7RegisterSocietyResult: registered with $($body.federationDid) at $($body.federationEndpointUrl)"
+    }
+}
+
+function Invoke-Web7SocietyListResult {
+    <#
+    .SYNOPSIS
+        Handles Svrn7.Federation.0.8.0/society-list-result — stores each society's
+        DID Document in the local registry.
+
+    .DESCRIPTION
+        Called on any TDA that sent a society-list request. Stores received Society DID
+        Documents locally so subsequent register-citizen can be sent without a DID resolve
+        round-trip. The societyEndpointUrl in each entry is used by the Citizen to
+        route the register-citizen request.
+
+    .PARAMETER MessageDid
+        TDA resource DID URL of the inbox message.
+    #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) {
+            Write-Warning "Invoke-Web7SocietyListResult: message $MessageDid not found."
+            return
+        }
+
+        $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+
+        $stored = 0
+        foreach ($society in $body.societies) {
+            if ($society.PSObject.Properties['didDocument'] -and $society.didDocument) {
+                $SVRN7.StoreReceivedDidDocumentAsync(
+                    ($society.didDocument | ConvertTo-Json -Depth 15 -Compress)
+                ).GetAwaiter().GetResult()
+                $stored++
+            }
+        }
+
+        Write-Information "Invoke-Web7SocietyListResult: stored $stored society DID Document(s) from $($body.count) result(s)"
     }
 }
 
@@ -1787,8 +1908,10 @@ Export-ModuleMember -Function @(
     'Invoke-Svrn7BatchTransfer'
     'Invoke-Web7FederationQuery'
     'Invoke-Web7SocietyList'
+    'Invoke-Web7SocietyListResult'
     'Invoke-Web7FederationInit'
     'Invoke-Web7RegisterSociety'
+    'Invoke-Web7RegisterSocietyResult'
     'Invoke-Svrn7GdprErasure'
     'Invoke-Svrn7SignMerkleTreeHead'
     'Invoke-Svrn7SignSecp256k1'

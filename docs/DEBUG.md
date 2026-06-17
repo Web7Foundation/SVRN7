@@ -136,13 +136,17 @@ dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 This scenario starts from a completely empty database and walks through the full
 bootstrap sequence using only DIDComm messages to the running TDA:
 
-| Step | Protocol | Handler |
-|------|----------|---------|
-| E.0 | `Svrn7.Federation.0.8.0/initialize-federation` | `Invoke-Web7FederationInit` |
-| E.1 | `Svrn7.Federation.0.8.0/federation-query` | `Invoke-Web7FederationQuery` |
-| E.2 | `Svrn7.Federation.0.8.0/register-society` | `Invoke-Web7RegisterSociety` |
+| Step | Protocol | Handler (TDA) |
+|------|----------|---------------|
+| E.0 | `Svrn7.Federation.0.8.0/initialize-federation` | `Invoke-Web7FederationInit` (Federation) |
+| E.1 | `Svrn7.Federation.0.8.0/federation-query` | `Invoke-Web7FederationQuery` (Federation) |
+| E.2 | `Svrn7.Federation.0.8.0/register-society` | `Invoke-Web7RegisterSociety` (Federation) |
+| E.2r | `Svrn7.Federation.0.8.0/register-society-result` | `Invoke-Web7RegisterSocietyResult` (Society) |
 | E.3 | *(client-side key generation)* | — |
-| E.4 | `Svrn7.Onboarding.0.8.0/register-citizen` | `ConvertFrom-Web7OnboardRequest` |
+| E.3a | `Svrn7.Federation.0.8.0/society-list` | `Invoke-Web7SocietyList` (Federation) |
+| E.3b | `Svrn7.Federation.0.8.0/society-list-result` | `Invoke-Web7SocietyListResult` (Citizen) |
+| E.4 | `Svrn7.Onboarding.0.8.0/register-citizen` | `ConvertFrom-Web7OnboardRequest` (Society) |
+| E.4r | `Svrn7.Onboarding.0.8.0/receipt` | `Invoke-Web7OnboardReceipt` (Citizen) |
 | E.5–E.11 | `Svrn7.Society.0.8.0/*` query/admin | see below |
 
 > **How replies work:** the Switchboard executes the handler cmdlet, which resolves
@@ -273,53 +277,71 @@ Reply body (`Svrn7.Federation.0.8.0/federation-query-result`):
 
 ### E.2 — Register the "bindloss" Society
 
+The Society TDA sends this to the Federation TDA. `serviceEndpointUrl` is required so
+the Federation can create the Society's DID Document with its DIDComm endpoint and
+deliver the `register-society-result` reply.
+
+Handler (Federation TDA): `Invoke-Web7RegisterSociety`
+
 ```powershell
 # Reuse the society key pair generated in Scenario B (or generate a new one)
 $societyKeyPair = New-Svrn7KeyPair
 
 $body = @{
-    societyDid           = "did:drn:bindloss.svrn7.net"
-    publicKeyHex         = $societyKeyPair.PublicKeyHex
-    societyName          = "Bindloss Alberta"
-    primaryDidMethodName = "bindloss"
-    drawAmountGrana      = 1000000000000     # 1 SVRN7
-    overdraftCeilingGrana= 10000000000000    # 10 SVRN7
+    societyDid            = "did:drn:bindloss.svrn7.net"
+    publicKeyHex          = $societyKeyPair.PublicKeyHex
+    societyName           = "Bindloss Alberta"
+    primaryDidMethodName  = "bindloss"
+    serviceEndpointUrl    = "http://localhost:8442/didcomm"   # Society TDA endpoint
+    drawAmountGrana       = 1000000000000     # 1 SVRN7
+    overdraftCeilingGrana = 10000000000000    # 10 SVRN7
 } | ConvertTo-Json -Compress
 
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society"
-    from = "did:drn:foundation.svrn7.net"
-    to   = @("did:drn:bindloss.svrn7.net")
+    from = "did:drn:bindloss.svrn7.net"
+    to   = @("did:drn:foundation.svrn7.net")
     body = $body
 } | ConvertTo-Json
 
 Send-DIDCommMessage -Body $msg
 ```
 
-Expected TDA log:
+Expected TDA log (Federation TDA):
 
 ```
 [Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society)
         → Invoke-Web7RegisterSociety [Svrn7.Federation]
 [Warn]  RegisterSocietyAsync: FoundationPrivateKey not configured — VTC credential skipped for did:drn:bindloss.svrn7.net (development mode)
-[Info]  Society registered: did:drn:bindloss.svrn7.net (Bindloss Alberta) method=bindloss
+[Info]  Invoke-Web7RegisterSociety: registered 'did:drn:bindloss.svrn7.net', replying to did:drn:bindloss.svrn7.net
 ```
 
-Reply body (`Svrn7.Federation.0.8.0/register-society-result`):
+Reply body (`Svrn7.Federation.0.8.0/register-society-result`) delivered to Society TDA:
 
 ```json
 {
   "societyDid":            "did:drn:bindloss.svrn7.net",
   "societyName":           "Bindloss Alberta",
   "primaryDidMethodName":  "bindloss",
+  "societyDidDocument":    { "Did": "did:drn:bindloss.svrn7.net", ... },
+  "federationDid":         "did:drn:foundation.svrn7.net",
+  "federationEndpointUrl": "http://localhost:8441/didcomm",
+  "federationDidDocument": { "Did": "did:drn:foundation.svrn7.net", ... },
   "drawAmountGrana":       1000000000000,
   "overdraftCeilingGrana": 10000000000000,
   "success":               true,
   "registeredAt":          "2026-04-15T..."
 }
 ```
+
+Handler (Society TDA): `Invoke-Web7RegisterSocietyResult`
+
+On receipt the Society TDA:
+1. Stores `societyDidDocument` in its local DID registry
+2. Stores `federationDidDocument` in its local DID registry
+3. Sets `parentTdaDid` = `federationDid` and `parentTdaEndpointUrl` = `federationEndpointUrl` (persisted to `agent-identity.json`)
 
 ### E.3 — Generate citizen key material (client-side)
 
@@ -334,11 +356,17 @@ $citizenDid     = $citizenDidDoc.Did
 
 ### E.4 — Register citizen "mwherman" via Svrn7.Onboarding.0.8.0/register-citizen
 
+`serviceEndpointUrl` is required so the Society can create the Citizen's DID Document
+with its DIDComm endpoint and deliver the `receipt` reply.
+
+Handler (Society TDA): `ConvertFrom-Web7OnboardRequest` → `Register-Svrn7CitizenInSociety` → `New-Web7OnboardReceipt`
+
 ```powershell
 $body = @{
-    citizenDid    = $citizenDid
-    citizenName   = "mwherman"
-    publicKeyHex  = $citizenKeyPair.PublicKeyHex
+    citizenDid         = $citizenDid
+    citizenName        = "mwherman"
+    publicKeyHex       = $citizenKeyPair.PublicKeyHex
+    serviceEndpointUrl = "http://localhost:8443/didcomm"   # Citizen TDA endpoint
 } | ConvertTo-Json -Compress
 
 $msg = @{
@@ -353,13 +381,36 @@ $msg = @{
 Send-DIDCommMessage -Body $msg
 ```
 
-Expected TDA log:
+Expected TDA log (Society TDA):
 
 ```
 [Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen)
         → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
 [Info]  Citizen registered: did:bindloss:3J98...
 ```
+
+Reply body (`Svrn7.Onboarding.0.8.0/receipt`) delivered to Citizen TDA:
+
+```json
+{
+  "success":           true,
+  "citizenDid":        "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",
+  "citizenDidDocument": { "Did": "did:bindloss:3J98...", "ServiceEndpoints": [...], ... },
+  "societyDid":        "did:drn:bindloss.svrn7.net",
+  "societyDidDocument": { "Did": "did:drn:bindloss.svrn7.net", ... },
+  "societyEndpointUrl": "http://localhost:8442/didcomm",
+  "endowmentGrana":    1000000000,
+  "endowmentVcId":     "...",
+  "registeredAt":      "2026-04-15T..."
+}
+```
+
+Handler (Citizen TDA): `Invoke-Web7OnboardReceipt`
+
+On receipt the Citizen TDA:
+1. Stores `citizenDidDocument` in its local DID registry
+2. Stores `societyDidDocument` in its local DID registry
+3. Sets `parentTdaDid` = `societyDid` and `parentTdaEndpointUrl` = `societyEndpointUrl` (persisted to `agent-identity.json`)
 
 ---
 
@@ -617,12 +668,19 @@ Expected: `Status: Accepted`
 
 ## Available Protocol URIs
 
-| `type` URI | LOBE Handler |
-|---|---|
-| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request` | `Invoke-Svrn7IncomingTransfer` |
-| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order` | `Invoke-Svrn7IncomingTransfer` |
-| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order-receipt` | `Confirm-Svrn7Settlement` |
-| `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen` | `Register-Svrn7CitizenInSociety` |
+| `type` URI | Handler | TDA role |
+|---|---|---|
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation` | `Invoke-Web7FederationInit` | Federation |
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/federation-query` | `Invoke-Web7FederationQuery` | Federation |
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list` | `Invoke-Web7SocietyList` | Federation |
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list-result` | `Invoke-Web7SocietyListResult` | Citizen / Society |
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society` | `Invoke-Web7RegisterSociety` | Federation |
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society-result` | `Invoke-Web7RegisterSocietyResult` | Society |
+| `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen` | `ConvertFrom-Web7OnboardRequest` | Society |
+| `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt` | `Invoke-Web7OnboardReceipt` | Citizen |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request` | `Invoke-Svrn7IncomingTransfer` | Society |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order` | `Invoke-Svrn7IncomingTransfer` | Society |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order-receipt` | `Confirm-Svrn7Settlement` | Society |
 
 Any other `type` value is enqueued (202) but the Switchboard will log an unroutable message — visible at `LogLevel.Trace`.
 
@@ -824,9 +882,10 @@ $citizenDid   = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
 $publicKeyHex = "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
 
 $body = @{
-    citizenDid   = $citizenDid
-    publicKeyHex = $publicKeyHex
-    displayName  = "mwherman"
+    citizenDid         = $citizenDid
+    publicKeyHex       = $publicKeyHex
+    displayName        = "mwherman"
+    serviceEndpointUrl = "http://localhost:8443/didcomm"   # Citizen TDA endpoint
 } | ConvertTo-Json -Compress
 
 $msg = @{

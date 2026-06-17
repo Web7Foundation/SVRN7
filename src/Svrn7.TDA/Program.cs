@@ -222,12 +222,22 @@ else
         agentDid   = elem.GetProperty("did").GetString();
         var result = await driver.DidRegistry.ResolveAsync(agentDid!);
         svrn7Name  = result.Document?.Svrn7Name;
+
+        // Restore parent TDA wiring from identity file if not already set via config/env.
+        if (string.IsNullOrEmpty(tdaOpts.ParentTdaDid)
+            && elem.TryGetProperty("parentTdaDid", out var pDid))
+            tdaOpts.ParentTdaDid = pDid.GetString() ?? string.Empty;
+        if (string.IsNullOrEmpty(tdaOpts.ParentTdaEndpointUrl)
+            && elem.TryGetProperty("parentTdaEndpointUrl", out var pUrl))
+            tdaOpts.ParentTdaEndpointUrl = pUrl.GetString() ?? string.Empty;
     }
 }
 
-// Publish the resolved agent DID into TdaOptions so Svrn7RunspaceContext
-// (constructed lazily during host.StartAsync) picks it up via the factory.
-tdaOpts.AgentDid = agentDid ?? tdaOpts.SocietyDid;
+// Publish runtime values into TdaOptions so Svrn7RunspaceContext
+// (constructed lazily during host.StartAsync) picks them up via the factory.
+tdaOpts.AgentDid          = agentDid ?? tdaOpts.SocietyDid;
+tdaOpts.ServiceEndpointUrl = $"{tdaUrl}:{port}/didcomm";
+tdaOpts.AgentIdentityPath  = identityPath;
 
 // ── Startup banner ────────────────────────────────────────────────────────────
 {

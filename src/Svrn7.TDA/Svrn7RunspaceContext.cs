@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Caching.Memory;
 using Svrn7.Core.Interfaces;
 using Svrn7.Core.Models;
@@ -36,7 +38,15 @@ public sealed class Svrn7RunspaceContext
     private readonly IMemoryCache            _cache;
     private readonly IProcessedOrderStore    _processedOrders;
     private readonly PendingResolutionStore  _pendingResolutions;
+    private readonly string                  _agentIdentityPath;
     private volatile int                     _currentEpoch;
+    private volatile string                  _parentTdaDid         = string.Empty;
+    private volatile string                  _parentTdaEndpointUrl = string.Empty;
+
+    private static readonly JsonSerializerOptions _jsonOpts =
+        new() { WriteIndented = false };
+    private static readonly JsonSerializerOptions _jsonOptsCi =
+        new() { PropertyNameCaseInsensitive = true };
 
     // ── Public surface (accessible as $SVRN7.* in PowerShell) ────────────────
 
@@ -73,17 +83,22 @@ public sealed class Svrn7RunspaceContext
     public int CurrentEpoch => _currentEpoch;
 
     /// <summary>
-    /// DID of the parent tier in the resolution hierarchy.
-    /// Society DID for Citizen TDAs; Federation DID for Society TDAs.
-    /// Empty for Wanderer and Federation TDAs (no escalation path).
+    /// DID of the parent tier. Society DID for Citizens; Federation DID for Societies.
+    /// Updated at runtime by <see cref="SetParentTda"/> after successful registration.
     /// </summary>
-    public string ParentTdaDid { get; }
+    public string ParentTdaDid => _parentTdaDid;
 
     /// <summary>
     /// DIDComm endpoint URL of the parent tier (e.g., <c>http://localhost:8442/didcomm</c>).
-    /// Empty for Wanderer and Federation TDAs.
+    /// Updated at runtime by <see cref="SetParentTda"/> after successful registration.
     /// </summary>
-    public string ParentTdaEndpointUrl { get; }
+    public string ParentTdaEndpointUrl => _parentTdaEndpointUrl;
+
+    /// <summary>
+    /// Full DIDComm endpoint URL of this TDA (e.g., <c>http://localhost:8443/didcomm</c>).
+    /// Included in outbound receipts and results so peers can store this TDA as their parent.
+    /// </summary>
+    public string ServiceEndpointUrl { get; }
 
     // ── Internal surface (used by Switchboard, not directly by cmdlets) ───────
 
@@ -92,27 +107,31 @@ public sealed class Svrn7RunspaceContext
     internal IProcessedOrderStore ProcessedOrders => _processedOrders;
 
     public Svrn7RunspaceContext(
-        ISvrn7SocietyDriver  driver,
-        IInboxStore          inbox,
-        IMemoryCache         cache,
-        IProcessedOrderStore processedOrders,
+        ISvrn7SocietyDriver    driver,
+        IInboxStore            inbox,
+        IMemoryCache           cache,
+        IProcessedOrderStore   processedOrders,
         PendingResolutionStore pendingResolutions,
-        int                  initialEpoch        = 0,
-        Svrn7Role            role                = Svrn7Role.Federation,
-        string               agentDid            = "",
-        string               parentTdaDid        = "",
-        string               parentTdaEndpointUrl = "")
+        int                    initialEpoch         = 0,
+        Svrn7Role              role                 = Svrn7Role.Federation,
+        string                 agentDid             = "",
+        string                 parentTdaDid         = "",
+        string                 parentTdaEndpointUrl = "",
+        string                 serviceEndpointUrl   = "",
+        string                 agentIdentityPath    = "")
     {
-        Driver              = driver;
-        Role                = role;
-        AgentDid            = agentDid;
-        ParentTdaDid        = parentTdaDid;
-        ParentTdaEndpointUrl = parentTdaEndpointUrl;
-        _inbox              = inbox;
-        _cache              = cache;
-        _processedOrders    = processedOrders;
-        _pendingResolutions = pendingResolutions;
-        _currentEpoch       = initialEpoch;
+        Driver                = driver;
+        Role                  = role;
+        AgentDid              = agentDid;
+        ServiceEndpointUrl    = serviceEndpointUrl;
+        _parentTdaDid         = parentTdaDid;
+        _parentTdaEndpointUrl = parentTdaEndpointUrl;
+        _agentIdentityPath    = agentIdentityPath;
+        _inbox                = inbox;
+        _cache                = cache;
+        _processedOrders      = processedOrders;
+        _pendingResolutions   = pendingResolutions;
+        _currentEpoch         = initialEpoch;
     }
 
     /// <summary>
@@ -150,6 +169,68 @@ public sealed class Svrn7RunspaceContext
     /// </summary>
     public Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllDidMethodsAsync()
         => Driver.GetAllDidMethodsAsync();
+
+    // ── Parent TDA wiring ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Updates the in-memory parent TDA DID and endpoint and persists both to
+    /// <c>agent-identity.json</c>. Called by receipt/result LOBE handlers after
+    /// successful registration with a Society or Federation.
+    /// Thread-safe: volatile writes for the in-memory fields; file write is fire-and-forget.
+    /// </summary>
+    public void SetParentTda(string did, string endpointUrl)
+    {
+        _parentTdaDid         = did         ?? string.Empty;
+        _parentTdaEndpointUrl = endpointUrl ?? string.Empty;
+
+        if (string.IsNullOrEmpty(_agentIdentityPath)) return;
+        try
+        {
+            var json = File.Exists(_agentIdentityPath)
+                ? File.ReadAllText(_agentIdentityPath)
+                : "{}";
+            var node = JsonNode.Parse(json)!.AsObject();
+            node["parentTdaDid"]         = _parentTdaDid;
+            node["parentTdaEndpointUrl"] = _parentTdaEndpointUrl;
+            File.WriteAllText(_agentIdentityPath,
+                node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch { /* non-critical — in-memory update already succeeded */ }
+    }
+
+    // ── DID Document exchange helpers ─────────────────────────────────────────
+
+    /// <summary>
+    /// Serialises the local registry's DID Document for <paramref name="did"/> to a
+    /// JSON string using <c>System.Text.Json</c>. Returns <c>null</c> if not found.
+    /// Used by LOBE cmdlets to embed DID Documents in outbound receipts and results.
+    /// </summary>
+    public string? GetDidDocumentJson(string did)
+    {
+        var result = Driver.DidRegistry.ResolveAsync(did).GetAwaiter().GetResult();
+        return result.Document is null ? null
+            : JsonSerializer.Serialize(result.Document, _jsonOpts);
+    }
+
+    /// <summary>
+    /// Deserialises a DID Document from <paramref name="didDocumentJson"/> and stores it
+    /// in the local DID registry if no document with that DID already exists (idempotent).
+    /// Called by receipt/result LOBE handlers to persist received DID Documents.
+    /// Assigns a new registry-local <c>Id</c> to avoid LiteDB key conflicts.
+    /// </summary>
+    public async Task StoreReceivedDidDocumentAsync(string didDocumentJson)
+    {
+        var doc = JsonSerializer.Deserialize<DidDocument>(didDocumentJson, _jsonOptsCi);
+        if (doc is null) return;
+
+        var existing = await Driver.DidRegistry.ResolveAsync(doc.Did);
+        if (existing.Document is null)
+        {
+            // Assign a fresh local LiteDB Id so IDs from peer registries don't collide.
+            doc = doc with { Id = Guid.NewGuid().ToString("N") };
+            await Driver.CreateDidAsync(doc);
+        }
+    }
 
     /// <summary>
     /// Returns up to <paramref name="limit"/> processed email messages, newest-first.
