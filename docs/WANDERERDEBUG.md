@@ -233,6 +233,187 @@ info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
 
 ---
 
+## Steps 10–14 — Register W5 with a Society (Wanderer → Citizen)
+
+This section shows how a Wanderer TDA discovers available Societies from the Federation
+and registers with one, becoming a Citizen TDA.  After step 14, W5's `agent-identity.json`
+contains its parent Society DID and endpoint, and W5's local DID registry holds both the
+Citizen and Society DID Documents.
+
+**Prerequisites:**  A Federation TDA and at least one Society TDA must already be running
+and bootstrapped.  Complete DEBUG.md Scenario E steps E.0–E.2 first (Federation init +
+Society registration).  Simplest setup — in two new titled terminals:
+
+```powershell
+Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
+
+# Terminal D — Federation TDA on port 8441
+Start-Process cmd.exe -ArgumentList '/k title Federation:8441 && dotnet ".\Svrn7.TDA.dll" --port 8441 --name Federation'
+
+# Terminal E — Society TDA on port 8442
+Start-Process cmd.exe -ArgumentList '/k title Society:8442 && dotnet ".\Svrn7.TDA.dll" --port 8442 --name Bindloss'
+```
+
+Then complete E.0 (initialize-federation) and E.2 (register-society) from DEBUG.md
+before continuing here.  W5 on port 8445 must already be running from Step 1.
+
+---
+
+### Step 10 — Discover available Societies (Terminal C)
+
+W5 only knows the Federation's endpoint.  It sends a `society-list` request and receives
+back each Society's DID Document — which W5 stores locally so Phase 2 needs no further
+network lookup.
+
+`replyEndpoint` is required because W5 is not yet registered anywhere; the Federation
+cannot resolve W5's endpoint from its DID registry.
+
+```powershell
+# Ensure the send helper is loaded (if not already from Step 4)
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
+
+$body = @{ replyEndpoint = 'http://localhost:8445/didcomm' } | ConvertTo-Json -Compress
+
+$msg = @{
+    typ  = 'application/didcomm-plain+json'
+    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
+    type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list'
+    from = $w5Did
+    to   = @('did:drn:foundation.svrn7.net')
+    body = $body
+} | ConvertTo-Json
+
+Send-DIDCommMessage -Uri 'http://localhost:8441/didcomm' -Body $msg
+```
+
+Expected log — Terminal D (Federation TDA):
+
+```
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      Switchboard: routing ... (type=.../Svrn7.Federation.0.8.0/society-list)
+          → Invoke-Web7SocietyList [Svrn7.Federation]
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      [PS Info] Invoke-Web7SocietyList: 1 society/societies, replying to http://localhost:8445/didcomm
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      Switchboard: outbound delivered to http://localhost:8445/didcomm (202).
+```
+
+Expected log — Terminal A (W5):
+
+```
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      Switchboard: routing ... (type=.../Svrn7.Federation.0.8.0/society-list-result)
+          → Invoke-Web7SocietyListResult [Svrn7.Federation]
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      [PS Info] Invoke-Web7SocietyListResult: stored 1 society DID Document(s) from 1 result(s)
+```
+
+W5's local DID registry now contains the Society's DID Document.  Note the `endpointUrl`
+from the result — that is the Society's DIDComm address used in Step 12.
+
+---
+
+### Step 11 — Generate Citizen key material (Terminal C)
+
+The Citizen DID is derived from a secp256k1 key pair — distinct from the Wanderer GUID
+DID.  Generate once and save the output.
+
+```powershell
+$citizenKp  = New-Svrn7KeyPair
+$citizenDid = New-Svrn7Did -KeyPair $citizenKp -MethodName 'bindloss'
+
+Write-Host "Citizen DID : $($citizenDid.Did)"
+Write-Host "Public key  : $($citizenKp.PublicKeyHex)"
+Write-Host "Private key : $($citizenKp.PrivateKeyHex)   <-- store securely"
+```
+
+Example output (values will differ):
+
+```
+Citizen DID : did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
+Public key  : 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
+Private key : <32-byte hex — keep secret>
+```
+
+---
+
+### Step 12 — Send register-citizen to the Society (Terminal C)
+
+W5 sends its Citizen DID, public key, and — critically — `serviceEndpointUrl` so the
+Society can create W5's DID Document with the correct DIDComm endpoint and deliver the
+receipt back to W5.
+
+```powershell
+$body = @{
+    citizenDid         = $citizenDid.Did
+    publicKeyHex       = $citizenKp.PublicKeyHex
+    displayName        = 'W5'
+    serviceEndpointUrl = 'http://localhost:8445/didcomm'   # W5's endpoint
+} | ConvertTo-Json -Compress
+
+$msg = @{
+    typ  = 'application/didcomm-plain+json'
+    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
+    type = 'did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen'
+    from = $citizenDid.Did
+    to   = @('did:drn:bindloss.svrn7.net')
+    body = $body
+} | ConvertTo-Json
+
+Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+```
+
+Expected log — Terminal E (Society TDA):
+
+```
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      Switchboard: routing ... (type=.../Svrn7.Onboarding.0.8.0/register-citizen)
+          → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      [PS Info] Onboarding LOBE: receipt for did:bindloss:3J98... — 1000000000 grana
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      Switchboard: outbound delivered to http://localhost:8445/didcomm (202).
+```
+
+---
+
+### Step 13 — Verify W5 received the receipt (Terminal A)
+
+The Society delivers `Svrn7.Onboarding.0.8.0/receipt` to W5.  `Invoke-Web7OnboardReceipt`
+runs automatically and stores both DID Documents and wires the parent TDA:
+
+```
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      Switchboard: routing ... (type=.../Svrn7.Onboarding.0.8.0/receipt)
+          → Invoke-Web7OnboardReceipt [Svrn7.Onboarding]
+info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
+      [PS Info] Invoke-Web7OnboardReceipt: registered with did:drn:bindloss.svrn7.net at http://localhost:8442/didcomm
+```
+
+---
+
+### Step 14 — Verify agent-identity.json (Terminal C)
+
+Read W5's identity file to confirm the parent TDA wiring was persisted:
+
+```powershell
+Get-Content 8445/mem/agent-identity.json | ConvertFrom-Json | Select-Object did, parentTdaDid, parentTdaEndpointUrl
+```
+
+Expected:
+
+```
+did                  parentTdaDid                   parentTdaEndpointUrl
+---                  ------------                   --------------------
+did:drn:wanderer...  did:drn:bindloss.svrn7.net     http://localhost:8442/didcomm
+```
+
+W5 is now a Citizen TDA.  On the next restart it reads `parentTdaDid` and
+`parentTdaEndpointUrl` from `agent-identity.json` automatically — no `appsettings.json`
+entries needed.
+
+---
+
 ## Step 9 — Reset between runs
 
 Stop both TDAs (Ctrl+C in Terminal A and B), then delete their data directories:
