@@ -27,6 +27,18 @@ This means most resolution requests are satisfied locally without a network hop.
 
 ## Resolution Logic
 
+DIDComm V2 is fundamentally asynchronous — messages are fire-and-forget at the
+protocol layer, and responses arrive as separate inbound messages. Resolution across
+multiple TDAs therefore uses **correlated async relay**: each intermediate TDA dispatches
+an outbound `did-resolve-request`, holds a pending correlation entry keyed on
+`originalRequestId`, and sends a `did-resolve-response` onward when the correlated
+reply arrives in its inbox. From the originating TDA's perspective the result arrives
+in one logical request/response cycle; every underlying message is async.
+
+DIDComm's `thid` (thread ID) and `pthid` (parent thread ID) fields provide native
+support for threading correlated messages. `originalRequestId` in the body carries
+the correlation ID explicitly through relay hops.
+
 ### Step 1 — Local lookup (always, regardless of role)
 
 Every TDA attempts to resolve the requested DID against its local `IDidDocumentRegistry` first.
@@ -39,11 +51,11 @@ If the local registry returns `notFound`, the TDA escalates based on its own rol
 | Role | Action on local miss |
 |---|---|
 | Wanderer | Return `notFound` — no parent to escalate to |
-| Citizen | Forward `did-resolve-request` to Society TDA; relay Society's response to original requester |
-| Society | Forward `did-resolve-request` to Federation TDA; relay Federation's response to original requester |
-| Federation | Look up which Society owns the DID method; forward to that Society; relay Society's response to the requesting Society |
+| Citizen | Dispatch `did-resolve-request` to Society TDA; hold pending correlation; relay Society's response to original requester when it arrives |
+| Society | Dispatch `did-resolve-request` to Federation TDA; hold pending correlation; relay Federation's response to original requester when it arrives |
+| Federation | Look up which Society owns the DID method; dispatch to that Society; hold pending correlation; relay Society's response to the requesting Society when it arrives |
 
-If the Federation has no Society registered for the requested DID method, it returns `notFound` immediately.
+If the Federation has no Society registered for the requested DID method, it returns `notFound` immediately without dispatching.
 
 ### Resolution flow
 
@@ -51,18 +63,27 @@ If the Federation has no Society registered for the requested DID method, it ret
 receive did-resolve-request
 │
 ├── Try local registry
-│     └── FOUND → did-resolve-response to requester         ← terminal
+│     └── FOUND → did-resolve-response to requester              ← terminal
 │
 └── NOT FOUND
-      ├── Wanderer   → notFound                             ← terminal
-      ├── Citizen    → forward to Society
-      │                 relay response → original requester  ← terminal
-      ├── Society    → forward to Federation
-      │                 relay response → original requester  ← terminal
+      ├── Wanderer   → notFound                                   ← terminal
+      │
+      ├── Citizen    → dispatch did-resolve-request to Society
+      │                 [hold pending correlation on originalRequestId]
+      │                 ← Society's did-resolve-response arrives →
+      │                 relay response → original requester        ← terminal
+      │
+      ├── Society    → dispatch did-resolve-request to Federation
+      │                 [hold pending correlation on originalRequestId]
+      │                 ← Federation's did-resolve-response arrives →
+      │                 relay response → original requester        ← terminal
+      │
       └── Federation → look up target Society (method registry)
-                        NOT REGISTERED → notFound           ← terminal
-                        forward to target Society
-                        relay response → requesting Society  ← terminal
+                        NOT REGISTERED → notFound                 ← terminal
+                        dispatch did-resolve-request to target Society
+                        [hold pending correlation on originalRequestId]
+                        ← Society's did-resolve-response arrives →
+                        relay response → requesting Society        ← terminal
 ```
 
 ---
@@ -198,11 +219,17 @@ response back to the originating request at every hop.
 
 The previous design dispatched a DIDComm resolve-request and returned `notFound`
 immediately, relying on the inbox processor to populate a local cache asynchronously.
+The original caller received `notFound` on the first attempt and had to retry later.
 
-The amended design escalates **synchronously through the hierarchy** and relays the
-result back to the original requester. `Invoke-Svrn7DidResolveResponse` is no longer
-terminal — it relays the response onward if `originalRequesterDid` is set and differs
-from self.
+The amended design uses **correlated async relay**: each hop dispatches a
+`did-resolve-request`, holds a pending correlation entry keyed on `originalRequestId`,
+and sends the `did-resolve-response` onward when the correlated reply arrives in its
+inbox. The original caller receives a definitive answer — found or not found — in one
+logical request/response cycle without retry logic or cache warming.
+
+`Invoke-Svrn7DidResolveResponse` is no longer terminal — it checks `originalRequesterDid`
+and, if set and different from self, relays the response to the next hop using
+`originalRequestId` to match the pending correlation entry.
 
 ---
 
