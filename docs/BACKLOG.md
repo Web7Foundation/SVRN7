@@ -249,13 +249,29 @@ per-instance without affecting other running TDAs.
 - A specific instance can point at a different LOBE set today by overriding
   `Tda:LobesConfigPath` at launch time.
 
+**Implementation gap:** The startup help text and comments in `Program.cs` state that
+LOBEs load from `<BaseDir>/{port}/lobes/`, but the actual default in code is:
+
+```csharp
+opts.LobesConfigPath = ctx.Configuration["Tda:LobesConfigPath"]
+    ?? Path.Combine(AppContext.BaseDirectory, "lobes", "lobes.config.json");
+```
+
+This is the shared `lobes/` directory, not port-scoped. The documentation is ahead of
+the implementation. The default must be changed to
+`Path.Combine(AppContext.BaseDirectory, port.ToString(), "lobes", "lobes.config.json")`
+and the build/deployment scripts updated to copy LOBEs into the port-scoped directory
+at launch time.
+
 **What will be needed:**
 - Default `LobesConfigPath` changed to `{port}/lobes/lobes.config.json` so each
   instance has its own LOBE directory.
+- Build or launch scripts updated to seed `{port}/lobes/` from the shared catalog on
+  first run (or copy at build time per port).
 - A LOBE installer / package manager that downloads `.lobe.json` + `.psm1` pairs
   from a registry and places them in `{port}/lobes/`.
-- `LobeManager` hot-reload (TDA-001) becomes essential — marketplace installs should
-  not require a TDA restart.
+- `LobeManager` hot-reload (TDA-001 ✓) is already in place — marketplace installs
+  will not require a TDA restart once TDA-004 is done.
 - Possibly a signed/verified download chain so only trusted LOBEs are installed.
 
 **No code change required now** — tracked here for design continuity.
@@ -291,24 +307,24 @@ the `replyEndpoint`.  See LOBEDEBUG.md §4.5 for the send pattern.
 
 ---
 
-## TDA-001 — Hot-reload for JIT LOBEs
+## ~~TDA-001~~ — Hot-reload for JIT LOBEs ✓ *implemented*
 
 **Area:** `LobeManager`, `IsolatedRunspaceFactory`
 
-**Summary:** Updated or newly registered JIT LOBEs currently require a TDA restart to
-take effect. `lobes.config.json` is read once at startup; JIT modules are cached in
-runspaces for their lifetime.
+**What was needed and how it was implemented:**
 
-**What is needed:**
+- `FileSystemWatcher` on the lobes directory (`_watcher`) — detects new `*.lobe.json`
+  files at runtime and auto-registers them via `RegisterFromDescriptor`. ✓
+- `FileSystemWatcher` on `lobes.config.json` (`_configWatcher`) — detects changes to the
+  eager LOBE list; warns if new eager entries are added (restart required for those). ✓
+- JIT LOBE hot-reload — achieved via `Import-Module -Force` on every dispatch in
+  `EnsureLoadedAsync`. A changed `.psm1` is picked up automatically on the next message
+  without a TDA restart. No dirty-flag or runspace drain is needed; Force reimport
+  is the mechanism. ✓
 
-- `FileSystemWatcher` on the lobes directory to detect `.psm1` changes and new
-  `lobes.config.json` entries
-- `LobeManager` dirty-flag mechanism per LOBE
-- `IsolatedRunspaceFactory` drains and recreates runspaces that have a dirty LOBE loaded,
-  on the next dispatch cycle
-
-**Out of scope:** Eager LOBEs (loaded into the Initial Session State) always require a
-TDA restart regardless of this feature.
+**Remaining constraint:** Eager LOBEs (baked into the `InitialSessionState` at startup)
+still require a TDA restart when their `.psm1` changes. This is by design — the ISS
+cannot be rebuilt at runtime.
 
 ---
 
