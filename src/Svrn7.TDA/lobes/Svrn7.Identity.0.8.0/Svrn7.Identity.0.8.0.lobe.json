@@ -16,7 +16,7 @@
     {
       "uri": "did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request",
       "title": "DID Resolve Request",
-      "description": "Inbound DID Document resolution request from a peer TDA. Body: { from, did }",
+      "description": "Inbound DID Document resolution request from a peer TDA. Body: { requestedDid, requestId, originalRequesterDid, originalRequestId }. originalRequesterDid and originalRequestId are set on the first hop and carried unchanged through every relay hop.",
       "direction": "inbound",
       "match": "exact",
       "entrypoint": "Resolve-Svrn7Did",
@@ -34,7 +34,7 @@
     {
       "uri": "did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response",
       "title": "DID Resolve Response",
-      "description": "Inbound reply to a Svrn7.Identity/0.8.0/did-resolve-request. Body: from, to, requestedDid, found, didDocument, resolvedAt. Terminal — no reply is sent.",
+      "description": "Inbound reply to a Svrn7.Identity/0.8.0/did-resolve-request. Body: { requestedDid, found, didDocument, resolvedAt, originalRequestId, errorCode? }. Relays upstream if a pending correlation entry exists for originalRequestId; terminal if this TDA was the original requester.",
       "direction": "inbound",
       "match": "exact",
       "entrypoint": "Invoke-Svrn7DidResolveResponse",

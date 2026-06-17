@@ -32,10 +32,11 @@ namespace Svrn7.TDA;
 /// </summary>
 public sealed class Svrn7RunspaceContext
 {
-    private readonly IInboxStore         _inbox;
-    private readonly IMemoryCache        _cache;
-    private readonly IProcessedOrderStore _processedOrders;
-    private volatile int                 _currentEpoch;
+    private readonly IInboxStore             _inbox;
+    private readonly IMemoryCache            _cache;
+    private readonly IProcessedOrderStore    _processedOrders;
+    private readonly PendingResolutionStore  _pendingResolutions;
+    private volatile int                     _currentEpoch;
 
     // ── Public surface (accessible as $SVRN7.* in PowerShell) ────────────────
 
@@ -71,6 +72,19 @@ public sealed class Svrn7RunspaceContext
     /// </summary>
     public int CurrentEpoch => _currentEpoch;
 
+    /// <summary>
+    /// DID of the parent tier in the resolution hierarchy.
+    /// Society DID for Citizen TDAs; Federation DID for Society TDAs.
+    /// Empty for Wanderer and Federation TDAs (no escalation path).
+    /// </summary>
+    public string ParentTdaDid { get; }
+
+    /// <summary>
+    /// DIDComm endpoint URL of the parent tier (e.g., <c>http://localhost:8442/didcomm</c>).
+    /// Empty for Wanderer and Federation TDAs.
+    /// </summary>
+    public string ParentTdaEndpointUrl { get; }
+
     // ── Internal surface (used by Switchboard, not directly by cmdlets) ───────
 
     internal IInboxStore         Inbox           => _inbox;
@@ -82,17 +96,23 @@ public sealed class Svrn7RunspaceContext
         IInboxStore          inbox,
         IMemoryCache         cache,
         IProcessedOrderStore processedOrders,
-        int                  initialEpoch = 0,
-        Svrn7Role            role         = Svrn7Role.Federation,
-        string               agentDid     = "")
+        PendingResolutionStore pendingResolutions,
+        int                  initialEpoch        = 0,
+        Svrn7Role            role                = Svrn7Role.Federation,
+        string               agentDid            = "",
+        string               parentTdaDid        = "",
+        string               parentTdaEndpointUrl = "")
     {
-        Driver           = driver;
-        Role             = role;
-        AgentDid         = agentDid;
-        _inbox           = inbox;
-        _cache           = cache;
-        _processedOrders = processedOrders;
-        _currentEpoch    = initialEpoch;
+        Driver              = driver;
+        Role                = role;
+        AgentDid            = agentDid;
+        ParentTdaDid        = parentTdaDid;
+        ParentTdaEndpointUrl = parentTdaEndpointUrl;
+        _inbox              = inbox;
+        _cache              = cache;
+        _processedOrders    = processedOrders;
+        _pendingResolutions = pendingResolutions;
+        _currentEpoch       = initialEpoch;
     }
 
     /// <summary>
@@ -100,6 +120,36 @@ public sealed class Svrn7RunspaceContext
     /// on a 60-second timer. Thread-safe via volatile write.
     /// </summary>
     internal void SetEpoch(int epoch) => _currentEpoch = epoch;
+
+    // ── DID Resolution correlated async relay ─────────────────────────────────
+
+    /// <summary>
+    /// Stores a pending resolution correlation entry. Called by <c>Resolve-Svrn7Did</c>
+    /// when a local miss requires escalation to the parent TDA tier.
+    /// Keyed by <paramref name="originalRequestId"/> which is carried through every relay hop.
+    /// </summary>
+    public void AddPendingResolution(
+        string correlationId,
+        string requestedDid,
+        string immediateRequesterDid,
+        string immediateRequesterEndpoint)
+        => _pendingResolutions.Add(correlationId, new PendingResolutionEntry(
+            immediateRequesterDid, immediateRequesterEndpoint, requestedDid, DateTimeOffset.UtcNow));
+
+    /// <summary>
+    /// Removes and returns the pending resolution entry for <paramref name="correlationId"/>.
+    /// Returns <c>null</c> if no entry exists (meaning this TDA was the original requester).
+    /// Called by <c>Invoke-Svrn7DidResolveResponse</c> to decide whether to relay or terminate.
+    /// </summary>
+    public PendingResolutionEntry? TryCompletePendingResolution(string correlationId)
+        => _pendingResolutions.TryRemove(correlationId);
+
+    /// <summary>
+    /// Returns all registered DID methods from the Federation method registry.
+    /// Convenience wrapper for LOBE cmdlets to avoid C# optional-parameter binding issues.
+    /// </summary>
+    public Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllDidMethodsAsync()
+        => Driver.GetAllDidMethodsAsync();
 
     /// <summary>
     /// Returns up to <paramref name="limit"/> processed email messages, newest-first.

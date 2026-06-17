@@ -171,6 +171,8 @@ var host = Host.CreateDefaultBuilder(args)
             opts.MaxRunspaces                      = 0; // default: ProcessorCount × 2
             opts.LobesConfigPath                   = ctx.Configuration["Tda:LobesConfigPath"]
                                                      ?? Path.Combine(AppContext.BaseDirectory, "lobes", "lobes.config.json");
+            opts.ParentTdaDid                      = ctx.Configuration["Tda:ParentTdaDid"]         ?? string.Empty;
+            opts.ParentTdaEndpointUrl              = ctx.Configuration["Tda:ParentTdaEndpointUrl"] ?? string.Empty;
         });
     })
     .Build();

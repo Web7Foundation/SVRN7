@@ -110,6 +110,22 @@ public sealed class TdaOptions
     /// </summary>
     public int RateLimitRequestsPerSecond { get; set; } = 100;
 
+    // ── DID Resolution escalation ─────────────────────────────────────────────
+
+    /// <summary>
+    /// DID of the parent tier — Society DID for Citizen TDAs, Federation DID for Society TDAs.
+    /// Empty for Wanderer and Federation TDAs (no escalation path).
+    /// Configured via <c>Tda:ParentTdaDid</c>.
+    /// </summary>
+    public string ParentTdaDid { get; set; } = string.Empty;
+
+    /// <summary>
+    /// DIDComm endpoint URL of the parent tier — e.g., <c>http://localhost:8442/didcomm</c>.
+    /// Empty for Wanderer and Federation TDAs.
+    /// Configured via <c>Tda:ParentTdaEndpointUrl</c>.
+    /// </summary>
+    public string ParentTdaEndpointUrl { get; set; } = string.Empty;
+
     // ── Data Storage databases ────────────────────────────────────────────────
 
     /// <summary>Path to svrn7-inbox.db (Long-Term Message Memory).</summary>
@@ -209,19 +225,25 @@ public static class TdaServiceCollectionExtensions
         services.AddSingleton<IMemoryCache>(
             _ => new MemoryCache(new MemoryCacheOptions()));
 
+        // 2b. PendingResolutionStore — in-memory DID resolution correlation (correlated async relay).
+        services.AddSingleton<PendingResolutionStore>();
+
         // 3. Svrn7RunspaceContext ($SVRN7)
         // Derived from: "$SVRN7 session variable" — DSA 0.24 Epoch 0.
         services.AddSingleton<Svrn7RunspaceContext>(sp =>
         {
-            var opts   = sp.GetRequiredService<IOptions<TdaOptions>>().Value;
-            var driver = sp.GetRequiredService<ISvrn7SocietyDriver>();
-            var inbox  = sp.GetRequiredService<IInboxStore>();
-            var cache  = sp.GetRequiredService<IMemoryCache>();
-            var orders = sp.GetRequiredService<IProcessedOrderStore>();
-            return new Svrn7RunspaceContext(driver, inbox, cache, orders,
-                initialEpoch: Svrn7.Core.Svrn7Constants.Epochs.Endowment,
-                role:         opts.Role,
-                agentDid:     opts.AgentDid);
+            var opts    = sp.GetRequiredService<IOptions<TdaOptions>>().Value;
+            var driver  = sp.GetRequiredService<ISvrn7SocietyDriver>();
+            var inbox   = sp.GetRequiredService<IInboxStore>();
+            var cache   = sp.GetRequiredService<IMemoryCache>();
+            var orders  = sp.GetRequiredService<IProcessedOrderStore>();
+            var pending = sp.GetRequiredService<PendingResolutionStore>();
+            return new Svrn7RunspaceContext(driver, inbox, cache, orders, pending,
+                initialEpoch:        Svrn7.Core.Svrn7Constants.Epochs.Endowment,
+                role:                opts.Role,
+                agentDid:            opts.AgentDid,
+                parentTdaDid:        opts.ParentTdaDid,
+                parentTdaEndpointUrl: opts.ParentTdaEndpointUrl);
         });
 
         // 4a. WebSocketNotifyHub — local PandoMail push channel singleton.

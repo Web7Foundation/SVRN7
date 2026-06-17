@@ -27,27 +27,31 @@ $ErrorActionPreference = 'Stop'
 function Resolve-Svrn7Did {
     <#
     .SYNOPSIS
-        Processes an inbound Svrn7.Identity/0.8.0/did-resolve-request and returns a
-        Svrn7.Identity/0.8.0/did-resolve-response OutboundMessage.
+        Handles inbound did-resolve-request. Tries local first; escalates by role on miss.
 
     .DESCRIPTION
-        Resolves the requested DID via ISvrn7SocietyDriver.ResolveDidAsync().
-        If the DID belongs to this Society it is resolved locally; if cross-Society,
-        the FederationDidDocumentResolver performs a DIDComm round-trip.
+        Implements the correlated async relay pattern:
+          1. Try local registry (always, regardless of role).
+          2. If found: reply directly to sender.
+          3. If not found: escalate based on $SVRN7.Role —
+               Wanderer   → notFound (no parent)
+               Citizen    → forward to parent Society ($SVRN7.ParentTdaEndpointUrl)
+               Society    → forward to parent Federation ($SVRN7.ParentTdaEndpointUrl)
+               Federation → look up owning Society via method registry; forward there
+          4. On escalation: store pending correlation entry keyed on originalRequestId.
+             When the response arrives, Invoke-Svrn7DidResolveResponse relays it back.
 
         Protocol: did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request
 
+        Body: { requestedDid, requestId, originalRequesterDid, originalRequestId }
+              originalRequesterDid and originalRequestId are set on the first hop and
+              carried unchanged through every relay hop.
+
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
-
-    .OUTPUTS
-        Hashtable — OutboundMessage with packed Svrn7.Identity/0.8.0/did-resolve-response.
-
-    .EXAMPLE
-        Resolve-Svrn7Did -MessageDid "did:drn:alpha.svrn7.net/inbox/msg/5f43a2..."
     #>
     [CmdletBinding()]
-    [OutputType([hashtable])]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
     param(
         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [string] $MessageDid
@@ -58,41 +62,101 @@ function Resolve-Svrn7Did {
         if (-not $msg) { Write-Warning "Identity LOBE: $MessageDid not found."; return $null }
 
         $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
-        $requestedDid = $body.did
 
-        Write-Verbose "Identity LOBE: resolving DID $requestedDid"
+        $requestedDid         = Get-BodyField $body 'requestedDid'         ''
+        $requestId            = Get-BodyField $body 'requestId'            ''
+        $originalRequesterDid = Get-BodyField $body 'originalRequesterDid' ''
+        $originalRequestId    = Get-BodyField $body 'originalRequestId'    ''
 
-        $didDoc = $SVRN7.Driver.ResolveDidAsync($requestedDid).GetAwaiter().GetResult()
+        # On the originating hop: seed the original fields from this message
+        if (-not $originalRequesterDid) { $originalRequesterDid = $msg.FromDid ?? '' }
+        if (-not $requestId)            { $requestId            = [Guid]::NewGuid().ToString('N') }
+        if (-not $originalRequestId)    { $originalRequestId    = $requestId }
 
-        $mySocietyDid = $SVRN7.Driver.SocietyDid
-
-        $responsePayload = @{
-            from        = $mySocietyDid
-            to          = $body.from
-            requestedDid= $requestedDid
-            found       = ($null -ne $didDoc)
-            didDocument = $didDoc
-            resolvedAt  = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Depth 10 -Compress
-
-        $peerEndpoint = Resolve-SocietySenderEndpoint -Did $body.from
-        if (-not $peerEndpoint) {
-            Write-Warning "Resolve-Svrn7Did: no DIDComm service endpoint for '$($body.from)' — reply skipped."
-            return
+        if (-not $requestedDid) {
+            Write-Warning "Resolve-Svrn7Did: $MessageDid missing requestedDid — skipping."
+            return $null
         }
 
-        $envelope = [ordered]@{
-            typ  = 'application/didcomm-plain+json'
-            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
-            type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response'
-            from = $SVRN7.Driver.SocietyDid
-            to   = @($body.from)
-            body = $responsePayload
-        } | ConvertTo-Json -Compress
+        Write-Verbose "Resolve-Svrn7Did: requestedDid='$requestedDid' from='$($msg.FromDid)' role=$($SVRN7.Role)"
 
-        Write-Information "Resolve-Svrn7Did: requestedDid='$requestedDid' found=$($null -ne $didDoc) replying to '$($body.from)'"
+        # ── Step 1: Local resolution ────────────────────────────────────────────
+        $didDoc = $SVRN7.Driver.ResolveDidAsync($requestedDid).GetAwaiter().GetResult()
 
-        [Svrn7.TDA.OutboundMessage]::new($peerEndpoint, $envelope)
+        $immediateRequesterEndpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
+        if (-not $immediateRequesterEndpoint) {
+            Write-Warning "Resolve-Svrn7Did: no endpoint for sender '$($msg.FromDid)' — reply skipped."
+            return $null
+        }
+
+        if ($null -ne $didDoc) {
+            Write-Information "Resolve-Svrn7Did: LOCAL HIT '$requestedDid' → '$($msg.FromDid)'"
+            return New-DidResolveResponseMessage `
+                -Found $true -DidDocument $didDoc `
+                -RequestedDid $requestedDid -RecipientDid $msg.FromDid `
+                -OriginalRequestId $originalRequestId -ReplyEndpoint $immediateRequesterEndpoint
+        }
+
+        # ── Step 2: Local miss — escalate by role ──────────────────────────────
+        $role = $SVRN7.Role
+
+        if ($role -eq [Svrn7.Core.Models.Svrn7Role]::Wanderer) {
+            Write-Information "Resolve-Svrn7Did: Wanderer LOCAL MISS '$requestedDid' → notFound"
+            return New-DidResolveResponseMessage `
+                -Found $false -RequestedDid $requestedDid -RecipientDid $msg.FromDid `
+                -OriginalRequestId $originalRequestId -ReplyEndpoint $immediateRequesterEndpoint `
+                -ErrorCode 'notFound'
+        }
+
+        if ($role -eq [Svrn7.Core.Models.Svrn7Role]::Federation) {
+            $methodName = ($requestedDid -split ':')[1]
+            $allMethods = $SVRN7.GetAllDidMethodsAsync().GetAwaiter().GetResult()
+            $methodRecord = $allMethods |
+                Where-Object { $_.MethodName -eq $methodName } |
+                Select-Object -First 1
+
+            if (-not $methodRecord) {
+                Write-Information "Resolve-Svrn7Did: Federation LOCAL MISS '$requestedDid' method '$methodName' not registered → notFound"
+                return New-DidResolveResponseMessage `
+                    -Found $false -RequestedDid $requestedDid -RecipientDid $msg.FromDid `
+                    -OriginalRequestId $originalRequestId -ReplyEndpoint $immediateRequesterEndpoint `
+                    -ErrorCode 'methodNotSupported'
+            }
+
+            $parentDid      = $methodRecord.SocietyDid
+            $parentEndpoint = Resolve-SocietySenderEndpoint -Did $parentDid
+            if (-not $parentEndpoint) {
+                Write-Warning "Resolve-Svrn7Did: Federation LOCAL MISS '$requestedDid' — no endpoint for target Society '$parentDid'"
+                return New-DidResolveResponseMessage `
+                    -Found $false -RequestedDid $requestedDid -RecipientDid $msg.FromDid `
+                    -OriginalRequestId $originalRequestId -ReplyEndpoint $immediateRequesterEndpoint `
+                    -ErrorCode 'notFound'
+            }
+
+            Write-Information "Resolve-Svrn7Did: Federation LOCAL MISS '$requestedDid' → escalating to Society '$parentDid'"
+            $SVRN7.AddPendingResolution($originalRequestId, $requestedDid, $msg.FromDid, $immediateRequesterEndpoint)
+            return New-DidResolveForwardMessage `
+                -RequestedDid $requestedDid -OriginalRequesterDid $originalRequesterDid `
+                -OriginalRequestId $originalRequestId -TargetDid $parentDid -TargetEndpoint $parentEndpoint
+        }
+
+        # Citizen or Society: escalate to configured parent tier
+        $parentEndpoint = $SVRN7.ParentTdaEndpointUrl
+        $parentDid      = $SVRN7.ParentTdaDid
+
+        if (-not $parentEndpoint) {
+            Write-Warning "Resolve-Svrn7Did: $role LOCAL MISS '$requestedDid' — no parent endpoint configured → notFound"
+            return New-DidResolveResponseMessage `
+                -Found $false -RequestedDid $requestedDid -RecipientDid $msg.FromDid `
+                -OriginalRequestId $originalRequestId -ReplyEndpoint $immediateRequesterEndpoint `
+                -ErrorCode 'notFound'
+        }
+
+        Write-Information "Resolve-Svrn7Did: $role LOCAL MISS '$requestedDid' → escalating to '$parentDid'"
+        $SVRN7.AddPendingResolution($originalRequestId, $requestedDid, $msg.FromDid, $immediateRequesterEndpoint)
+        return New-DidResolveForwardMessage `
+            -RequestedDid $requestedDid -OriginalRequesterDid $originalRequesterDid `
+            -OriginalRequestId $originalRequestId -TargetDid $parentDid -TargetEndpoint $parentEndpoint
     }
 }
 
@@ -259,30 +323,132 @@ function Get-DIDDocument {
     }
 }
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Invoke-Svrn7DidResolveResponse ────────────────────────────────────────────
 
 function Invoke-Svrn7DidResolveResponse {
     <#
     .SYNOPSIS
-        Handles Svrn7.Identity/0.8.0/did-resolve-response — receives the DID resolution reply.
+        Handles inbound did-resolve-response. Relays to the pending requester or terminates.
     .DESCRIPTION
-        Inbound reply to a previously-sent Svrn7.Identity/0.8.0/did-resolve-request.
-        Body: { from, to, requestedDid, found, didDocument, resolvedAt }
-        Logs the resolution outcome. No reply is sent — response messages are terminal.
+        If a pending correlation entry exists for originalRequestId, this TDA is an
+        intermediate relay hop — forward the response to the immediate requester.
+        If no entry exists, this TDA was the original requester — log and terminate.
+
+        Protocol: did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response
     .PARAMETER MessageDid
         TDA resource DID URL for the inbox message.
     #>
     [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
     param([Parameter(Mandatory, ValueFromPipelineByPropertyName)] [string] $MessageDid)
     process {
-        $msg          = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
         if (-not $msg) { throw "Invoke-Svrn7DidResolveResponse: message '$MessageDid' not found." }
-        $body         = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
-        $requestedDid = Get-BodyField $body 'requestedDid' '(unknown)'
-        $found        = Get-BodyField $body 'found'        $false
-        Write-Information "Invoke-Svrn7DidResolveResponse: requestedDid='$requestedDid' found=$found from='$($msg.FromDid)'"
-        # Terminal reply — no outbound message returned.
+        $body              = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+        $requestedDid      = Get-BodyField $body 'requestedDid'      '(unknown)'
+        $found             = Get-BodyField $body 'found'             $false
+        $originalRequestId = Get-BodyField $body 'originalRequestId' ''
+
+        Write-Information "Invoke-Svrn7DidResolveResponse: requestedDid='$requestedDid' found=$found originalRequestId='$originalRequestId' from='$($msg.FromDid)'"
+
+        if (-not $originalRequestId) {
+            Write-Verbose "Invoke-Svrn7DidResolveResponse: no originalRequestId — terminal."
+            return $null
+        }
+
+        $pending = $SVRN7.TryCompletePendingResolution($originalRequestId)
+        if ($null -eq $pending) {
+            # This TDA was the original requester — the response is for us.
+            Write-Verbose "Invoke-Svrn7DidResolveResponse: no pending entry for '$originalRequestId' — terminal (this TDA is the requester)."
+            return $null
+        }
+
+        # Relay the response upstream to the TDA that originally asked us.
+        Write-Information "Invoke-Svrn7DidResolveResponse: relaying '$requestedDid' found=$found → '$($pending.ImmediateRequesterDid)'"
+
+        $relayEnvelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response'
+            from = $SVRN7.LocalDid
+            to   = @($pending.ImmediateRequesterDid)
+            body = $msg.PackedPayload
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($pending.ImmediateRequesterEndpoint, $relayEnvelope)
     }
+}
+
+# ── Private helpers ───────────────────────────────────────────────────────────
+
+function New-DidResolveResponseMessage {
+    <#
+    .SYNOPSIS
+        Builds an OutboundMessage containing a did-resolve-response envelope.
+    #>
+    [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
+    param(
+        [Parameter(Mandatory)] [string]  $RequestedDid,
+        [Parameter(Mandatory)] [string]  $RecipientDid,
+        [Parameter(Mandatory)] [string]  $OriginalRequestId,
+        [Parameter(Mandatory)] [string]  $ReplyEndpoint,
+        [bool]                           $Found        = $false,
+        [object]                         $DidDocument  = $null,
+        [string]                         $ErrorCode    = ''
+    )
+    $responseBody = [ordered]@{
+        requestedDid      = $RequestedDid
+        found             = $Found
+        didDocument       = $DidDocument
+        resolvedAt        = [datetimeoffset]::UtcNow.ToString('o')
+        originalRequestId = $OriginalRequestId
+    }
+    if ($ErrorCode) { $responseBody['errorCode'] = $ErrorCode }
+
+    $envelope = [ordered]@{
+        typ  = 'application/didcomm-plain+json'
+        id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+        type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response'
+        from = $SVRN7.LocalDid
+        to   = @($RecipientDid)
+        body = $responseBody | ConvertTo-Json -Depth 10 -Compress
+    } | ConvertTo-Json -Compress
+
+    [Svrn7.TDA.OutboundMessage]::new($ReplyEndpoint, $envelope)
+}
+
+function New-DidResolveForwardMessage {
+    <#
+    .SYNOPSIS
+        Builds an OutboundMessage containing a forwarded did-resolve-request envelope.
+    #>
+    [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
+    param(
+        [Parameter(Mandatory)] [string] $RequestedDid,
+        [Parameter(Mandatory)] [string] $OriginalRequesterDid,
+        [Parameter(Mandatory)] [string] $OriginalRequestId,
+        [Parameter(Mandatory)] [string] $TargetDid,
+        [Parameter(Mandatory)] [string] $TargetEndpoint
+    )
+    $forwardBody = [ordered]@{
+        requestedDid         = $RequestedDid
+        requestId            = [Guid]::NewGuid().ToString('N')
+        originalRequesterDid = $OriginalRequesterDid
+        originalRequestId    = $OriginalRequestId
+    } | ConvertTo-Json -Compress
+
+    $envelope = [ordered]@{
+        typ  = 'application/didcomm-plain+json'
+        id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+        type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request'
+        from = $SVRN7.LocalDid
+        to   = @($TargetDid)
+        body = $forwardBody
+    } | ConvertTo-Json -Compress
+
+    [Svrn7.TDA.OutboundMessage]::new($TargetEndpoint, $envelope)
 }
 
 function Invoke-Svrn7VcResolveResponse {
@@ -316,4 +482,5 @@ Export-ModuleMember -Function @(
     'Get-DIDDocument',
     'Invoke-Svrn7DidResolveResponse',
     'Invoke-Svrn7VcResolveResponse'
+    # New-DidResolveResponseMessage and New-DidResolveForwardMessage are private helpers — not exported.
 )

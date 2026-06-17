@@ -797,11 +797,12 @@ public class LobeManagerRegistryTests : IDisposable
 
         // Use a mock-by-hand approach — NullInboxStore and NullSocietyDriver
         return new Svrn7RunspaceContext(
-            driver:          new NullSocietyDriver(),
-            inbox:           new NullInboxStore(),
-            cache:           cache,
-            processedOrders: new NullProcessedOrderStore(),
-            initialEpoch:    0);
+            driver:             new NullSocietyDriver(),
+            inbox:              new NullInboxStore(),
+            cache:              cache,
+            processedOrders:    new NullProcessedOrderStore(),
+            pendingResolutions: new PendingResolutionStore(),
+            initialEpoch:       0);
     }
 
     public void Dispose()
@@ -1381,7 +1382,8 @@ public class SwitchboardStartupTests : IDisposable
         var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(
             new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
         var ctx = new Svrn7RunspaceContext(
-            new NullSocietyDriver(), inbox, cache, new NullProcessedOrderStore(), 0);
+            new NullSocietyDriver(), inbox, cache, new NullProcessedOrderStore(),
+            new PendingResolutionStore(), initialEpoch: 0);
         var lobes = new LobeManager(
             Options.Create(tdaOpts), ctx, NullLogger<LobeManager>.Instance);
         var pool = new IsolatedRunspaceFactory(
