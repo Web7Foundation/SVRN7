@@ -5,6 +5,45 @@ inspection, method management, secondary DIDs, resolution, and DIDComm-based res
 
 ---
 
+## DID Document types
+
+There is one DID Document schema (`Svrn7.Core.Models.DidDocument`) shared across all
+roles.  The `Role` field and DID format distinguish the four variants:
+
+| Role | `DidDocument.Role` | DID format | Created by |
+|---|---|---|---|
+| **Wanderer** | `Wanderer` | `did:drn:wanderer.testnet.svrn7.net/agent/1.0/{guid}` | TDA auto-generates on first run; key material persisted to `{port}/mem/agent-identity.json` |
+| **Citizen** | `Citizen` | `did:{method}:{base58-secp256k1-pubkey}` | Society creates during `register-citizen` processing; stored in Society's registry; copy sent to Citizen via `receipt` |
+| **Society** | `Society` | `did:drn:{name}.svrn7.net` (human-assigned) | Federation creates during `register-society` processing; stored in Federation's registry; copy sent to Society via `register-society-result` |
+| **Federation** | `Federation` | `did:drn:{name}.svrn7.net` (human-assigned) | Self-created during `initialize-federation` |
+
+**Key fields shared by all four types:**
+
+| Field | Purpose |
+|---|---|
+| `Did` | W3C DID identifier — the primary lookup key |
+| `MethodName` | SVRN7 registry key (`drn`, `bindloss`, etc.) |
+| `VerificationMethod[]` | secp256k1 or Ed25519 public keys |
+| `ServiceEndpoints[]` | DIDComm endpoints (`Type = "DIDCommMessaging"`, `ServiceEndpoint = "http://host:port/didcomm"`) |
+| `Role` | Enum tag — used for role-based resolution escalation |
+| `Svrn7Name` | Human-readable name displayed in the TDA startup banner |
+
+**Bootstrap exchange:**  The creating party sends a copy of the created DID Document back
+to the registering party in the reply, so both registries hold the document after a single
+registration round-trip:
+
+```
+register-citizen  →  Society stores citizenDidDocument
+receipt           →  Citizen stores citizenDidDocument + societyDidDocument
+
+register-society  →  Federation stores societyDidDocument
+register-society-result → Society stores societyDidDocument + federationDidDocument
+
+society-list-result →  Requester stores societyDidDocument (per society in the result)
+```
+
+---
+
 ## Prerequisites
 
 ### PowerShell 7
