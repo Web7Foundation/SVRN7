@@ -136,8 +136,7 @@ Write-Host "Endpoint: $endpoint"
 ### D.5 — Verify DnsClient.dll is present
 
 ```powershell
-if (Test-Path .\DnsClient.dll) { Write-Host "OK: DnsClient.dll" }
-else                           { Write-Host "MISSING — run: dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj" }
+if (Test-Path .\DnsClient.dll) { Write-Host "OK: DnsClient.dll" } else { Write-Host "MISSING — run: dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj" }
 ```
 
 ---
