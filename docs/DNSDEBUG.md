@@ -29,6 +29,12 @@ Spec: `specs/draft-herman-did-w3c-drn-00.md` Section 5b.
 - TDA built: `dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj`
 - `DnsClient.dll` in the TDA output directory (added as NuGet `DnsClient 1.7.0`)
 
+All standalone scenarios below assume you have `cd`'d to the TDA output directory first:
+
+```powershell
+cd src\Svrn7.TDA\bin\Debug\net8.0
+```
+
 ---
 
 ## Cmdlet: `Resolve-FederationEndpoint`
@@ -69,7 +75,7 @@ All three forms resolve to the same drn.directory query label:
 ### D.1 — Resolve from a full Federation DID (standalone PowerShell)
 
 ```powershell
-. "$PSScriptRoot\lobes\Svrn7.Common.0.8.0\Svrn7.Common.0.8.0.psm1"
+. .\lobes\Svrn7.Common.0.8.0\Svrn7.Common.0.8.0.psm1
 Initialize-Svrn7Assemblies
 
 $endpoint = Resolve-FederationEndpoint `
@@ -126,12 +132,8 @@ Write-Host "Endpoint: $endpoint"
 ### D.5 — Verify DnsClient.dll is present
 
 ```powershell
-$binPath = if ($env:SVRN7_BIN_PATH) { $env:SVRN7_BIN_PATH }
-           else { [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..')) }
-
-$dll = Join-Path $binPath 'DnsClient.dll'
-if (Test-Path $dll) { Write-Host "OK: $dll" }
-else                { Write-Host "MISSING — run: dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj" }
+if (Test-Path .\DnsClient.dll) { Write-Host "OK: DnsClient.dll" }
+else                           { Write-Host "MISSING — run: dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj" }
 ```
 
 ---
