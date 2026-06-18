@@ -740,7 +740,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
             service         = svc is not null
                 ? new[] { new { id = svc.Id, type = svc.Type, serviceEndpoint = svc.ServiceEndpoint } }
                 : null,
-            role            = role?.ToString(),
+            tdaRole         = role?.ToString(),
             tdaName         = tdaName,
         };
 
