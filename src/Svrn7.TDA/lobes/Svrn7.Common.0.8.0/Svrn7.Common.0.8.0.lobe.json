@@ -15,6 +15,15 @@
   "protocols": [],
   "cmdlets": [
     {
+      "name": "Resolve-FederationEndpoint",
+      "synopsis": "Resolves the DIDComm service endpoint for a Federation TDA via drn.directory DNS.",
+      "description": "Queries the drn.directory DNS zone (Web 7.0 Foundation-controlled) for the Federation TDA's DIDComm endpoint URL. The only use of DNS in Web 7.0 Pando. Accepts a full Federation DID, method-specific id, or bare domain. Returns $null when no record exists. Spec: draft-herman-did-w3c-drn-00 Section 5b.",
+      "parameters": [
+        { "name": "FederationDid", "type": "string", "mandatory": true, "description": "Federation DID (did:drn:federation.<domain>/...), method-specific id (federation.<domain>), or bare domain (<domain>)." }
+      ],
+      "outputType": "string"
+    },
+    {
       "name": "Send-DIDCommMessage",
       "synopsis": "Posts a DIDComm message to a TDA endpoint over cleartext HTTP/2 (h2c).",
       "parameters": [

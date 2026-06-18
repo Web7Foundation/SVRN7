@@ -274,6 +274,87 @@ function Build-CanonicalTransferJson {
         [System.Text.Json.JsonSerializerOptions]@{ WriteIndented = $false })
 }
 
+# ── drn.directory federation endpoint discovery ───────────────────────────────
+
+function Resolve-FederationEndpoint {
+    <#
+    .SYNOPSIS
+        Resolves the DIDComm service endpoint for a Federation TDA via drn.directory DNS.
+    .DESCRIPTION
+        Queries the drn.directory DNS zone for the Federation TDA's DIDComm endpoint URL.
+        This is the only use of DNS in the Web 7.0 Pando architecture and the canonical
+        bootstrap mechanism for locating a Federation before any DIDComm state exists.
+
+        Spec: draft-herman-did-w3c-drn-00 Section 5b.
+
+        Accepted input forms:
+          did:drn:federation.svrn7.net/agent/1.0/{key}   (full Federation DID)
+          federation.svrn7.net                            (DID method-specific id)
+          svrn7.net                                       (bare domain)
+
+        In TDA runspace context, DnsClient.dll is already loaded by the host process.
+        In standalone PowerShell mode, DnsClient.dll is loaded from the same bin
+        directory used by Initialize-Svrn7Assemblies (set SVRN7_BIN_PATH if needed).
+    .PARAMETER FederationDid
+        Federation DID, method-specific identifier, or bare domain.
+    .OUTPUTS
+        [string] — DIDComm endpoint URL, or $null when no drn.directory record exists.
+    .EXAMPLE
+        Resolve-FederationEndpoint -FederationDid "did:drn:federation.svrn7.net/agent/1.0/abc"
+    .EXAMPLE
+        Resolve-FederationEndpoint "svrn7.net"
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory, Position = 0)]
+        [ValidateNotNullOrEmpty()]
+        [string] $FederationDid
+    )
+    process {
+        # Build drn.directory query label from DID, method-specific id, or bare domain
+        $input = $FederationDid
+        if ($input -match '^did:drn:(.+)$') { $input = $Matches[1] }  # strip did:drn:
+        $input = ($input -split '/')[0]                                # strip /agent/...
+        if ($input -notmatch '^federation\.') { $input = "federation.$input" }
+        $queryLabel = "$input.drn.directory"
+
+        Write-Verbose "Resolve-FederationEndpoint: querying '$queryLabel'"
+
+        # Load DnsClient.dll if not yet available in this runspace
+        $loaded = try { [DnsClient.LookupClient] | Out-Null; $true } catch { $false }
+        if (-not $loaded) {
+            $binPath = if ($env:SVRN7_BIN_PATH) {
+                           $env:SVRN7_BIN_PATH
+                       } else {
+                           $localBin = Join-Path $PSScriptRoot 'bin'
+                           if (Test-Path $localBin) { $localBin }
+                           else { [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..')) }
+                       }
+            $dll = Join-Path $binPath 'DnsClient.dll'
+            if (-not (Test-Path $dll)) {
+                throw "Resolve-FederationEndpoint: DnsClient.dll not found at '$dll'. " +
+                      "Ensure the TDA project references the DnsClient NuGet package, " +
+                      "or set `$env:SVRN7_BIN_PATH to the folder containing DnsClient.dll."
+            }
+            Add-Type -Path $dll -ErrorAction Stop
+        }
+
+        $client = [DnsClient.LookupClient]::new()
+        $result = $client.QueryAsync($queryLabel, [DnsClient.QueryType]::TXT).GetAwaiter().GetResult()
+        $endpoint = $result.Answers |
+            Where-Object { $_ -is [DnsClient.Protocol.TxtRecord] } |
+            ForEach-Object { $_.Text } |
+            Where-Object { $_ } |
+            Select-Object -First 1
+
+        if (-not $endpoint) {
+            Write-Verbose "Resolve-FederationEndpoint: no TXT record found for '$queryLabel'"
+        }
+        $endpoint
+    }
+}
+
 # ── DIDComm HTTP/2 sender ─────────────────────────────────────────────────────
 
 function Send-DIDCommMessage {
