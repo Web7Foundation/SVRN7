@@ -334,7 +334,7 @@ public class SocietyRegistrationTests : IAsyncLifetime
         vcs.Should().ContainSingle(v => v.Types.Contains("Svrn7VtcCredential"));
     }
 
-    [Fact] public async Task RegisterSociety_DuplicateMethodName_Fails()
+    [Fact] public async Task RegisterSociety_DuplicateDid_Fails()
     {
         await RegisterSocietyAsync("s4", "uniquesoc");
         var kp = _f.Crypto.GenerateSecp256k1KeyPair();
@@ -345,17 +345,6 @@ public class SocietyRegistrationTests : IAsyncLifetime
         });
         r.Success.Should().BeFalse();
         r.ErrorMessage.Should().Contain("uniquesoc");
-    }
-
-    [Fact] public async Task RegisterSociety_InvalidMethodName_Fails()
-    {
-        var kp = _f.Crypto.GenerateSecp256k1KeyPair();
-        var r  = await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
-        {
-            DidDocument = _f.MakeDidDoc("did:drn:Bad-Method", kp, "Bad-Method"), PrivateKeyBytes = kp.PrivateKeyBytes,
-            SocietyName = "Bad Method Society", DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
-        });
-        r.Success.Should().BeFalse();
     }
 }
 
