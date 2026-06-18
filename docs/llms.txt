@@ -139,6 +139,36 @@ Total Merkle logs = 1 Federation + N Societies (one per deployment instance)
 
 ---
 
+## drn.directory — Federation Endpoint Discovery
+
+`drn.directory` is the Web 7.0 Foundation-controlled DNS zone for out-of-band bootstrap
+discovery of did:drn federation TDA DIDComm endpoints. It is the only use of DNS in the
+Web 7.0 Pando architecture.
+
+TXT record convention:
+  federation.<domain>.drn.directory  IN TXT  "<DIDComm endpoint URL>"
+
+Example (dev/testnet — production MUST use https://):
+  federation.svrn7.net.drn.directory  IN TXT  "http://localhost:8441/didcomm"
+
+Resolution algorithm (given did:drn:federation.<domain>/agent/<key>):
+  1. Extract "federation.<domain>" from the DID
+  2. Construct query label: "federation.<domain>.drn.directory"
+  3. Query DNS TXT for that label
+  4. Use TXT value as DIDComm endpoint for all subsequent communication
+  DNS is used for endpoint discovery only; all messages after discovery are DIDComm v2.
+
+Epoch 0 permissioning:
+  Zone is Foundation-controlled. Permissioned onboarding only — no self-service registration.
+
+Implementation note (C# / .NET 8):
+  Use DnsClient.NET NuGet (LookupClient.QueryAsync(label, QueryType.TXT)).
+  Portable across Windows/Linux/macOS; no P/Invoke or platform conditionals required.
+
+Specification: draft-herman-did-w3c-drn-00 Section 5b.
+
+---
+
 ## Epoch Matrix (Transfer Rules)
 
 Epoch 0 (Endowment):       Citizen → own Society wallet OR Federation wallet only
