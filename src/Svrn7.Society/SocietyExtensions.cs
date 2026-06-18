@@ -175,14 +175,12 @@ public static class SocietyServiceCollectionExtensions
         services.AddSingleton<FederationDidDocumentResolver>(sp =>
             new FederationDidDocumentResolver(
                 sp.GetRequiredService<IDidDocumentRegistry>(),
-                sp.GetRequiredService<IFederationStore>(),
-                sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>(),
                 sp.GetRequiredService<ILogger<FederationDidDocumentResolver>>()));
 
         services.AddSingleton<FederationVcDocumentResolver>(sp =>
             new FederationVcDocumentResolver(
                 new LiteVcDocumentResolver(sp.GetRequiredService<IVcRegistry>()),
-                sp.GetRequiredService<IFederationStore>(),
+                sp.GetRequiredService<IIdentityRegistry>(),
                 sp.GetRequiredService<IDIDCommService>(),
                 sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>(),
                 sp.GetRequiredService<ILogger<FederationVcDocumentResolver>>()));

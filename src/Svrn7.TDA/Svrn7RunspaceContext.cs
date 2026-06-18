@@ -174,13 +174,6 @@ public sealed class Svrn7RunspaceContext
     public PendingResolutionEntry? TryCompletePendingResolution(string correlationId)
         => _pendingResolutions.TryRemove(correlationId);
 
-    /// <summary>
-    /// Returns all registered DID methods from the Federation method registry.
-    /// Convenience wrapper for LOBE cmdlets to avoid C# optional-parameter binding issues.
-    /// </summary>
-    public Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllDidMethodsAsync()
-        => Driver.GetAllDidMethodsAsync();
-
     // ── Parent TDA wiring ─────────────────────────────────────────────────────
 
     /// <summary>

@@ -28,16 +28,20 @@ $ErrorActionPreference = 'Stop'
 function ConvertFrom-Web7OnboardRequest {
     <#
     .SYNOPSIS
-        Extracts the citizen DID and public key from an Svrn7.Onboarding/0.8.0/register-citizen message.
+        Extracts the citizen public key from an Svrn7.Onboarding/0.8.0/register-citizen message
+        and derives the citizen DID.
 
     .DESCRIPTION
         Resolves the inbox message DID URL and deserialises the onboarding request body.
+        The citizen DID is derived server-side:
+            did:drn:{societyName}.svrn7.net/citizen/1.0/{blake3(publicKeyHex)}
+        where societyName is extracted from the Society TDA's own DID ($SVRN7.LocalDid).
 
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
 
     .OUTPUTS
-        Hashtable — { MessageDid, CitizenDid, PublicKeyHex, RequestedAt }
+        Hashtable — { MessageDid, DidDocument, DisplayName, RequestedAt }
 
     .EXAMPLE
         Dequeue-Svrn7Message -Did $msgDid | ConvertFrom-Web7OnboardRequest
@@ -58,17 +62,22 @@ function ConvertFrom-Web7OnboardRequest {
 
         $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
 
-        Assert-BodyFields $body @('citizenDid') 'Onboarding LOBE: Svrn7.Onboarding/0.8.0/register-citizen'
+        Assert-BodyFields $body @('publicKeyHex') 'Onboarding LOBE: Svrn7.Onboarding/0.8.0/register-citizen'
 
-        $citizenDid   = $body.citizenDid
-        $publicKeyHex = Get-BodyField $body 'publicKeyHex' ''
+        $publicKeyHex = $body.publicKeyHex
         $svcUrl       = Get-BodyField $body 'serviceEndpointUrl' ''
-        $methodName   = ($citizenDid -split ':')[1]
+
+        # Derive citizen DID from genesis public key and the Society's own name
+        $pubBytes    = [System.Convert]::FromHexString($publicKeyHex)
+        $genesisHash = [Svrn7.Crypto.CryptoService]::new().Blake3Hex($pubBytes)
+        $methodSpec  = ($SVRN7.LocalDid -split ':', 3)[2]   # 'federation.svrn7.net/bindloss/1.0/<hash>'
+        $societyName = ($methodSpec -split '/')[1]
+        $citizenDid  = "did:drn:$societyName.svrn7.net/citizen/1.0/$genesisHash"
 
         $didDocument = $SVRN7.Driver.CreateDidDocument(
             $citizenDid,
             $publicKeyHex,
-            $methodName,
+            'drn',
             $(if ($svcUrl) { $svcUrl } else { $null })
         )
 

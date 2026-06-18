@@ -56,12 +56,6 @@ public class Svrn7SocietyOptions : Svrn7Options
     public string SchemasDbPath  { get; set; } = "data/svrn7-schemas.db";
 
     /// <summary>
-    /// All DID method names owned by this Society (at least one — the primary).
-    /// Used by LocalDidDocumentResolver to route same-method resolution locally.
-    /// </summary>
-    public List<string> DidMethodNames { get; set; } = new();
-
-    /// <summary>
     /// Ed25519 private key bytes for this Society's DIDComm messaging key.
     /// Used for signing outbound DIDComm messages and decrypting inbound ones.
     /// Must not be stored in plaintext in production — load from HSM or encrypted vault.
@@ -84,7 +78,6 @@ public class Svrn7SocietyOptions : Svrn7Options
 /// - DIDComm SignThenEncrypt transfer handling (all cross-Society transfers)
 /// - Cross-Society Epoch 1 transfers via TransferOrderCredential
 /// - Overdraft management and Federation top-up protocol
-/// - DID method name self-service management
 /// - Multi-DID citizen support
 /// - Cross-Society VC Document Resolution
 /// </summary>
@@ -102,14 +95,6 @@ public interface ISvrn7SocietyDriver : ISvrn7Driver
     /// </summary>
     Task<OperationResult> RegisterCitizenInSocietyAsync(
         RegisterCitizenInSocietyRequest request, CancellationToken ct = default);
-
-    // ── Multi-DID citizen management ──────────────────────────────────────────
-    /// <summary>
-    /// Issues an additional DID for an existing citizen under a specified method name.
-    /// The method name must be active for this Society.
-    /// </summary>
-    Task<OperationResult> AddCitizenDidAsync(
-        string citizenPrimaryDid, string methodName, CancellationToken ct = default);
 
     // ── DIDComm transfer entry point ──────────────────────────────────────────
     /// <summary>
@@ -149,28 +134,6 @@ public interface ISvrn7SocietyDriver : ISvrn7Driver
     // ── Society membership ────────────────────────────────────────────────────
     Task<IReadOnlyList<string>> GetMemberCitizenDidsAsync(CancellationToken ct = default);
     Task<bool> IsMemberAsync(string citizenDid, CancellationToken ct = default);
-
-    // ── DID method name management (self-service) ─────────────────────────────
-    /// <summary>
-    /// Registers an additional DID method name for this Society.
-    /// Self-service — no Foundation signature required.
-    /// Method name must be unique (not Active or Dormant) in the Federation.
-    /// </summary>
-    Task<OperationResult> RegisterSocietyDidMethodAsync(
-        string methodName, CancellationToken ct = default);
-
-    /// <summary>
-    /// Deregisters a DID method name from this Society.
-    /// Primary method name cannot be deregistered (throws PrimaryDidMethodException).
-    /// Existing DIDs under the method remain valid (Option A).
-    /// Method enters dormancy period per Svrn7Options.DidMethodDormancyPeriod.
-    /// </summary>
-    Task<OperationResult> DeregisterSocietyDidMethodAsync(
-        string methodName, CancellationToken ct = default);
-
-    /// <summary>Returns all DID method names registered to this Society (Active and Dormant).</summary>
-    Task<IReadOnlyList<SocietyDidMethodRecord>> GetSocietyDidMethodsAsync(
-        CancellationToken ct = default);
 
     // ── Cross-Society VC Document Resolution ─────────────────────────────────
     /// <summary>

@@ -841,13 +841,9 @@ internal sealed class NullSocietyDriver : Svrn7.Society.ISvrn7SocietyDriver
     public Task<Svrn7.Core.Models.OperationResult> RegisterCitizenInSocietyAsync(Svrn7.Core.Models.RegisterCitizenInSocietyRequest r, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<bool> IsMemberAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<System.Collections.Generic.IReadOnlyList<string>> GetMemberCitizenDidsAsync(CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> AddCitizenDidAsync(string citizenPrimaryDid, string methodName, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> TransferToExternalCitizenAsync(Svrn7.Core.Models.TransferRequest r, string targetSocietyDid, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> TransferToFederationAsync(string payerDid, long amountGrana, string nonce, string signature, string? memo = null, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<string> HandleIncomingTransferMessageAsync(string packedDIDCommMessage, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> RegisterSocietyDidMethodAsync(string methodName, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> DeregisterSocietyDidMethodAsync(string methodName, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.SocietyDidMethodRecord>> GetSocietyDidMethodsAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.SocietyRecord?> GetOwnSocietyAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OverdraftStatus> GetOverdraftStatusAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.SocietyOverdraftRecord?> GetOverdraftRecordAsync(CancellationToken ct = default) => throw new NotImplementedException();
@@ -871,10 +867,6 @@ internal sealed class NullSocietyDriver : Svrn7.Society.ISvrn7SocietyDriver
     public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<bool> IsSocietyActiveAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
     public Task DeactivateSocietyAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> RegisterAdditionalDidMethodAsync(string societyDid, string methodName, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> DeregisterDidMethodAsync(string societyDid, string methodName, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.DidMethodStatus> GetDidMethodStatusAsync(string methodName, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.SocietyDidMethodRecord>> GetAllDidMethodsAsync(string? societyDid = null, Svrn7.Core.Models.DidMethodStatus? statusFilter = null, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> TransferAsync(Svrn7.Core.Models.TransferRequest r, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.OperationResult>> BatchTransferAsync(System.Collections.Generic.IEnumerable<Svrn7.Core.Models.TransferRequest> requests, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<decimal> GetBalanceSvrn7Async(string did, CancellationToken ct = default) => throw new NotImplementedException();

@@ -11,41 +11,25 @@ namespace Svrn7.Society;
 // ── FederationDidDocumentResolver ─────────────────────────────────────────────
 
 /// <summary>
-/// Routes DID Document resolution by method name.
+/// Routes did:drn DID Document resolution.
 ///
-/// Local method names (configured in <see cref="Svrn7SocietyOptions.DidMethodNames"/>,
-/// defaulting to the single <see cref="Svrn7SocietyOptions.DidMethodName"/> value) are
-/// resolved directly from the local <see cref="IDidDocumentRegistry"/> without any
-/// network hop.
+/// Tries the local <see cref="IDidDocumentRegistry"/> first. If the DID is cached
+/// locally the result is returned immediately without a network hop.
 ///
-/// Foreign method names are resolved in two steps:
-///   1. Verify the DID method is registered in the Federation method registry.
-///      If not: return <c>methodNotSupported</c> immediately.
-///   2. Return <c>notFound</c> — the caller (Identity LOBE <c>Resolve-Svrn7Did</c>)
-///      owns the async DIDComm escalation and correlated relay pattern.
-///
-/// DIDComm escalation is intentionally handled at the LOBE layer, not here.
-/// <c>Resolve-Svrn7Did</c> stores a pending correlation entry and dispatches
-/// <c>did-resolve-request</c> to the owning Society.
-/// <c>Invoke-Svrn7DidResolveResponse</c> relays the result back to the requester
-/// when the async reply arrives.  See DIDRESOLUTION.md for the full flow.
+/// On a local miss, returns <c>notFound</c> — the Identity LOBE
+/// (<c>Resolve-Svrn7Did</c>) owns the async DIDComm escalation and correlated
+/// relay pattern. See DIDRESOLUTION.md for the full flow.
 /// </summary>
 public sealed class FederationDidDocumentResolver : IDidDocumentResolver
 {
     private readonly IDidDocumentRegistry _localRegistry;
-    private readonly IFederationStore     _fedStore;
-    private readonly Svrn7SocietyOptions  _opts;
     private readonly ILogger<FederationDidDocumentResolver> _log;
 
     public FederationDidDocumentResolver(
         IDidDocumentRegistry localRegistry,
-        IFederationStore fedStore,
-        IOptions<Svrn7SocietyOptions> opts,
         ILogger<FederationDidDocumentResolver> log)
     {
         _localRegistry = localRegistry;
-        _fedStore      = fedStore;
-        _opts          = opts.Value;
         _log           = log;
     }
 
@@ -55,36 +39,15 @@ public sealed class FederationDidDocumentResolver : IDidDocumentResolver
         if (parts.Length < 3 || parts[0] != "did")
             return Error(did, "invalidDid");
 
-        var methodName = parts[1];
-
-        // ── Local resolution ──────────────────────────────────────────────────
-        // Use configured DidMethodNames list if populated; fall back to single DidMethodName.
-        var localMethods = _opts.DidMethodNames.Count > 0
-            ? _opts.DidMethodNames
-            : new List<string> { _opts.DidMethodName };
-
-        if (localMethods.Contains(methodName, StringComparer.OrdinalIgnoreCase))
-            return await _localRegistry.ResolveAsync(did, ct);
-
-        // ── Foreign method — verify registration, then defer to LOBE ─────────
-        // Check that a Society owns this DID method so we can give a precise error code.
-        var methodRecord = await _fedStore.GetMethodRecordAsync(methodName, ct);
-        if (methodRecord is null)
-        {
-            _log.LogDebug(
-                "No Society registered for DID method '{Method}' — cannot resolve '{Did}'",
-                methodName, did);
+        if (!string.Equals(parts[1], "drn", StringComparison.OrdinalIgnoreCase))
             return Error(did, "methodNotSupported");
-        }
 
-        // The method is registered but the DID document is not cached locally.
-        // The Identity LOBE (Resolve-Svrn7Did) handles the async DIDComm escalation
-        // and correlated relay — see DIDRESOLUTION.md §Step 2.
-        _log.LogDebug(
-            "Foreign DID '{Did}' (method '{Method}', Society '{Society}'): local miss — " +
-            "escalation handled by Resolve-Svrn7Did",
-            did, methodName, methodRecord.SocietyDid);
+        // Try local registry — covers all locally registered DID Documents
+        var local = await _localRegistry.ResolveAsync(did, ct);
+        if (local.Found) return local;
 
+        // DID not cached locally — LOBE layer handles DIDComm escalation
+        _log.LogDebug("Foreign DID '{Did}': local miss — escalation handled by Resolve-Svrn7Did", did);
         return Error(did, "notFound");
     }
 
@@ -109,7 +72,7 @@ public sealed class FederationDidDocumentResolver : IDidDocumentResolver
 public sealed class FederationVcDocumentResolver : IVcDocumentResolver
 {
     private readonly IVcDocumentResolver  _local;
-    private readonly IFederationStore     _fedStore;
+    private readonly IIdentityRegistry    _registry;
     private readonly IDIDCommService      _didComm;
     private readonly Svrn7SocietyOptions  _opts;
     private readonly ILogger<FederationVcDocumentResolver> _log;
@@ -118,13 +81,13 @@ public sealed class FederationVcDocumentResolver : IVcDocumentResolver
 
     public FederationVcDocumentResolver(
         IVcDocumentResolver local,
-        IFederationStore fedStore,
+        IIdentityRegistry registry,
         IDIDCommService didComm,
         IOptions<Svrn7SocietyOptions> opts,
         ILogger<FederationVcDocumentResolver> log)
     {
         _local    = local;
-        _fedStore = fedStore;
+        _registry = registry;
         _didComm  = didComm;
         _opts     = opts.Value;
         _log      = log;
@@ -187,14 +150,12 @@ public sealed class FederationVcDocumentResolver : IVcDocumentResolver
     {
         var effectiveTimeout = timeout ?? DefaultFanOutTimeout;
 
-        // Discover all active Societies from the Federation registry
-        var allMethods = await _fedStore.GetAllMethodsAsync(
-            statusFilter: DidMethodStatus.Active, ct: ct);
+        // Discover all active Societies from the identity registry
+        var allSocieties = await _registry.GetAllSocietiesAsync(ct);
 
-        var remoteSocieties = allMethods
-            .Select(m => m.SocietyDid)
-            .Distinct()
-            .Where(s => s != _opts.SocietyDid)
+        var remoteSocieties = allSocieties
+            .Where(s => s.IsActive && s.Did != _opts.SocietyDid)
+            .Select(s => s.Did)
             .ToList();
 
         // Always include local results (no timeout risk)

@@ -8,8 +8,6 @@ public enum KeyAlgorithm   { Secp256k1, Ed25519 }
 public enum DidStatus      { Active, Suspended, Deactivated }
 public enum VcStatus       { Active, Suspended, Revoked, Expired }
 public enum OverdraftStatus{ Clean, Overdrawn, Ceiling }
-public enum DidMethodStatus{ Active, Dormant }   // Available = not in registry
-
 /// <summary>
 /// Functional role of a TDA instance in the Web 7.0 network.
 /// Stored on DidDocument to identify what role the owning TDA plays.
@@ -158,32 +156,14 @@ public record CitizenDidRecord
 
 /// <summary>
 /// A registered society. Must be active to receive Epoch 0 transfers.
-/// PrimaryDidMethodName is immutable — cannot be deregistered.
 /// </summary>
 public record SocietyRecord
 {
-    public required string Did                 { get; set; }
-    public required string PublicKeyHex        { get; set; }
-    public required string SocietyName         { get; set; }
-    public required string PrimaryDidMethodName{ get; set; }  // immutable
-    public bool            IsActive            { get; set; } = true;
-    public DateTimeOffset  RegisteredAt        { get; set; } = DateTimeOffset.UtcNow;
-}
-
-/// <summary>
-/// Tracks a DID method name registered to a Society.
-/// Records are permanent — deregistered names are retained with status=Dormant.
-/// </summary>
-public record SocietyDidMethodRecord
-{
-    public string                  Id             { get; set; } = Guid.NewGuid().ToString("N");
-    public required string         SocietyDid     { get; set; }
-    public required string         MethodName     { get; set; }
-    public bool                    IsPrimary      { get; set; }
-    public DidMethodStatus         Status         { get; set;  } = DidMethodStatus.Active;
-    public DateTimeOffset          RegisteredAt   { get; set; } = DateTimeOffset.UtcNow;
-    public DateTimeOffset?         DeregisteredAt { get; set;  }
-    public DateTimeOffset?         DormantUntil   { get; set;  }
+    public required string Did          { get; set; }
+    public required string PublicKeyHex { get; set; }
+    public required string SocietyName  { get; set; }
+    public bool            IsActive     { get; set; } = true;
+    public DateTimeOffset  RegisteredAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
 /// <summary>
@@ -195,7 +175,6 @@ public record FederationRecord
     public required string Did                       { get; set; }
     public required string PublicKeyHex              { get; set; }
     public required string FederationName            { get; set; }
-    public required string PrimaryDidMethodName      { get; set; }
     public long            TotalSupplyGrana          { get; set;  }
     public long            EndowmentPerSocietyGrana  { get; set; }
     public bool            IsActive                  { get; set; } = true;

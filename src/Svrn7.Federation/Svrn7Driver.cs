@@ -245,22 +245,16 @@ public sealed class Svrn7Driver : ISvrn7Driver
         ArgumentException.ThrowIfNullOrWhiteSpace(request.DidDocument.Did);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.DidDocument.MethodName);
 
-        var did               = request.DidDocument.Did;
-        var publicKeyHex      = request.DidDocument.VerificationMethod.FirstOrDefault()?.PublicKeyHex ?? string.Empty;
-        var primaryMethodName = request.DidDocument.MethodName;
+        var did          = request.DidDocument.Did;
+        var publicKeyHex = request.DidDocument.VerificationMethod.FirstOrDefault()?.PublicKeyHex ?? string.Empty;
 
         try
         {
-            if (!System.Text.RegularExpressions.Regex.IsMatch(primaryMethodName, @"^[a-z0-9]+$"))
-                throw new ConfigurationException(
-                    $"DID method name '{primaryMethodName}' must match [a-z0-9]+.");
-
             var society = new SocietyRecord
             {
-                Did                  = did,
-                PublicKeyHex         = publicKeyHex,
-                SocietyName          = request.SocietyName,
-                PrimaryDidMethodName = primaryMethodName,
+                Did          = did,
+                PublicKeyHex = publicKeyHex,
+                SocietyName  = request.SocietyName,
             };
             await _registry.RegisterSocietyAsync(society, ct);
 
@@ -273,7 +267,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
             await _didRegistry.CreateAsync(societyDoc, ct);
 
             _didsPubl.Add(1);
-            _log.LogInformation("Society initialised locally: {Did} ({Method})", did, primaryMethodName);
+            _log.LogInformation("Society initialised locally: {Did}", did);
             return OperationResult.Ok(new { did });
         }
         catch (Exception ex)
@@ -292,45 +286,24 @@ public sealed class Svrn7Driver : ISvrn7Driver
         var society = await _registry.GetSocietyAsync(societyDid, ct)
             ?? throw new NotFoundException("SocietyRecord", societyDid);
 
-        var primaryMethodName = society.PrimaryDidMethodName;
-
         try
         {
-            // Check uniqueness in Federation registry
-            var status = await _federation.GetMethodStatusAsync(primaryMethodName, ct);
-            var existingRecord = await _federation.GetMethodRecordAsync(primaryMethodName, ct);
-            if (existingRecord is not null && status == DidMethodStatus.Active)
-                throw new DuplicateDidMethodException(primaryMethodName, existingRecord.SocietyDid);
-            if (status == DidMethodStatus.Dormant)
-            {
-                var dormantRecord = await _federation.GetMethodRecordAsync(primaryMethodName, ct);
-                throw new DormantDidMethodException(primaryMethodName,
-                    dormantRecord?.DormantUntil ?? DateTimeOffset.UtcNow.Add(_options.DidMethodDormancyPeriod));
-            }
-
-            // Register primary method name in Federation registry
-            await _federation.RegisterMethodAsync(new SocietyDidMethodRecord
-            {
-                SocietyDid  = societyDid,
-                MethodName  = primaryMethodName,
-                IsPrimary   = true,
-                Status      = DidMethodStatus.Active,
-            }, ct);
-
             // VTC Credential
             string? vtcVcId = null;
+            var federationRecord = await _federation.GetAsync(ct);
+            var issuerDid = federationRecord?.Did ?? "did:drn:federation.svrn7.net/federation/1.0/unknown";
             if (_foundationPrivateKey.Length > 0)
             {
                 var jwtVc = await _vcService.IssueAsync(
-                    _options.DidMethodName + ":foundation",
+                    issuerDid,
                     societyDid,
                     "Svrn7VtcCredential",
-                    new { id = societyDid, societyName = society.SocietyName, methodName = primaryMethodName },
+                    new { id = societyDid, societyName = society.SocietyName },
                     _foundationPrivateKey, ct: ct);
                 var vcRecord = new VcRecord
                 {
                     VcId       = $"urn:uuid:{Guid.NewGuid()}",
-                    IssuerDid  = _options.DidMethodName + ":foundation",
+                    IssuerDid  = issuerDid,
                     SubjectDid = societyDid,
                     Types      = new List<string> { "VerifiableCredential", "Svrn7VtcCredential" },
                     VcHash     = _crypto.Blake3Hex(Encoding.UTF8.GetBytes(jwtVc)),
@@ -349,10 +322,10 @@ public sealed class Svrn7Driver : ISvrn7Driver
             }
 
             await _merkle.AppendAsync("SocietyRegistration",
-                JsonSerializer.Serialize(new { did = societyDid, method = primaryMethodName }), ct);
+                JsonSerializer.Serialize(new { did = societyDid, societyName = society.SocietyName }), ct);
 
             _socReg.Add(1);
-            _log.LogInformation("Society registered in Federation: {Did} ({Method})", societyDid, primaryMethodName);
+            _log.LogInformation("Society registered in Federation: {Did}", societyDid);
             return OperationResult.Ok(new { did = societyDid, VcId = vtcVcId });
         }
         catch (Exception ex)
@@ -397,73 +370,6 @@ public sealed class Svrn7Driver : ISvrn7Driver
         await _didRegistry.DeactivateAsync(did, ct);
         await _merkle.AppendAsync("SocietyDeactivation",
             JsonSerializer.Serialize(new { did, timestamp = DateTimeOffset.UtcNow }), ct);
-    }
-
-    // ── DID method names ───────────────────────────────────────────────────────
-
-    public async Task<OperationResult> RegisterAdditionalDidMethodAsync(
-        string societyDid, string methodName, CancellationToken ct = default)
-    {
-        ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(methodName);
-
-        if (!System.Text.RegularExpressions.Regex.IsMatch(methodName, @"^[a-z0-9]+$"))
-            return OperationResult.Fail($"Method name '{methodName}' must match [a-z0-9]+.");
-
-        var existingActive = await _federation.GetMethodRecordAsync(methodName, ct);
-        if (existingActive is not null)
-            return OperationResult.Fail($"Method name '{methodName}' is already registered to '{existingActive.SocietyDid}'.");
-
-        // Check dormancy (time-based)
-        var allRecords = await _federation.GetAllMethodsAsync(statusFilter: DidMethodStatus.Dormant, ct: ct);
-        var dormant = allRecords.FirstOrDefault(r => r.MethodName == methodName
-            && r.DormantUntil.HasValue && r.DormantUntil.Value > DateTimeOffset.UtcNow);
-        if (dormant is not null)
-            return OperationResult.Fail(
-                $"Method name '{methodName}' is dormant until {dormant.DormantUntil:O}.");
-
-        await _federation.RegisterMethodAsync(new SocietyDidMethodRecord
-        {
-            SocietyDid = societyDid,
-            MethodName = methodName,
-            IsPrimary  = false,
-            Status     = DidMethodStatus.Active,
-        }, ct);
-
-        _log.LogInformation("Additional DID method '{Method}' registered for Society '{Society}'",
-            methodName, societyDid);
-        return OperationResult.Ok();
-    }
-
-    public async Task<OperationResult> DeregisterDidMethodAsync(
-        string societyDid, string methodName, CancellationToken ct = default)
-    {
-        ThrowIfDisposed();
-        var society = await _registry.GetSocietyAsync(societyDid, ct)
-            ?? throw new NotFoundException("Society", societyDid);
-
-        if (society.PrimaryDidMethodName == methodName)
-            throw new PrimaryDidMethodException(methodName);
-
-        var dormantUntil = DateTimeOffset.UtcNow.Add(_options.DidMethodDormancyPeriod);
-        await _federation.DeregisterMethodAsync(methodName, dormantUntil, ct);
-
-        _log.LogInformation("DID method '{Method}' deregistered from Society '{Society}'. Dormant until {Until}",
-            methodName, societyDid, dormantUntil);
-        return OperationResult.Ok(new { dormantUntil });
-    }
-
-    public Task<DidMethodStatus> GetDidMethodStatusAsync(string methodName, CancellationToken ct = default)
-    {
-        ThrowIfDisposed();
-        return _federation.GetMethodStatusAsync(methodName, ct);
-    }
-
-    public Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllDidMethodsAsync(
-        string? societyDid = null, DidMethodStatus? statusFilter = null, CancellationToken ct = default)
-    {
-        ThrowIfDisposed();
-        return _federation.GetAllMethodsAsync(societyDid, statusFilter, ct);
     }
 
     // ── Transfers ──────────────────────────────────────────────────────────────
@@ -624,9 +530,8 @@ public sealed class Svrn7Driver : ISvrn7Driver
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(didDocument);
 
-        var federationDid     = didDocument.Did;
-        var publicKeyHex      = didDocument.VerificationMethod.FirstOrDefault()?.PublicKeyHex ?? string.Empty;
-        var primaryMethodName = didDocument.MethodName;
+        var federationDid = didDocument.Did;
+        var publicKeyHex  = didDocument.VerificationMethod.FirstOrDefault()?.PublicKeyHex ?? string.Empty;
 
         var existing = await _federation.GetAsync(ct);
         if (existing is not null)
@@ -640,7 +545,6 @@ public sealed class Svrn7Driver : ISvrn7Driver
             Did                      = federationDid,
             PublicKeyHex             = publicKeyHex,
             FederationName           = federationName,
-            PrimaryDidMethodName     = primaryMethodName,
             TotalSupplyGrana         = Svrn7Constants.FederationInitialSupplyGrana,
             EndowmentPerSocietyGrana = 0,
         };
@@ -663,8 +567,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
             {
                 federationDid,
                 federationName,
-                primaryDidMethodName = primaryMethodName,
-                totalSupplyGrana     = Svrn7Constants.FederationInitialSupplyGrana,
+                totalSupplyGrana = Svrn7Constants.FederationInitialSupplyGrana,
             }), ct);
 
         _didsPubl.Add(1);

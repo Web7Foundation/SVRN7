@@ -84,17 +84,6 @@ public interface ISvrn7Driver : IAsyncDisposable
     Task<bool> IsSocietyActiveAsync(string did, CancellationToken ct = default);
     Task DeactivateSocietyAsync(string did, CancellationToken ct = default);
 
-    // ── DID method names ───────────────────────────────────────────────────────
-    Task<OperationResult> RegisterAdditionalDidMethodAsync(string societyDid,
-        string methodName, CancellationToken ct = default);
-    Task<OperationResult> DeregisterDidMethodAsync(string societyDid,
-        string methodName, CancellationToken ct = default);
-    Task<DidMethodStatus> GetDidMethodStatusAsync(string methodName,
-        CancellationToken ct = default);
-    Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllDidMethodsAsync(
-        string? societyDid = null, DidMethodStatus? statusFilter = null,
-        CancellationToken ct = default);
-
     // ── Transfers ──────────────────────────────────────────────────────────────
     Task<OperationResult> TransferAsync(TransferRequest request,
         CancellationToken ct = default);

@@ -60,6 +60,7 @@ public interface IIdentityRegistry
 
     Task RegisterSocietyAsync(SocietyRecord society, CancellationToken ct = default);
     Task<SocietyRecord?> GetSocietyAsync(string did, CancellationToken ct = default);
+    Task<SocietyRecord?> GetSocietyByNameAsync(string societyName, CancellationToken ct = default);
     Task<IReadOnlyList<SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct = default);
     Task<bool> IsSocietyActiveAsync(string did, CancellationToken ct = default);
     Task SetSocietyActiveAsync(string did, bool active, CancellationToken ct = default);
@@ -225,13 +226,6 @@ public interface IFederationStore
     Task InitialiseAsync(FederationRecord record, CancellationToken ct = default);
     Task<FederationRecord?> GetAsync(CancellationToken ct = default);
     Task UpdateSupplyAsync(long newTotalSupplyGrana, CancellationToken ct = default);
-    Task<DidMethodStatus> GetMethodStatusAsync(string methodName, CancellationToken ct = default);
-    Task RegisterMethodAsync(SocietyDidMethodRecord record, CancellationToken ct = default);
-    Task DeregisterMethodAsync(string methodName, DateTimeOffset dormantUntil, CancellationToken ct = default);
-    Task<SocietyDidMethodRecord?> GetMethodRecordAsync(string methodName, CancellationToken ct = default);
-    Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllMethodsAsync(
-        string? societyDid = null, DidMethodStatus? statusFilter = null,
-        CancellationToken ct = default);
 }
 
 // ── Society membership store ──────────────────────────────────────────────────

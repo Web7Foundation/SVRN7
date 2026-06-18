@@ -141,7 +141,7 @@ GUID DID.  Generate once and save the output.
 
 ```powershell
 $citizenKp  = New-Svrn7KeyPair
-$citizenDid = New-Svrn7Did -KeyPair $citizenKp -MethodName 'bindloss'
+$citizenDid = New-Svrn7Did -KeyPair $citizenKp -Role Citizen -SocietyName 'bindloss'
 
 Write-Host "Citizen DID : $($citizenDid.Did)"
 Write-Host "Public key  : $($citizenKp.PublicKeyHex)"
@@ -151,7 +151,7 @@ Write-Host "Private key : $($citizenKp.PrivateKeyHex)   <-- store securely"
 Example output (values will differ):
 
 ```
-Citizen DID : did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
+Citizen DID : did:drn:bindloss.svrn7.net/citizen/1.0/<64-char genesis-hash>
 Public key  : 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
 Private key : <32-byte hex — keep secret>
 ```

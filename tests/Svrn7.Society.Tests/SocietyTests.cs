@@ -73,11 +73,10 @@ public sealed class SocietyTestFixture : IAsyncDisposable
             DrawAmountGrana        = 1_000_000_000_000L,
             OverdraftCeilingGrana  = 10_000_000_000_000L,
             FederationRoundTripTimeout = TimeSpan.FromSeconds(5),
-            DidMethodNames         = new System.Collections.Generic.List<string> { "alpha" },
         });
 
         var federationVcResolver = new FederationVcDocumentResolver(
-            vcResolver, fedStore, new DIDCommPackingService(),
+            vcResolver, registry, new DIDCommPackingService(),
             societyOpts, NullLogger<FederationVcDocumentResolver>.Instance);
 
         Driver = new Svrn7SocietyDriver(inner, registry, wallets, merkle, vcService,
@@ -217,67 +216,6 @@ public class SocietyCitizenRegistrationTests : IAsyncDisposable
     public async ValueTask DisposeAsync() => await _f.DisposeAsync();
 }
 
-// ── DID method self-service tests ─────────────────────────────────────────────
-
-public class SocietyDidMethodTests : IAsyncDisposable
-{
-    private readonly SocietyTestFixture _f = new();
-
-    private async Task RegisterSocietyInFedAsync()
-    {
-        var kp = _f.Crypto.GenerateSecp256k1KeyPair();
-        await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
-        {
-            DidDocument = _f.MakeDidDoc(_f.SocietyDid, kp, "alpha"), PrivateKeyBytes = kp.PrivateKeyBytes,
-            SocietyName = "Alpha Society", DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
-        });
-    }
-
-    [Fact] public async Task RegisterSocietyDidMethod_SelfService_NoSignatureRequired()
-    {
-        await RegisterSocietyInFedAsync();
-        var res = await _f.Driver.RegisterSocietyDidMethodAsync("alphahealth");
-        res.Success.Should().BeTrue(res.ErrorMessage);
-    }
-
-    [Fact] public async Task DeregisterSocietyDidMethod_MethodEntersDormancy()
-    {
-        await RegisterSocietyInFedAsync();
-        await _f.Driver.RegisterSocietyDidMethodAsync("alphatemp");
-        var res = await _f.Driver.DeregisterSocietyDidMethodAsync("alphatemp");
-        res.Success.Should().BeTrue(res.ErrorMessage);
-        var status = await _f.Driver.GetDidMethodStatusAsync("alphatemp");
-        status.Should().Be(DidMethodStatus.Dormant);
-    }
-
-    [Fact] public async Task DeregisterPrimaryMethod_ThrowsPrimaryDidMethodException()
-    {
-        await RegisterSocietyInFedAsync();
-        await Assert.ThrowsAsync<PrimaryDidMethodException>(
-            () => _f.Driver.DeregisterSocietyDidMethodAsync("alpha"));
-    }
-
-    [Fact] public async Task GetSocietyDidMethods_ReturnsAllMethods()
-    {
-        await RegisterSocietyInFedAsync();
-        await _f.Driver.RegisterSocietyDidMethodAsync("alpha2");
-        await _f.Driver.RegisterSocietyDidMethodAsync("alpha3");
-        var methods = await _f.Driver.GetSocietyDidMethodsAsync();
-        methods.Should().HaveCountGreaterOrEqualTo(3); // primary + 2 additional
-    }
-
-    [Fact] public async Task RegisterDuplicateMethod_Fails()
-    {
-        await RegisterSocietyInFedAsync();
-        await _f.Driver.RegisterSocietyDidMethodAsync("alphadup");
-        var res = await _f.Driver.RegisterSocietyDidMethodAsync("alphadup");
-        res.Success.Should().BeFalse();
-        res.ErrorMessage.Should().Contain("alphadup");
-    }
-
-    public async ValueTask DisposeAsync() => await _f.DisposeAsync();
-}
-
 // ── Multi-DID citizen tests ────────────────────────────────────────────────────
 
 public class MultiDidCitizenTests : IAsyncDisposable
@@ -307,26 +245,6 @@ public class MultiDidCitizenTests : IAsyncDisposable
         var dids = await _f.Driver.GetAllDidsForCitizenAsync("did:drn:alpha.svrn7.net/citizen/c2");
         dids.Should().NotBeEmpty();
         dids.Should().Contain(d => d.IsPrimary);
-    }
-
-    [Fact] public async Task AddCitizenDid_ValidMethod_Succeeds()
-    {
-        var kp    = _f.Crypto.GenerateSecp256k1KeyPair();
-        var socKp = _f.Crypto.GenerateSecp256k1KeyPair();
-        await _f.Driver.RegisterSocietyAsync(new RegisterSocietyRequest
-        {
-            DidDocument = _f.MakeDidDoc(_f.SocietyDid, socKp, "alpha"), PrivateKeyBytes = socKp.PrivateKeyBytes,
-            SocietyName = "Alpha", DrawAmountGrana = 0, OverdraftCeilingGrana = 0,
-        });
-        await _f.Driver.RegisterSocietyDidMethodAsync("alphaid");
-        await _f.Driver.RegisterCitizenAsync(new RegisterCitizenRequest
-        {
-            DidDocument     = _f.MakeDidDoc("did:drn:alpha.svrn7.net/citizen/c3", kp),
-            PrivateKeyBytes = kp.PrivateKeyBytes,
-        });
-
-        var result = await _f.Driver.AddCitizenDidAsync("did:drn:alpha.svrn7.net/citizen/c3", "alphaid");
-        result.Success.Should().BeTrue(result.ErrorMessage);
     }
 
     public async ValueTask DisposeAsync() => await _f.DisposeAsync();

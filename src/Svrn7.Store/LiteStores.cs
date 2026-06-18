@@ -126,6 +126,12 @@ public sealed class LiteIdentityRegistry : IIdentityRegistry
         return Task.FromResult<SocietyRecord?>(_ctx.Societies.FindOne(x => x.Did == did));
     }
 
+    public Task<SocietyRecord?> GetSocietyByNameAsync(string societyName, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult<SocietyRecord?>(_ctx.Societies.FindOne(x => x.SocietyName == societyName));
+    }
+
     public Task<IReadOnlyList<SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

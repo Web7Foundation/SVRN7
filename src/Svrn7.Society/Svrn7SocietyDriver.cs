@@ -99,18 +99,9 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
             return OperationResult.Fail(
                 $"This driver manages Society '{_opts.SocietyDid}', not '{request.SocietyDid}'.");
 
-        // Determine DID method name to use
-        var methodName = request.PreferredMethodName ?? _opts.DidMethodName;
-
-        // Validate method name is active for this Society
-        var methodStatus = await _inner.GetDidMethodStatusAsync(methodName, ct);
-        if (methodStatus != DidMethodStatus.Active)
-            throw new DeregisteredDidMethodException(methodName, DateTimeOffset.UtcNow);
-
         // Check Society wallet balance — trigger overdraft draw if needed
         await EnsureSocietyHasSufficientFundsAsync(ct);
 
-        // Transfer endowment from Society wallet to citizen wallet (will be created by RegisterCitizenAsync)
         var baseRequest = new RegisterCitizenRequest
         {
             DidDocument     = request.DidDocument,
@@ -119,26 +110,11 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
         var result = await _inner.RegisterCitizenAsync(baseRequest, ct);
         if (!result.Success) return result;
 
-        // Record society membership
         await _registry.StoreMembershipAsync(new SocietyMembershipRecord
         {
             CitizenPrimaryDid = did,
             SocietyDid        = _opts.SocietyDid,
         }, ct);
-
-        // If preferred method differs from primary, add an additional DID record
-        if (request.PreferredMethodName is not null &&
-            request.PreferredMethodName != _opts.DidMethodName)
-        {
-            var additionalDid = $"did:{request.PreferredMethodName}:{did.Split(':')[^1]}";
-            await _registry.StoreCitizenDidAsync(new CitizenDidRecord
-            {
-                CitizenPrimaryDid = did,
-                Did               = additionalDid,
-                MethodName        = request.PreferredMethodName,
-                IsPrimary         = false,
-            }, ct);
-        }
 
         _log.LogInformation("Citizen {Did} registered in Society {Society}", did, _opts.SocietyDid);
         return result;
@@ -242,34 +218,6 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
     {
         ThrowIfDisposed();
         return _membershipStore.GetOverdraftAsync(_opts.SocietyDid, ct);
-    }
-
-    // ── Multi-DID citizen management ──────────────────────────────────────────
-
-    public async Task<OperationResult> AddCitizenDidAsync(
-        string citizenPrimaryDid, string methodName, CancellationToken ct = default)
-    {
-        ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(citizenPrimaryDid);
-        ArgumentException.ThrowIfNullOrWhiteSpace(methodName);
-
-        var status = await _inner.GetDidMethodStatusAsync(methodName, ct);
-        if (status != DidMethodStatus.Active)
-            throw new DeregisteredDidMethodException(methodName, DateTimeOffset.UtcNow);
-
-        var identifier = citizenPrimaryDid.Split(':')[^1];
-        var additionalDid = $"did:{methodName}:{identifier}";
-
-        await _registry.StoreCitizenDidAsync(new CitizenDidRecord
-        {
-            CitizenPrimaryDid = citizenPrimaryDid,
-            Did               = additionalDid,
-            MethodName        = methodName,
-            IsPrimary         = false,
-        }, ct);
-
-        _log.LogInformation("Additional DID {Did} added for citizen {Primary}", additionalDid, citizenPrimaryDid);
-        return OperationResult.Ok(new { AdditionalDid = additionalDid });
     }
 
     // ── DIDComm transfer entry point ──────────────────────────────────────────
@@ -451,20 +399,6 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
         return membership?.SocietyDid == _opts.SocietyDid;
     }
 
-    // ── DID method name management (self-service) ─────────────────────────────
-
-    public Task<OperationResult> RegisterSocietyDidMethodAsync(
-        string methodName, CancellationToken ct = default)
-        => _inner.RegisterAdditionalDidMethodAsync(_opts.SocietyDid, methodName, ct);
-
-    public Task<OperationResult> DeregisterSocietyDidMethodAsync(
-        string methodName, CancellationToken ct = default)
-        => _inner.DeregisterDidMethodAsync(_opts.SocietyDid, methodName, ct);
-
-    public Task<IReadOnlyList<SocietyDidMethodRecord>> GetSocietyDidMethodsAsync(
-        CancellationToken ct = default)
-        => _inner.GetAllDidMethodsAsync(_opts.SocietyDid, ct: ct);
-
     // ── Cross-Society VC Document Resolution ─────────────────────────────────
 
     public Task<CrossSocietyVcQueryResult> FindVcsBySubjectAcrossSocietiesAsync(
@@ -492,10 +426,6 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
     public Task<IReadOnlyList<SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct = default)      => _inner.GetAllSocietiesAsync(ct);
     public Task<bool>             IsSocietyActiveAsync(string d, CancellationToken ct = default)        => _inner.IsSocietyActiveAsync(d, ct);
     public Task DeactivateSocietyAsync(string d, CancellationToken ct = default)               => _inner.DeactivateSocietyAsync(d, ct);
-    public Task<OperationResult>  RegisterAdditionalDidMethodAsync(string s, string m, CancellationToken ct = default) => _inner.RegisterAdditionalDidMethodAsync(s, m, ct);
-    public Task<OperationResult>  DeregisterDidMethodAsync(string s, string m, CancellationToken ct = default) => _inner.DeregisterDidMethodAsync(s, m, ct);
-    public Task<DidMethodStatus>  GetDidMethodStatusAsync(string m, CancellationToken ct = default)            => _inner.GetDidMethodStatusAsync(m, ct);
-    public Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllDidMethodsAsync(string? s, DidMethodStatus? f, CancellationToken ct = default) => _inner.GetAllDidMethodsAsync(s, f, ct);
     public Task<OperationResult>  TransferAsync(TransferRequest r, CancellationToken ct = default)             => _inner.TransferAsync(r, ct);
     public Task<IReadOnlyList<OperationResult>> BatchTransferAsync(IEnumerable<TransferRequest> r, CancellationToken ct = default) => _inner.BatchTransferAsync(r, ct);
     public Task<decimal>          GetBalanceSvrn7Async(string d, CancellationToken ct = default)  => _inner.GetBalanceSvrn7Async(d, ct);
