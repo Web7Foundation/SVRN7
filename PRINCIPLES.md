@@ -118,7 +118,9 @@ suites without a documented rationale and a migration plan.
 | JWE key wrapping | AES-256 RFC 3394 | `System.Security.Cryptography.Aes` (ECB) | Yes — .NET runtime built-in |
 | JWE content encryption | AES-256-GCM | `System.Security.Cryptography.AesGcm` | Yes — .NET runtime built-in |
 
-**Portability:** All suites work on Windows, Linux, macOS, Android, and iOS under .NET 8+.
+**Cross-platform statement:** All cryptographic suites used in the SVRN7 platform are
+fully portable across Windows, Linux, macOS, Android, and iOS under .NET 8 or later.
+No platform-specific or Windows-only APIs are used in any cryptographic path.
 NSec's NuGet packages bundle ARM64/ARM native libsodium binaries for Android and iOS.
 `System.Security.Cryptography` primitives are part of the .NET runtime on all targets.
 
