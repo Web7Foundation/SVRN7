@@ -176,7 +176,6 @@ public static class SocietyServiceCollectionExtensions
             new FederationDidDocumentResolver(
                 sp.GetRequiredService<IDidDocumentRegistry>(),
                 sp.GetRequiredService<IFederationStore>(),
-                sp.GetRequiredService<IDIDCommService>(),
                 sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>(),
                 sp.GetRequiredService<ILogger<FederationDidDocumentResolver>>()));
 
