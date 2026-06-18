@@ -8,6 +8,7 @@ public interface ICryptoService
 {
     Svrn7KeyPair GenerateSecp256k1KeyPair();
     Svrn7KeyPair GenerateEd25519KeyPair();
+    Svrn7KeyPair GenerateX25519KeyPair();
     string  SignSecp256k1(byte[] payload, byte[] privateKeyBytes);   // returns CESR string
     string  SignEd25519(byte[] payload, byte[] privateKeyBytes);     // returns CESR string
     bool    VerifySecp256k1(byte[] payload, string cesrSignature, string publicKeyHex);

@@ -46,6 +46,9 @@ public sealed class TdaOptions
     [Required]
     public byte[] SocietyMessagingPrivateKeyEd25519 { get; set; } = [];
 
+    /// <summary>X25519 key agreement private key (raw 32 bytes). Used by KestrelListenerService for JWE decryption in UnpackAsync.</summary>
+    public byte[] AgentKeyAgreementPrivateKey { get; set; } = [];
+
     // ── Network ───────────────────────────────────────────────────────────────
 
     /// <summary>Port for Kestrel HTTP/2 + mTLS inbound listener (default 8443).</summary>

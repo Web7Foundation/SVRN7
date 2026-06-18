@@ -147,11 +147,12 @@ public interface ISvrn7Driver : IAsyncDisposable
     // ── Crypto helpers ─────────────────────────────────────────────────────────
     Svrn7KeyPair GenerateSecp256k1KeyPair();
     Svrn7KeyPair GenerateEd25519KeyPair();
+    Svrn7KeyPair GenerateX25519KeyPair();
     string  SignSecp256k1(byte[] payload, byte[] privateKeyBytes);
     bool    VerifySecp256k1(byte[] payload, string cesrSig, string publicKeyHex);
     Task<string> Blake3HexAsync(byte[] data, CancellationToken ct = default);
     Task<string> Base58EncodeAsync(byte[] data, CancellationToken ct = default);
-    DidDocument  CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null);
+    DidDocument  CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null, string? x25519PublicKeyHex = null);
 
     // ── Wallet admin ───────────────────────────────────────────────────────────
     Task<int> LiftAllWalletRestrictionsAsync(CancellationToken ct = default);

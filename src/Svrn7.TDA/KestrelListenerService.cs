@@ -190,7 +190,7 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         {
             unpacked = await _didComm.UnpackAsync(
                 packedBody,
-                _opts.SocietyMessagingPrivateKeyEd25519,
+                _opts.AgentKeyAgreementPrivateKey,
                 http.RequestAborted);
         }
         catch (Exception ex)
@@ -316,7 +316,7 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         {
             unpacked = await _didComm.UnpackAsync(
                 json,
-                _opts.SocietyMessagingPrivateKeyEd25519,
+                _opts.AgentKeyAgreementPrivateKey,
                 ct);
         }
         catch (Exception ex)

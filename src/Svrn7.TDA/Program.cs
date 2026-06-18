@@ -218,25 +218,31 @@ if (await driver.DidRegistry.CountAsync() == 0)
 {
     isFirstRun = true;
     var kp          = driver.GenerateSecp256k1KeyPair();
+    var kaKp        = driver.GenerateX25519KeyPair();
     var genesisHash = await driver.Blake3HexAsync(Convert.FromHexString(kp.PublicKeyHex));
     agentDid        = $"did:drn:wanderer.svrn7.net/agent/1.0/{genesisHash}";
-    svrn7Name = tdaName;
+    svrn7Name       = tdaName;
 
     var didDoc = driver.CreateDidDocument(agentDid, kp.PublicKeyHex, "drn",
-                     $"{tdaUrl}:{port}/didcomm", Svrn7Role.Wanderer, svrn7Name);
+                     $"{tdaUrl}:{port}/didcomm", Svrn7Role.Wanderer, svrn7Name,
+                     x25519PublicKeyHex: kaKp.PublicKeyHex);
     await driver.CreateDidAsync(didDoc);
 
     await File.WriteAllTextAsync(identityPath,
         JsonSerializer.Serialize(new
         {
-            did           = agentDid,
-            publicKeyHex  = kp.PublicKeyHex,
-            privateKeyHex = Convert.ToHexString(kp.PrivateKeyBytes).ToLowerInvariant(),
-            role          = "Wanderer",
-            createdAt     = DateTimeOffset.UtcNow.ToString("O"),
+            did                  = agentDid,
+            publicKeyHex         = kp.PublicKeyHex,
+            privateKeyHex        = Convert.ToHexString(kp.PrivateKeyBytes).ToLowerInvariant(),
+            x25519PublicKeyHex   = kaKp.PublicKeyHex,
+            x25519PrivateKeyHex  = Convert.ToHexString(kaKp.PrivateKeyBytes).ToLowerInvariant(),
+            role                 = "Wanderer",
+            createdAt            = DateTimeOffset.UtcNow.ToString("O"),
         }, new JsonSerializerOptions { WriteIndented = true }));
 
+    tdaOpts.AgentKeyAgreementPrivateKey = kaKp.PrivateKeyBytes;
     kp.ZeroPrivateKey();
+    kaKp.ZeroPrivateKey();
 }
 else
 {
@@ -248,6 +254,10 @@ else
         agentDid   = elem.GetProperty("did").GetString();
         var result = await driver.DidRegistry.ResolveAsync(agentDid!);
         svrn7Name  = result.Document?.Svrn7Name;
+
+        // Restore X25519 key agreement private key for JWE decryption.
+        if (elem.TryGetProperty("x25519PrivateKeyHex", out var kaHex) && kaHex.GetString() is { Length: > 0 } kaHexStr)
+            tdaOpts.AgentKeyAgreementPrivateKey = Convert.FromHexString(kaHexStr);
 
         // Restore parent TDA wiring from identity file if not already set via config/env.
         if (string.IsNullOrEmpty(tdaOpts.ParentTdaDid)
@@ -321,8 +331,8 @@ if (!string.IsNullOrEmpty(tdaOpts.FederationDomain) && string.IsNullOrEmpty(tdaO
     Console.WriteLine($"  OS          : {RuntimeInformation.OSDescription}");
     Console.WriteLine(hr);
     Console.WriteLine($"  TDA Name    : {svrn7Name ?? "(unknown)"}");
-    Console.WriteLine($"  First run   : {(isFirstRun ? "yes — Wanderer identity created" : "no — existing TDA")}");
-    Console.WriteLine($"  Role        : {tdaOpts.Role}");
+    Console.WriteLine($"  TDA Role    : {tdaOpts.Role}");
+    Console.WriteLine($"  Initialized : {(isFirstRun ? "no — new Wanderer identity created" : "yes — using existing identity")}");
     Console.WriteLine($"  Agent DID   : {agentDid ?? tdaOpts.SocietyDid}");
     Console.WriteLine($"  Listen port : {port}");
     if (!string.IsNullOrEmpty(tdaOpts.FederationDomain))

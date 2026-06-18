@@ -434,8 +434,8 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
     public Task<FederationRecord?> GetFederationAsync(CancellationToken ct = default)             => _inner.GetFederationAsync(ct);
     public Task<OperationResult>  UpdateFederationSupplyAsync(long n, string s, string r, CancellationToken ct = default) => _inner.UpdateFederationSupplyAsync(n, s, r, ct);
     public Task<OperationResult>  InitialiseFederationAsync(DidDocument d, string n, CancellationToken ct = default) => _inner.InitialiseFederationAsync(d, n, ct);
-    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null)
-        => _inner.CreateDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role, tdaName);
+    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null, string? x25519PublicKeyHex = null)
+        => _inner.CreateDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role, tdaName, x25519PublicKeyHex);
     public Task CreateDidAsync(DidDocument d, CancellationToken ct = default)                   => _inner.CreateDidAsync(d, ct);
     public Task UpdateDidAsync(DidDocument d, CancellationToken ct = default)                    => _inner.UpdateDidAsync(d, ct);
     public Task<DidResolutionResult> ResolveDidAsync(string d, CancellationToken ct = default)   => _inner.ResolveDidAsync(d, ct);
@@ -462,6 +462,7 @@ public sealed class Svrn7SocietyDriver : ISvrn7SocietyDriver
     public Task<OperationResult> ErasePersonAsync(string d, string s, DateTimeOffset t, CancellationToken ct = default) => _inner.ErasePersonAsync(d, s, t, ct);
     public Svrn7KeyPair GenerateSecp256k1KeyPair()                                     => _inner.GenerateSecp256k1KeyPair();
     public Svrn7KeyPair GenerateEd25519KeyPair()                                       => _inner.GenerateEd25519KeyPair();
+    public Svrn7KeyPair GenerateX25519KeyPair()                                        => _inner.GenerateX25519KeyPair();
     public string SignSecp256k1(byte[] p, byte[] k)                                    => _inner.SignSecp256k1(p, k);
     public bool   VerifySecp256k1(byte[] p, string s, string k)                       => _inner.VerifySecp256k1(p, s, k);
     public Task<string> Blake3HexAsync(byte[] d, CancellationToken ct = default)                => _inner.Blake3HexAsync(d, ct);

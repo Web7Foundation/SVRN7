@@ -4,7 +4,7 @@ namespace Svrn7.Core.Models;
 
 // ── Enumerations ──────────────────────────────────────────────────────────────
 
-public enum KeyAlgorithm   { Secp256k1, Ed25519 }
+public enum KeyAlgorithm   { Secp256k1, Ed25519, X25519 }
 public enum DidStatus      { Active, Suspended, Deactivated }
 public enum VcStatus       { Active, Suspended, Revoked, Expired }
 public enum OverdraftStatus{ Clean, Overdrawn, Ceiling }

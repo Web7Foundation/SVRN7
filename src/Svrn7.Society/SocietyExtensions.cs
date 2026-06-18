@@ -167,7 +167,8 @@ public static class SocietyServiceCollectionExtensions
         });
 
         // 4. DIDComm services
-        services.TryAddSingleton<IDIDCommService, DIDCommPackingService>();
+        services.TryAddSingleton<IDIDCommService>(sp =>
+            new DIDCommPackingService(sp.GetService<IDidDocumentResolver>()));
 
         // 5. Federation-aware resolvers (replace base LocalDidDocumentResolver)
         // These are registered as concrete types AND as interfaces so they can be

@@ -875,7 +875,7 @@ internal sealed class NullSocietyDriver : Svrn7.Society.ISvrn7SocietyDriver
     public Task<Svrn7.Core.Models.FederationRecord?> GetFederationAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> UpdateFederationSupplyAsync(long newTotalSupplyGrana, string foundationSignature, string governanceRef, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> InitialiseFederationAsync(Svrn7.Core.Models.DidDocument d, string n, CancellationToken ct = default) => throw new NotImplementedException();
-    public Svrn7.Core.Models.DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7.Core.Models.Svrn7Role? role = null, string? svrn7Name = null) => throw new NotImplementedException();
+    public Svrn7.Core.Models.DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7.Core.Models.Svrn7Role? role = null, string? svrn7Name = null, string? x25519PublicKeyHex = null) => throw new NotImplementedException();
     public Task CreateDidAsync(Svrn7.Core.Models.DidDocument document, CancellationToken ct = default) => throw new NotImplementedException();
     public Task UpdateDidAsync(Svrn7.Core.Models.DidDocument document, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.DidResolutionResult> ResolveDidAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
@@ -901,7 +901,8 @@ internal sealed class NullSocietyDriver : Svrn7.Society.ISvrn7SocietyDriver
     public Task<Svrn7.Core.Models.TreeHead?> GetLatestTreeHeadAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> ErasePersonAsync(string did, string controllerSignature, DateTimeOffset requestTimestamp, CancellationToken ct = default) => throw new NotImplementedException();
     public Svrn7.Core.Models.Svrn7KeyPair GenerateSecp256k1KeyPair() => throw new NotImplementedException();
-    public Svrn7.Core.Models.Svrn7KeyPair GenerateEd25519KeyPair() => throw new NotImplementedException();
+    public Svrn7.Core.Models.Svrn7KeyPair GenerateEd25519KeyPair()   => throw new NotImplementedException();
+    public Svrn7.Core.Models.Svrn7KeyPair GenerateX25519KeyPair()    => throw new NotImplementedException();
     public string SignSecp256k1(byte[] payload, byte[] privateKeyBytes) => throw new NotImplementedException();
     public bool VerifySecp256k1(byte[] payload, string cesrSig, string publicKeyHex) => throw new NotImplementedException();
     public Task<string> Blake3HexAsync(byte[] data, CancellationToken ct = default) => throw new NotImplementedException();

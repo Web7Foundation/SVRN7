@@ -672,6 +672,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
     public Svrn7KeyPair GenerateSecp256k1KeyPair() { ThrowIfDisposed(); return _crypto.GenerateSecp256k1KeyPair(); }
     public Svrn7KeyPair GenerateEd25519KeyPair()   { ThrowIfDisposed(); return _crypto.GenerateEd25519KeyPair(); }
+    public Svrn7KeyPair GenerateX25519KeyPair()    { ThrowIfDisposed(); return _crypto.GenerateX25519KeyPair(); }
     public string SignSecp256k1(byte[] p, byte[] k) { ThrowIfDisposed(); return _crypto.SignSecp256k1(p, k); }
     public bool VerifySecp256k1(byte[] p, string s, string k) { ThrowIfDisposed(); return _crypto.VerifySecp256k1(p, s, k); }
     public Task<string> Blake3HexAsync(byte[] d, CancellationToken ct = default)
@@ -709,12 +710,14 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null)
-        => BuildMinimalDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role, tdaName);
+    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null, string? x25519PublicKeyHex = null)
+        => BuildMinimalDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role, tdaName, x25519PublicKeyHex);
 
-    public static DidDocument BuildMinimalDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null)
+    public static DidDocument BuildMinimalDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null, string? x25519PublicKeyHex = null)
     {
-        var keyId = $"{did}#key-1";
+        var keyId   = $"{did}#key-1";
+        var kaKeyId = x25519PublicKeyHex is not null ? $"{did}#key-agreement-1" : (string?)null;
+
         var vm = new DidVerificationMethod
         {
             Id           = keyId,
@@ -727,21 +730,29 @@ public sealed class Svrn7Driver : ISvrn7Driver
             ? new DidServiceEndpoint { Id = $"{did}#didcomm-1", Type = "DIDCommMessaging", ServiceEndpoint = serviceEndpointUrl }
             : null;
 
+        var jsonOpts = new JsonSerializerOptions
+            { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
+
+        object[] verificationMethods = kaKeyId is not null
+            ? [
+                new { id = vm.Id, type = vm.Type, controller = vm.Controller, publicKeyHex = vm.PublicKeyHex },
+                new { id = kaKeyId, type = "X25519KeyAgreementKey2020", controller = did, publicKeyHex = x25519PublicKeyHex }
+              ]
+            : [new { id = vm.Id, type = vm.Type, controller = vm.Controller, publicKeyHex = vm.PublicKeyHex }];
+
         var doc = new
         {
             context            = new[] { "https://www.w3.org/ns/did/v1" },
             id                 = did,
-            verificationMethod = new[]
-            {
-                new { id = vm.Id, type = vm.Type, controller = vm.Controller, publicKeyHex = vm.PublicKeyHex }
-            },
-            authentication  = new[] { keyId },
-            assertionMethod = new[] { keyId },
-            service         = svc is not null
+            verificationMethod = verificationMethods,
+            authentication     = new[] { keyId },
+            assertionMethod    = new[] { keyId },
+            keyAgreement       = kaKeyId is not null ? new[] { kaKeyId } : null,
+            service            = svc is not null
                 ? new[] { new { id = svc.Id, type = svc.Type, serviceEndpoint = svc.ServiceEndpoint } }
                 : null,
-            tdaRole         = role?.ToString(),
-            tdaName         = tdaName,
+            tdaRole            = role?.ToString(),
+            tdaName            = tdaName,
         };
 
         var result = new DidDocument
@@ -753,12 +764,18 @@ public sealed class Svrn7Driver : ISvrn7Driver
             Authentication     = [keyId],
             AssertionMethod    = [keyId],
             Role               = role,
-            Svrn7Name            = tdaName,
+            Svrn7Name          = tdaName,
             Version            = 1,
             Status             = DidStatus.Active,
-            DocumentJson       = JsonSerializer.Serialize(doc, new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }),
+            DocumentJson       = JsonSerializer.Serialize(doc, jsonOpts),
         };
-        if (svc is not null) result.ServiceEndpoints.Add(svc);
+        if (svc is not null)   result.ServiceEndpoints.Add(svc);
+        if (kaKeyId is not null)
+        {
+            result.VerificationMethod.Add(new DidVerificationMethod
+                { Id = kaKeyId, Type = "X25519KeyAgreementKey2020", Controller = did, PublicKeyHex = x25519PublicKeyHex });
+            result.KeyAgreement.Add(kaKeyId);
+        }
         return result;
     }
 }
