@@ -104,11 +104,9 @@ LiteDB holds an **exclusive write lock** — **stop the TDA before deleting any 
 ### Full reset
 
 ```powershell
-# 1. Stop the TDA (Ctrl+C)
-# 2. Delete the mem folder for the port you are resetting:
-Remove-Item -Recurse -Force "8441\mem" -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force "8442\mem" -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force "8443\mem" -ErrorAction SilentlyContinue
+# 1. Stop all TDAs (Ctrl+C in each window)
+# 2. Delete all mem folders in one shot:
+Remove-Item -Recurse -Force "*\mem" -ErrorAction SilentlyContinue
 # 3. Restart — databases are recreated on first run
 ```
 
