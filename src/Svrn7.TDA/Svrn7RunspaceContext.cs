@@ -103,7 +103,7 @@ public sealed class Svrn7RunspaceContext
 
     /// <summary>
     /// DIDComm endpoint URL of the Federation TDA, discovered at TDA startup via
-    /// drn.directory DNS. Empty when <c>--federation-domain</c> / <c>Tda:FederationDomain</c>
+    /// drn.directory DNS. Empty when <c>--federationdomain</c> / <c>Tda:FederationDomain</c>
     /// is not configured, or when no drn.directory TXT record was found.
     /// In LOBE cmdlets: <c>$SVRN7.FederationEndpointUrl</c>.
     /// </summary>

@@ -135,10 +135,10 @@ Write-Host "Endpoint: $endpoint"
 
 ### D.6 — Auto-discovery at TDA startup
 
-Pass `--federation-domain` when launching the TDA to auto-discover the Federation endpoint:
+Pass `--federationdomain` when launching the TDA to auto-discover the Federation endpoint:
 
 ```powershell
-dotnet .\Svrn7.TDA.dll --port 8445 --name W5 --federation-domain svrn7.net
+dotnet .\Svrn7.TDA.dll --port 8445 --name W5 --federationdomain svrn7.net
 ```
 
 The TDA queries `federation.svrn7.net.drn.directory` during startup.  When a TXT record

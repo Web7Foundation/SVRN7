@@ -35,7 +35,7 @@ using Svrn7.TDA;
 //                  endpoint (scheme + host, no trailing slash).
 //                  Default: http://localhost
 //                  Full endpoint stored: <url>:{port}/didcomm
-// --federation-domain <domain>
+// --federationdomain <domain>
 //                  Bare domain used to auto-discover the Federation TDA DIDComm endpoint
 //                  via drn.directory DNS at startup (e.g. "svrn7.net").
 //                  Equivalent to setting Tda:FederationDomain in appsettings.json.
@@ -68,7 +68,7 @@ if (Array.IndexOf(args, "--help") >= 0 || Array.IndexOf(args, "-h") >= 0)
                             Default: http://localhost
                             Full endpoint stored: <url>:{port}/didcomm
 
-          --federation-domain <domain>
+          --federationdomain <domain>
                             Bare domain to auto-discover the Federation TDA endpoint
                             via drn.directory DNS at startup. Example: "svrn7.net"
                             queries "federation.svrn7.net.drn.directory" for a TXT
@@ -125,7 +125,7 @@ string tdaUrl;
 
 string federationDomainArg;
 {
-    var fdIdx = Array.IndexOf(args, "--federation-domain");
+    var fdIdx = Array.IndexOf(args, "--federationdomain");
     federationDomainArg = fdIdx >= 0 && fdIdx + 1 < args.Length && !string.IsNullOrWhiteSpace(args[fdIdx + 1])
         ? args[fdIdx + 1].Trim()
         : string.Empty;
@@ -335,7 +335,7 @@ if (!string.IsNullOrEmpty(tdaOpts.FederationDomain) && string.IsNullOrEmpty(tdaO
     Console.WriteLine($"  Initialized : {(isFirstRun ? "no — new Wanderer identity created" : "yes — using existing identity")}");
     Console.WriteLine($"  Agent DID   : {agentDid ?? tdaOpts.SocietyDid}");
     Console.WriteLine($"  Listen port : {port}");
-    Console.WriteLine($"  Fed Domain  : {(!string.IsNullOrEmpty(tdaOpts.FederationDomain)    ? tdaOpts.FederationDomain    : "(not configured — use --federation-domain)")}");
+    Console.WriteLine($"  Fed Domain  : {(!string.IsNullOrEmpty(tdaOpts.FederationDomain)    ? tdaOpts.FederationDomain    : "(not configured — use --federationdomain)")}");
     Console.WriteLine($"  Fed Endpoint: {(!string.IsNullOrEmpty(tdaOpts.FederationEndpointUrl) ? tdaOpts.FederationEndpointUrl : "(not resolved — no drn.directory record found)")}");
 
     // JIT = all discovered descriptors whose module is not in the eager list.

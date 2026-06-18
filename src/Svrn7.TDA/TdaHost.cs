@@ -145,7 +145,7 @@ public sealed class TdaOptions
     /// <summary>
     /// Domain used to discover the Federation TDA endpoint via drn.directory DNS TXT lookup.
     /// Example: "svrn7.net" → queries "federation.svrn7.net.drn.directory".
-    /// Configured via <c>Tda:FederationDomain</c> or <c>--federation-domain</c>.
+    /// Configured via <c>Tda:FederationDomain</c> or <c>--federationdomain</c>.
     /// </summary>
     public string FederationDomain { get; set; } = string.Empty;
 
