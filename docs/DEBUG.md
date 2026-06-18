@@ -6,18 +6,34 @@
 
 ## Overview
 
-- Single inbound endpoint: `POST http://localhost:8443/didcomm`
+- Single inbound endpoint: `POST http://localhost:{port}/didcomm`
 - Protocol: **HTTP/2 cleartext (h2c)** — the server only speaks HTTP/2; HTTP/1.1 requests are rejected
 - No TLS cert configured → cleartext development mode (see `Program.cs` and `KestrelListenerService.cs`)
-- `UnpackAsync` has a **plaintext branch**: if the JSON body has a `"type"` property at the root, it passes through without decryption — no keys needed for dev testing. It also extracts the `"id"` field as `DIDCommUnpackedMessage.Id` (the DIDComm wire id), which is stored in `InboxMessage.WireId`.
-- **Encrypted messages are not yet decrypted**: `UnpackAsync` does not implement JWE decryption — `recipientPrivateKey` is accepted but currently ignored. Encrypted inbound messages will be stored with `MessageType = "application/didcomm-encrypted+json"` and immediately dead-lettered by the Switchboard (`MarkFailedAsync`, no retry). Only plaintext messages are routed end-to-end in the current implementation.
+- `UnpackAsync` has a **plaintext branch**: if the JSON body has a `"type"` property at the root, it passes through without decryption — no keys needed for dev testing
+- **Encrypted messages are not yet decrypted**: `UnpackAsync` does not implement JWE decryption — encrypted inbound messages are dead-lettered immediately
 - A valid message returns **202 Accepted** and is enqueued; the Switchboard routes it asynchronously
+
+---
+
+## Role-specific Debug Guides
+
+Each TDA role has a dedicated guide.  Run them in order:
+
+| Guide | Role | Port (default) | Prerequisite |
+|---|---|---|---|
+| `FEDERATIONDEBUG.md` | Federation TDA | 8441 | None — run first |
+| `SOCIETYDEBUG.md` | Society TDA | 8442 | `FEDERATIONDEBUG.md` complete |
+| `CITIZENDEBUG.md` | Citizen TDA | 8443 | `SOCIETYDEBUG.md` complete |
+| `WANDERERDEBUG.md` | Wanderer TDA | 8445, 8446 | Standalone — no Federation required |
+| `DNSDEBUG.md` | drn.directory DNS | — | TDA built |
+| `DIDDEBUG.md` | DID Document types | — | Reference |
+| `LOBEDEBUG.md` | LOBE authoring | — | Reference |
 
 ---
 
 ## PowerShell Requirement — VS 2022 / VS 2026
 
-The send helpers in this guide use `curl.exe` and require **PowerShell 7 (`pwsh.exe`)**.
+The send helpers in this guide use `Send-DIDCommMessage` and require **PowerShell 7 (`pwsh.exe`)**.
 The VS Developer PowerShell defaults to Windows PowerShell 5.1 (.NET Framework), which is missing
 required .NET 5+ types. Configure VS to use PowerShell 7 once:
 
@@ -26,27 +42,16 @@ required .NET 5+ types. Configure VS to use PowerShell 7 once:
 3. Set **Name** `PowerShell 7`, **Shell location** `C:\Program Files\PowerShell\7\pwsh.exe`, **Arguments** `-NoExit`
 4. Check **Make default**, click **OK**
 
-To find `pwsh.exe` if it is not at the path above:
-```powershell
-(Get-Command pwsh -ErrorAction SilentlyContinue).Source
-```
-
 Verify you are on PowerShell 7 before running any scenario:
 ```powershell
 $PSVersionTable.PSVersion   # Major should be 7
 ```
-To start an external copy of PowerShell from VS 2022:
-```
-Start-Process pwsh -ArgumentList "-NoExit",
-  "-Command", "Set-Location 'C:/SVRN7/repos/SVRN7/s
-  rc/Svrn7.TDA/bin/Debug/net8.0'"
-```
+
 ---
 
 ## Working Directory
 
-All commands in this guide assume the current working directory is the TDA debug output folder.
-Run this once per session before any other command:
+All commands in the role-specific guides assume:
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7
@@ -68,7 +73,9 @@ dotnet test .\tests\Svrn7.Society.Tests\Svrn7.Society.Tests.csproj
 
 ### PowerShell LOBE tests (Pester)
 
-Tests the LOBE PowerShell layer — function availability after module import, `Build-CanonicalTransferJson` field ordering, `Send-DIDCommMessage` parameter contract, and `Initialize-Svrn7Assemblies` path resolution. No TDA or compiled assemblies required.
+Tests the LOBE PowerShell layer — function availability after module import,
+`Build-CanonicalTransferJson` field ordering, `Send-DIDCommMessage` parameter contract,
+and `Initialize-Svrn7Assemblies` path resolution.  No TDA or compiled assemblies required.
 
 Install Pester 5 once if needed:
 
@@ -82,607 +89,62 @@ Run from repo root:
 Import-Module Pester -MinimumVersion 5.0 -Force
 Set-Location C:\SVRN7\repos\SVRN7
 Invoke-Pester .\tests\Svrn7.Lobes.Tests.ps1 -Output Detailed
-Set-Location C:/SVRN7/repos/SVRN7
-Set-Location src/Svrn7.TDA/bin/Debug/net8.0
 ```
 
-> `Import-Module Pester -MinimumVersion 5.0 -Force` is required because Windows ships Pester 3.4.0 and PowerShell would otherwise load the older version.
+> `Import-Module Pester -MinimumVersion 5.0 -Force` is required because Windows ships
+> Pester 3.4.0 and PowerShell would otherwise load the older version.
 
 ---
 
 ## Resetting the Environment
 
-All state lives in five LiteDB files under the `{port}\mem\` subfolder of the TDA output directory.
-LiteDB holds an **exclusive write lock** for the lifetime of any process that has them open —
-**stop the TDA before deleting any database file**.
+All state lives in five LiteDB files under the `{port}\mem\` subfolder.
+LiteDB holds an **exclusive write lock** — **stop the TDA before deleting any database file**.
 
-Paths are configured in `appsettings.json` (`Svrn7:DbPath` etc.) and resolved relative to the
-TDA executable directory by `Program.cs`, so they always land in `{port}\mem\` regardless of the
-working directory. For the default port 8443 the folder is `8443\mem\`.
-
-### Full reset (start from scratch)
+### Full reset
 
 ```powershell
-# 1. Stop the TDA (Ctrl+C in the TDA terminal window)
-
-# 2. Delete the entire mem folder (TDA recreates it on next run)
-Remove-Item -Recurse -Force "*\mem" -ErrorAction SilentlyContinue
-
-# 3. Restart the TDA — it recreates all databases on first run
-dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
+# 1. Stop the TDA (Ctrl+C)
+# 2. Delete the mem folder for the port you are resetting:
+Remove-Item -Recurse -Force "8441\mem" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "8442\mem" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "8443\mem" -ErrorAction SilentlyContinue
+# 3. Restart — databases are recreated on first run
 ```
 
-After a full reset, run Scenario E in order: E.0 (federation init) → E.2 (society register) → E.4 (citizen onboard).
-
-### Partial reset — inbox only
-
-Clears accumulated test messages and dead-lettered messages from the Switchboard queue
-without disturbing federation, society, or citizen state.
+Or pass `--reset` at startup to let the TDA delete its own data:
 
 ```powershell
-# Stop the TDA, then:
-Remove-Item -Path "8443\mem\svrn7-inbox.db" -ErrorAction SilentlyContinue
-# Restart the TDA
-dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
+dotnet .\Svrn7.TDA.dll --port 8441 --name Federation --reset
 ```
 
-> If you override `Svrn7:InboxDbPath` in `appsettings.json` (or via `$env:Svrn7__InboxDbPath`),
-> substitute your configured path above. Replace `8443` with your port number if different.
+After a full reset, run the role-specific guides in order: `FEDERATIONDEBUG.md` → `SOCIETYDEBUG.md` → `CITIZENDEBUG.md`.
 
 ---
 
-## Scenario E — Bootstrap federation, society, and citizen via DIDComm (TDA running)
-
-This scenario starts from a completely empty database and walks through the full
-bootstrap sequence using only DIDComm messages to the running TDA:
-
-| Step | Protocol | Handler (TDA) |
-|------|----------|---------------|
-| E.0 | `Svrn7.Federation.0.8.0/initialize-federation` | `Invoke-Web7FederationInit` (Federation) |
-| E.1 | `Svrn7.Federation.0.8.0/federation-query` | `Invoke-Web7FederationQuery` (Federation) |
-| E.2 | `Svrn7.Federation.0.8.0/register-society` | `Invoke-Web7RegisterSociety` (Federation) |
-| E.2r | `Svrn7.Federation.0.8.0/register-society-result` | `Invoke-Web7RegisterSocietyResult` (Society) |
-| E.3 | *(client-side key generation)* | — |
-| E.3a | `Svrn7.Federation.0.8.0/society-list` | `Invoke-Web7SocietyList` (Federation) |
-| E.3b | `Svrn7.Federation.0.8.0/society-list-result` | `Invoke-Web7SocietyListResult` (Citizen) |
-| E.4 | `Svrn7.Onboarding.0.8.0/register-citizen` | `ConvertFrom-Web7OnboardRequest` (Society) |
-| E.4r | `Svrn7.Onboarding.0.8.0/receipt` | `Invoke-Web7OnboardReceipt` (Citizen) |
-| E.5–E.11 | `Svrn7.Society.0.8.0/*` query/admin | see below |
-
-> **How replies work:** the Switchboard executes the handler cmdlet, which resolves
-> the sender's DIDComm endpoint from their DID document and returns an
-> `OutboundMessage`. The Switchboard delivers it asynchronously via HTTP/2 to the
-> sender's TDA. In dev/test the sender TDA may not be running — the outbound delivery
-> will fail and be dead-lettered, but the operation itself succeeds and is visible in
-> the TDA log.
-
-Key material and DID generation are always client-side (E.2 and E.3 use the same key
-generation as Scenario B steps B.1–B.2).
-
-### E.0 — Initialise the Federation
-
-Sent once, before any societies are registered. Idempotent — safe to repeat.
-
-#### E.0.1 — Generate the federation governance key pair
-
-This is a **one-time operation**. The private key must be stored in a key vault or HSM and
-never placed in config files. The public key is recorded permanently in the federation record.
-
-`New-Svrn7KeyPair` requires only the Svrn7 assemblies — no driver or database connection.
-The TDA may be running or stopped when this step is executed.
-
-```powershell
-# Import the module (loads assemblies; no database opened)
-Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
-
-$federationKp = New-Svrn7KeyPair
-
-Write-Host "Public key  : $($federationKp.PublicKeyHex)"
-Write-Host "Private key : $($federationKp.PrivateKeyHex)   <-- store securely, never share"
-```
-
-Example output (your values will differ):
-
-```
-Public key  : 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
-Private key : 18e14a7b5a...  <-- store securely, never share
-```
-
-#### E.0.2 — Send the Svrn7.Federation.0.8.0/initialize-federation DIDComm message
-
-Replace `$federationKp.PublicKeyHex` with the value saved in E.0.1 on subsequent runs.
-
-```powershell
-$body = @{
-    federationDid        = "did:drn:foundation.svrn7.net"
-    federationName       = "Web 7.0 SOVRON Foundation"
-    publicKeyHex         = $federationKp.PublicKeyHex
-    primaryDidMethodName = "drn"
-} | ConvertTo-Json -Compress
-
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation"
-    from = "did:drn:foundation.svrn7.net"
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = $body
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Expected TDA log:
-
-```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation)
-        → Invoke-Web7FederationInit [Svrn7.Federation]   # routes on initialize-federation
-[Info]  Federation initialised: did:drn:foundation.svrn7.net (Web 7.0 SOVRON Foundation), supply 1000000000000000000 grana
-```
-
-Reply body (`Svrn7.Federation.0.8.0/initialize-federation-result`):
-
-```json
-{
-  "federationDid":        "did:drn:foundation.svrn7.net",
-  "federationName":       "Web 7.0 SOVRON Foundation",
-  "primaryDidMethodName": "drn",
-  "totalSupplyGrana":     1000000000000000000,
-  "alreadyInitialised":   false,
-  "initialisedAt":        "2026-04-15T..."
-}
-```
-
-### E.1 — Query the Federation record
-
-Verify the federation was initialised correctly. Also works before initialisation — returns `found: false`.
-
-```powershell
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/federation-query"
-    from = "did:drn:foundation.svrn7.net"
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = "{}"
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Expected TDA log:
-
-```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/federation-query)
-        → Invoke-Web7FederationQuery [Svrn7.Federation]
-[Trace]   [PS Verbose] Invoke-Web7FederationQuery: replying to did:drn:foundation.svrn7.net
-```
-
-Reply body (`Svrn7.Federation.0.8.0/federation-query-result`):
-
-```json
-{
-  "found":                    true,
-  "federationDid":            "did:drn:foundation.svrn7.net",
-  "federationName":           "Web 7.0 SOVRON Foundation",
-  "primaryDidMethodName":     "drn",
-  "totalSupplyGrana":         1000000000000000000,
-  "endowmentPerSocietyGrana": 0,
-  "currentEpoch":             0,
-  "isActive":                 true,
-  "createdAt":                "2026-04-15T...",
-  "queriedAt":                "2026-04-15T..."
-}
-```
-
-### E.2 — Register the "bindloss" Society
-
-The Society TDA sends this to the Federation TDA. `serviceEndpointUrl` is required so
-the Federation can create the Society's DID Document with its DIDComm endpoint and
-deliver the `register-society-result` reply.
-
-Handler (Federation TDA): `Invoke-Web7RegisterSociety`
-
-```powershell
-# Reuse the society key pair generated in Scenario B (or generate a new one)
-$societyKeyPair = New-Svrn7KeyPair
-
-$body = @{
-    societyDid            = "did:drn:bindloss.svrn7.net"
-    publicKeyHex          = $societyKeyPair.PublicKeyHex
-    societyName           = "Bindloss Alberta"
-    primaryDidMethodName  = "bindloss"
-    serviceEndpointUrl    = "http://localhost:8442/didcomm"   # Society TDA endpoint
-    drawAmountGrana       = 1000000000000     # 1 SVRN7
-    overdraftCeilingGrana = 10000000000000    # 10 SVRN7
-} | ConvertTo-Json -Compress
-
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society"
-    from = "did:drn:bindloss.svrn7.net"
-    to   = @("did:drn:foundation.svrn7.net")
-    body = $body
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Expected TDA log (Federation TDA):
-
-```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society)
-        → Invoke-Web7RegisterSociety [Svrn7.Federation]
-[Warn]  RegisterSocietyAsync: FoundationPrivateKey not configured — VTC credential skipped for did:drn:bindloss.svrn7.net (development mode)
-[Info]  Invoke-Web7RegisterSociety: registered 'did:drn:bindloss.svrn7.net', replying to did:drn:bindloss.svrn7.net
-```
-
-Reply body (`Svrn7.Federation.0.8.0/register-society-result`) delivered to Society TDA:
-
-```json
-{
-  "societyDid":            "did:drn:bindloss.svrn7.net",
-  "societyName":           "Bindloss Alberta",
-  "primaryDidMethodName":  "bindloss",
-  "societyDidDocument":    { "Did": "did:drn:bindloss.svrn7.net", ... },
-  "federationDid":         "did:drn:foundation.svrn7.net",
-  "federationEndpointUrl": "http://localhost:8441/didcomm",
-  "federationDidDocument": { "Did": "did:drn:foundation.svrn7.net", ... },
-  "drawAmountGrana":       1000000000000,
-  "overdraftCeilingGrana": 10000000000000,
-  "success":               true,
-  "registeredAt":          "2026-04-15T..."
-}
-```
-
-Handler (Society TDA): `Invoke-Web7RegisterSocietyResult`
-
-On receipt the Society TDA:
-1. Stores `societyDidDocument` in its local DID registry
-2. Stores `federationDidDocument` in its local DID registry
-3. Sets `parentTdaDid` = `federationDid` and `parentTdaEndpointUrl` = `federationEndpointUrl` (persisted to `agent-identity.json`)
-
-### E.3 — Generate citizen key material (client-side)
-
-This step is identical to Scenario B step B.1 — key generation never goes through the TDA.
-
-```powershell
-$citizenKeyPair = New-Svrn7KeyPair
-$citizenDidDoc  = New-Svrn7Did -KeyPair $citizenKeyPair -MethodName "bindloss"
-$citizenDid     = $citizenDidDoc.Did
-# e.g. did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
-```
-
-### E.4 — Register citizen "mwherman" via Svrn7.Onboarding.0.8.0/register-citizen
-
-`serviceEndpointUrl` is required so the Society can create the Citizen's DID Document
-with its DIDComm endpoint and deliver the `receipt` reply.
-
-Handler (Society TDA): `ConvertFrom-Web7OnboardRequest` → `Register-Svrn7CitizenInSociety` → `New-Web7OnboardReceipt`
-
-```powershell
-$body = @{
-    citizenDid         = $citizenDid
-    citizenName        = "mwherman"
-    publicKeyHex       = $citizenKeyPair.PublicKeyHex
-    serviceEndpointUrl = "http://localhost:8443/didcomm"   # Citizen TDA endpoint
-} | ConvertTo-Json -Compress
-
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen"
-    from = $citizenDid
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = $body
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Expected TDA log (Society TDA):
-
-```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen)
-        → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
-[Info]  Citizen registered: did:bindloss:3J98...
-```
-
-Reply body (`Svrn7.Onboarding.0.8.0/receipt`) delivered to Citizen TDA:
-
-```json
-{
-  "success":           true,
-  "citizenDid":        "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",
-  "citizenDidDocument": { "Did": "did:bindloss:3J98...", "ServiceEndpoints": [...], ... },
-  "societyDid":        "did:drn:bindloss.svrn7.net",
-  "societyDidDocument": { "Did": "did:drn:bindloss.svrn7.net", ... },
-  "societyEndpointUrl": "http://localhost:8442/didcomm",
-  "endowmentGrana":    1000000000,
-  "endowmentVcId":     "...",
-  "registeredAt":      "2026-04-15T..."
-}
-```
-
-Handler (Citizen TDA): `Invoke-Web7OnboardReceipt`
-
-On receipt the Citizen TDA:
-1. Stores `citizenDidDocument` in its local DID registry
-2. Stores `societyDidDocument` in its local DID registry
-3. Sets `parentTdaDid` = `societyDid` and `parentTdaEndpointUrl` = `societyEndpointUrl` (persisted to `agent-identity.json`)
-
----
-
-The steps below mirror Scenario D — the same operations performed via direct cmdlet calls,
-now sent as DIDComm messages to the running TDA.
-
-### E.5 — Query the Society record
-
-```powershell
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/society-query"
-    from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"   # sender DID
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = "{}"
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Expected TDA log (LogLevel.Trace):
-
-```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/society-query)
-        → Invoke-Web7SocietyQuery [Svrn7.Society]
-[Trace]   [PS Verbose] Invoke-Web7SocietyQuery: replying to did:bindloss:3J98...
-```
-
-Reply body (delivered to the sender's TDA):
-
-```json
-{
-  "societyDid":    "did:drn:bindloss.svrn7.net",
-  "federationDid": "did:drn:foundation.svrn7.net",
-  "currentEpoch":  0,
-  "queriedAt":     "2026-04-15T..."
-}
-```
-
-### E.6 — Test membership for a specific DID
-
-```powershell
-$citizenDid = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-
-$body = @{ did = $citizenDid } | ConvertTo-Json -Compress
-
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/member-query"
-    from = $citizenDid
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = $body
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Reply body:
-
-```json
-{ "societyDid": "did:drn:bindloss.svrn7.net", "did": "did:bindloss:3J98...", "isMember": true }
-```
-
-### E.7 — List all members
-
-Send the same `member-query` with an empty body (`"{}"`):
-
-```powershell
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/member-query"
-    from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = "{}"
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Reply body:
-
-```json
-{ "societyDid": "did:drn:bindloss.svrn7.net", "memberCount": 1, "memberDids": ["did:bindloss:3J98..."] }
-```
-
-### E.8 — Query overdraft status
-
-```powershell
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-query"
-    from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = "{}"
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Reply body (after first citizen registration, overdraft drawn):
-
-```json
-{
-  "societyDid":            "did:drn:bindloss.svrn7.net",
-  "status":                "Overdrawn",
-  "totalOverdrawnGrana":   1000000000000,
-  "overdraftCeilingGrana": 10000000000000,
-  "lifetimeDrawsGrana":    1000000000000,
-  "drawCount":             1
-}
-```
-
-### E.9 — Register a secondary DID method
-
-```powershell
-$body = @{ methodName = "bindlossgov" } | ConvertTo-Json -Compress
-
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-method-register"
-    from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = $body
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Reply body:
-
-```json
-{ "societyDid": "did:drn:bindloss.svrn7.net", "methodName": "bindlossgov", "status": "Active", "success": true }
-```
-
-### E.10 — List DID methods
-
-```powershell
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-methods-query"
-    from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = "{}"
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Reply body:
-
-```json
-{
-  "societyDid": "did:drn:bindloss.svrn7.net",
-  "methods": [
-    { "methodName": "bindloss",    "isPrimary": true,  "status": "Active" },
-    { "methodName": "bindlossgov", "isPrimary": false, "status": "Active" }
-  ]
-}
-```
-
-### E.11 — Add a secondary DID for "mwherman"
-
-```powershell
-$body = @{
-    citizenPrimaryDid = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-    methodName        = "bindlossgov"
-} | ConvertTo-Json -Compress
-
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/citizen-did-add"
-    from = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = $body
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Reply body:
-
-```json
-{
-  "citizenPrimaryDid": "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",
-  "secondaryDid":      "did:bindlossgov:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",
-  "methodName":        "bindlossgov",
-  "success":           true
-}
-```
-
----
-
-## Log Level
-
-Set in `Program.cs` `ConfigureLogging`:
-
-```csharp
-logging.SetMinimumLevel(LogLevel.Trace);   // verbose
-logging.SetMinimumLevel(LogLevel.Information); // normal
-```
-
----
-
-## PowerShell Testing
-
-### Step 1 — Connectivity check
-
-```powershell
-Test-NetConnection localhost -Port 8443
-```
-
----
-
-### Step 2 — Load the h2c send helper
-
-`Invoke-RestMethod -HttpVersion 2.0` does **not** work with cleartext HTTP/2 (h2c): PowerShell uses `HttpVersionPolicy.RequestVersionOrLower`, which falls back to HTTP/1.1 framing — rejected by the server. `Send-DIDCommMessage` in `Svrn7.Common` uses `HttpClient` with `RequestVersionExact` to enforce HTTP/2 end-to-end.
-
-`Send-DIDCommMessage` is available automatically after importing either LOBE:
-
-```powershell
-Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
-# — or —
-Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1
-```
-
-All scenarios below call `Send-DIDCommMessage -Body <json>` directly.
-
----
-
-### Step 3 — Send a plaintext DIDComm message
-
-```powershell
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request"
-    from = "did:test:sender"
-    to   = @("did:drn:alpha.svrn7.net")
-    body = "{}"
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Expected: `Status: Accepted`
-
----
-
-## Available Protocol URIs
+## Available Protocol URIs — All TDA Roles
 
 | `type` URI | Handler | TDA role |
 |---|---|---|
-| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation` | `Invoke-Web7FederationInit` | Federation |
-| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/federation-query` | `Invoke-Web7FederationQuery` | Federation |
-| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list` | `Invoke-Web7SocietyList` | Federation |
-| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list-result` | `Invoke-Web7SocietyListResult` | Citizen / Society |
-| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society` | `Invoke-Web7RegisterSociety` | Federation |
-| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society-result` | `Invoke-Web7RegisterSocietyResult` | Society |
-| `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen` | `ConvertFrom-Web7OnboardRequest` | Society |
-| `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt` | `Invoke-Web7OnboardReceipt` | Citizen |
-| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request` | `Invoke-Svrn7IncomingTransfer` | Society |
-| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order` | `Invoke-Svrn7IncomingTransfer` | Society |
-| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order-receipt` | `Confirm-Svrn7Settlement` | Society |
+| `.../Svrn7.Federation.0.8.0/initialize-federation` | `Invoke-Web7FederationInit` | Federation |
+| `.../Svrn7.Federation.0.8.0/federation-query` | `Invoke-Web7FederationQuery` | Federation |
+| `.../Svrn7.Federation.0.8.0/society-list` | `Invoke-Web7SocietyList` | Federation |
+| `.../Svrn7.Federation.0.8.0/society-list-result` | `Invoke-Web7SocietyListResult` | Citizen / Society |
+| `.../Svrn7.Federation.0.8.0/register-society` | `Invoke-Web7RegisterSociety` | Federation |
+| `.../Svrn7.Federation.0.8.0/register-society-result` | `Invoke-Web7RegisterSocietyResult` | Society |
+| `.../Svrn7.Onboarding.0.8.0/register-citizen` | `ConvertFrom-Web7OnboardRequest` | Society |
+| `.../Svrn7.Onboarding.0.8.0/receipt` | `Invoke-Web7OnboardReceipt` | Citizen |
+| `.../Svrn7.Society.0.8.0/society-query` | `Invoke-Web7SocietyQuery` | Society |
+| `.../Svrn7.Society.0.8.0/member-query` | `Invoke-Web7MemberQuery` | Society |
+| `.../Svrn7.Society.0.8.0/overdraft-query` | `Invoke-Web7OverdraftQuery` | Society |
+| `.../Svrn7.Society.0.8.0/did-method-register` | `Invoke-Web7DidMethodRegister` | Society |
+| `.../Svrn7.Society.0.8.0/did-methods-query` | `Invoke-Web7DidMethodsQuery` | Society |
+| `.../Svrn7.Society.0.8.0/citizen-did-add` | `Invoke-Web7CitizenDidAdd` | Society |
+| `.../Svrn7.Society.0.8.0/transfer-request` | `Invoke-Svrn7IncomingTransfer` | Society |
+| `.../Svrn7.Society.0.8.0/transfer-order` | `Invoke-Svrn7IncomingTransfer` | Society |
+| `.../Svrn7.Society.0.8.0/transfer-order-receipt` | `Confirm-Svrn7Settlement` | Society |
 
-Any other `type` value is enqueued (202) but the Switchboard will log an unroutable message — visible at `LogLevel.Trace`.
+Full URI prefix: `did:drn:svrn7.net/protocols/`
 
 ---
 
@@ -697,16 +159,14 @@ Any other `type` value is enqueued (202) but the Switchboard will log an unrouta
 
 ## Tracing PowerShell Cmdlet Execution
 
-### What is logged and where
-
-At `LogLevel.Information`, the Switchboard logs the cmdlet name and LOBE when it dispatches a message:
+At `LogLevel.Information`, the Switchboard logs the cmdlet name and LOBE when it dispatches:
 
 ```
 Switchboard: routing {Did} (type={Type}) → {EP} [{LOBE}]
 ```
 
-At `LogLevel.Trace`, `InvokeCmdletPipelineAsync` in `DIDCommMessageSwitchboard.cs` additionally logs
-cmdlet start, completion, and all PowerShell streams forwarded to the .NET logger:
+At `LogLevel.Trace`, it additionally logs cmdlet start, completion, and all PowerShell
+streams forwarded to the .NET logger:
 
 ```
 [Trace] PS invoke: Invoke-Svrn7IncomingTransfer -MessageDid did:tda:...
@@ -717,517 +177,46 @@ cmdlet start, completion, and all PowerShell streams forwarded to the .NET logge
 [Trace] PS complete: Invoke-Svrn7IncomingTransfer → 1 result(s).
 ```
 
-PS stream forwarding happens after `ps.Invoke()` returns — output is in order but not
-streaming line-by-line during execution. For live output from long-running cmdlets, wire
-`ps.Streams.Verbose.DataAdded` events in `InvokeCmdletPipelineAsync`.
-
 ---
 
-## Scenario A — Create first Society "bindloss"
+## Log Level
 
-The Society is not created via a DIDComm message. It is initialised at TDA startup via
-configuration. Follow these steps to bring up a fresh TDA for the Bindloss Society.
-
-### A.1 — Configure `appsettings.json`
-
-Create or edit `appsettings.json` beside the `Svrn7.TDA` binary:
+Set in `appsettings.json`:
 
 ```json
-{
-  "Svrn7": {
-    "SocietyDid":  "did:drn:bindloss.svrn7.net",
-    "FederationDid": "did:drn:foundation.svrn7.net",
-    "DbPath":      "svrn7.db",
-    "DidsDbPath":  "svrn7-dids.db",
-    "VcsDbPath":   "svrn7-vcs.db",
-    "InboxDbPath": "svrn7-inbox.db",
-    "SchemasDbPath": "svrn7-schemas.db"
-  },
-  "Tda": {
-    "SocietyDid":  "did:drn:bindloss.svrn7.net",
-    "ListenPort":  8443,
-    "RequireMutualTls": false,
-    "AcceptSelfSigned": true,
-    "LobesConfigPath": "./lobes/lobes.config.json"
-  }
-}
+"Svrn7.TDA.DIDCommMessageSwitchboard": "Debug"
 ```
 
-Or set environment variables instead (`.NET` colon → `__` in env):
+Or in `Program.cs` `ConfigureLogging`:
 
-```powershell
-$env:Svrn7__SocietyDid   = "did:drn:bindloss.svrn7.net"
-$env:Svrn7__FederationDid = "did:drn:foundation.svrn7.net"
-$env:Tda__SocietyDid     = "did:drn:bindloss.svrn7.net"
-$env:Tda__ListenPort     = "8443"
-$env:Tda__RequireMutualTls    = "false"
-$env:Tda__AcceptSelfSigned    = "true"
-```
-
-### A.2 — First-run startup
-
-```powershell
-dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
-```
-
-`--port` and `--name` are required. `--url <base-url>` is optional (default `http://localhost`);
-it sets the scheme+host used in the Wanderer DID Document service endpoint (`<url>:<port>/didcomm`).
-Run `dotnet .\Svrn7.TDA.dll --help` to see all parameters.
-
-On first run the TDA:
-1. Detects an empty DID registry and auto-generates a Wanderer identity: secp256k1
-   key pair, `did:drn:wanderer.testnet.svrn7.net/agent/1.0/{guid}` DID and DIDDocument
-   (`Svrn7Role=Wanderer`, `Svrn7Name=<--name value>`), stored in `8443/mem/svrn7-dids.db`.
-   Key material is persisted to `8443/mem/agent-identity.json`.
-2. Registers `Svrn7SocietyOptions` with `SocietyDid = did:drn:bindloss.svrn7.net`.
-3. Loads eager LOBEs: `Svrn7.Common`, `Svrn7.Federation`, `Svrn7.Society`, `Svrn7.UX`.
-4. Starts the Switchboard drain loop and Kestrel on port 8443.
-
-Expected console lines (LogLevel.Information):
-
-```
-info: DIDCommMessageSwitchboard[0]
-      DIDCommMessageSwitchboard: drain loop started.
-info: KestrelListenerService[0]
-      TDA Kestrel listener started on port 8443 (h2c).
-```
-
-### A.3 — Verify the Society is running (PowerShell module)
-
-In a separate PowerShell 7 session, import the Society module and query the running instance:
-
-```powershell
-Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
-Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1
-
-Initialize-Svrn7FederationDriver
-
-Connect-Svrn7Society `
-    -SocietyDid     "did:drn:bindloss.svrn7.net" `
-    -FederationDid  "did:drn:foundation.svrn7.net" `
-    -DidMethodNames @("bindloss") `
-    -DbPath         "."
-
-Get-Svrn7OwnSociety | Select-Object SocietyDid, CurrentEpoch
-```
-
-Expected output:
-
-```
-SocietyDid                   CurrentEpoch
-----------                   ------------
-did:drn:bindloss.svrn7.net   0
-```
-
-### A.4 — Check overdraft baseline
-
-```powershell
-Get-Svrn7OverdraftStatus
-```
-
-Expected (fresh Society, no registrations yet):
-
-```
-SocietyDid                   Status
-----------                   ------
-did:drn:bindloss.svrn7.net   Clean
+```csharp
+logging.SetMinimumLevel(LogLevel.Trace);       // verbose
+logging.SetMinimumLevel(LogLevel.Information); // normal
 ```
 
 ---
 
-## Scenario B — Register first citizen "mwherman" via DIDComm
-
-Citizen registration is driven by the `Svrn7.Onboarding.0.8.0/register-citizen` DIDComm protocol.
-The Switchboard routes the inbound message to Agent 2 (Onboarding LOBE), which calls
-`Register-Svrn7CitizenInSociety` and returns an `Svrn7.Onboarding.0.8.0/receipt`.
-
-### B.1 — Generate key material for "mwherman"
-
-Run once and save the output. The private key must be stored securely by the citizen's
-own TDA — the Society stores only the public key.
-
-```powershell
-# Import the module (loads assemblies; no database opened)
-Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
-
-# Generate secp256k1 signing key pair — no driver or database needed
-$kp  = New-Svrn7KeyPair
-
-# Derive citizen DID under the "bindloss" method
-$did = New-Svrn7Did -KeyPair $kp -MethodName "bindloss"
-
-Write-Host "Citizen DID : $($did.Did)"
-Write-Host "Public key  : $($kp.PublicKeyHex)"
-Write-Host "Private key : $($kp.PrivateKeyHex)   <-- store this securely, never share"
-```
-
-Example output (your values will differ — keys are randomly generated):
-
-```
-Citizen DID : did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
-Public key  : 0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
-Private key : <32-byte hex — keep secret>
-```
-
-### B.2 — Send the onboarding request via DIDComm
-
-Replace `$citizenDid` and `$publicKeyHex` with the values from step B.1.
-
-The `body` field is a JSON-string (stringified) — the plaintext unpack branch passes it
-through to `PackedPayload` which `ConvertFrom-Web7OnboardRequest` parses with
-`ConvertFrom-Json`.
-
-```powershell
-$citizenDid   = "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-$publicKeyHex = "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
-
-$body = @{
-    citizenDid         = $citizenDid
-    publicKeyHex       = $publicKeyHex
-    displayName        = "mwherman"
-    serviceEndpointUrl = "http://localhost:8443/didcomm"   # Citizen TDA endpoint
-} | ConvertTo-Json -Compress
-
-$msg = @{
-    typ  = "application/didcomm-plain+json"
-    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen"
-    from = $citizenDid
-    to   = @("did:drn:bindloss.svrn7.net")
-    body = $body
-} | ConvertTo-Json
-
-Send-DIDCommMessage -Body $msg
-```
-
-Expected: `Status: Accepted`
-
-### B.4 — Verify registration in the TDA log
-
-With `LogLevel.Trace`, look for the Agent 2 pipeline output:
-
-```
-[Info]  Switchboard: routing did:drn:bindloss.svrn7.net/inbox/msg/<id>
-        (type=did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen) → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
-[Trace] PS invoke: Agent2-Onboarding.ps1 -MessageDid did:drn:...
-[Trace]   [PS Verbose] Agent 2 / Onboarding: processing did:drn:...
-[Trace]   [PS Verbose] Agent 2 / Onboarding: registering citizen did:bindloss:3J98...
-[Info]    [PS Info] Agent 2 / Onboarding: citizen did:bindloss:3J98... registered. Endowment: 1000000000 grana.
-[Trace] PS complete: Agent2-Onboarding.ps1 → 1 result(s).
-```
-
-### B.5 — Verify registration via PowerShell module
-
-```powershell
-# Re-use the Connect-Svrn7Society session from Scenario A.3
-
-Test-Svrn7SocietyMember -Did "did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-```
-
-Expected:
-
-```
-Did        : did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
-SocietyDid : did:drn:bindloss.svrn7.net
-IsMember   : True
-```
-
-```powershell
-Get-Svrn7SocietyMembers | Select-Object MemberCount, MemberDids
-```
-
-Expected after first registration:
-
-```
-MemberCount MemberDids
------------ ----------
-          1 {did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy}
-```
-
-### B.6 — Error: duplicate registration
-
-Sending the same `Svrn7.Onboarding.0.8.0/register-citizen` a second time (same `citizenDid`) results in
-a `202 Accepted` at the HTTP layer (the Switchboard always enqueues), but Agent 2 will
-log an error and return an `Svrn7.Onboarding.0.8.0/receipt` with `success: false`:
-
-```
-[Error] Agent 2 / Onboarding: failed for did:drn:.../inbox/msg/<id> — CitizenAlreadyRegisteredException
-```
-
-This is expected. `Register-Svrn7CitizenInSociety` is not idempotent.
-
----
-
-## Scenario D — Pure PowerShell cmdlet workflow (no TDA running)
-
-The PS modules call the same C# ISvrn7SocietyDriver / ISvrn7Driver stack that the TDA
-uses internally. Nothing touches LiteDB directly — all operations go through the driver.
-This path is useful for scripted provisioning, one-off admin tasks, and debugging without
-having to send DIDComm messages over HTTP/2.
-
-> **Can the TDA be running at the same time?**
->
-> It depends on `DbPath`:
->
-> | Scenario D `DbPath` | TDA `DbPath` | Result |
-> |---|---|---|
-> | Same as TDA (e.g. `"."`) | `"."` | **Fails.** LiteDB holds an exclusive write lock for the lifetime of the process. `Connect-Svrn7Society` throws `LiteException` immediately. |
-> | Different (e.g. `./data-ps`) | `"."` | **Works, but isolated.** Two completely separate databases — no shared state. Registrations made in D are invisible to the running TDA. |
->
-> Practical rules:
-> - **Standalone provisioning:** run Scenario D with the TDA stopped, then start the TDA
->   pointing at the same `DbPath`. The TDA will pick up the pre-populated data.
-> - **Inspecting a live TDA's data via PS:** stop the TDA first, then open its `DbPath`
->   with the PS module.
-> - **Scenario D is not a live admin console** for a running TDA — use DIDComm messages
->   (Scenario B) for that.
-
-### D.1 — Prerequisites
-
-Build the solution first (run from the repo root, not the debug folder):
-
-```powershell
-dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj
-```
-
-Then navigate to the debug folder (if not already there) and set the assembly search path:
-
-```powershell
-Set-Location src/Svrn7.TDA/bin/Debug/net8.0
-$env:SVRN7_BIN_PATH = $PWD
-```
-
-### D.2 — Import modules and initialise the drivers
-
-```powershell
-# Import order matters: Federation must be imported before Society
-# (Society dot-sources Svrn7.Common.0.8.0.psm1 through its own copy, but the
-#  assembly loader flag is set by Initialize-Svrn7FederationDriver)
-Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1 -Force
-Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1    -Force
-
-# Load the Svrn7 assemblies and create the ISvrn7Driver singleton
-Initialize-Svrn7FederationDriver -DbPath "./data-ps" -DidMethodName "drn" -Verbose
-
-# Create the ISvrn7SocietyDriver singleton (wraps the Federation driver)
-Connect-Svrn7Society `
-    -SocietyDid     "did:drn:bindloss.svrn7.net" `
-    -FederationDid  "did:drn:foundation.svrn7.net" `
-    -DidMethodNames @("bindloss") `
-    -DbPath         "./data-ps"
-```
-
-Expected verbose output:
-
-```
-VERBOSE: Loaded: Svrn7.Core.dll
-VERBOSE: Loaded: Svrn7.Crypto.dll
-...
-VERBOSE: Svrn7.Federation ready. DbRoot: ./data-ps  Method: drn
-VERBOSE: Svrn7.Society connected: did:drn:bindloss.svrn7.net
-```
-
-### D.3 — Verify the Society record
-
-```powershell
-Get-Svrn7OwnSociety | Select-Object SocietyDid, CurrentEpoch
-```
-
-Expected:
-
-```
-SocietyDid                   CurrentEpoch
-----------                   ------------
-did:drn:bindloss.svrn7.net   0
-```
-
-```powershell
-Get-Svrn7OverdraftStatus
-```
-
-Expected (no citizens registered yet):
-
-```
-SocietyDid                   Status
-----------                   ------
-did:drn:bindloss.svrn7.net   Clean
-```
-
-### D.4 — Generate key material for citizen "mwherman"
-
-Run once. Save `$kp.PrivateKeyHex` — the Society stores only the public key.
-
-```powershell
-$kp  = New-Svrn7KeyPair
-$did = New-Svrn7Did -KeyPair $kp -MethodName "bindloss"
-
-"Citizen DID : $($did.Did)"
-"Public key  : $($kp.PublicKeyHex)"
-"Private key : $($kp.PrivateKeyHex)   <-- keep secret"
-```
-
-### D.5 — Register the citizen
-
-`Register-Svrn7CitizenInSociety` calls
-`ISvrn7SocietyDriver.RegisterCitizenInSocietyAsync()`, which:
-
-1. Creates a `CitizenRecord` and `SocietyMembershipRecord` in LiteDB (via the C# driver).
-2. Creates the citizen's wallet.
-3. Transfers exactly 1,000 SVRN7 (1,000,000,000 grana) from the Society wallet as the endowment.
-4. Issues a `Svrn7EndowmentCredential` VC.
-5. Appends a `CitizenRegistration` entry to the Merkle audit log.
-
-```powershell
-$reg = Register-Svrn7CitizenInSociety -DidDocument $did -KeyPair $kp
-$reg | Format-List
-```
-
-Expected:
-
-```
-CitizenDid     : did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
-SocietyDid     : did:drn:bindloss.svrn7.net
-EndowmentSvrn7 : 1000.000000
-EndowmentGrana : 1000000000
-MethodName     :
-Success        : True
-```
-
-### D.6 — Verify membership and overdraft
-
-```powershell
-# Membership check
-Test-Svrn7SocietyMember -Did $did.Did
-```
-
-Expected:
-
-```
-Did        : did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
-SocietyDid : did:drn:bindloss.svrn7.net
-IsMember   : True
-```
-
-```powershell
-# Full member list
-Get-Svrn7SocietyMembers | Select-Object MemberCount, MemberDids
-```
-
-Expected:
-
-```
-MemberCount MemberDids
------------ ----------
-          1 {did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy}
-```
-
-```powershell
-# Overdraft record — shows one draw event if Society wallet was initially empty
-Get-Svrn7OverdraftRecord | Format-List
-```
-
-Expected (if the Society wallet had sufficient balance — no overdraft draw triggered):
-
-```
-SocietyDid            : did:drn:bindloss.svrn7.net
-Status                : Clean
-TotalOverdrawnGrana   : 0
-LifetimeDrawsGrana    : 0
-DrawCount             : 0
-```
-
-Expected (if the Society wallet was empty — overdraft draw was triggered automatically):
-
-```
-SocietyDid            : did:drn:bindloss.svrn7.net
-Status                : Overdrawn
-TotalOverdrawnGrana   : 1000000000000
-LifetimeDrawsGrana    : 1000000000000
-DrawCount             : 1
-```
-
-### D.7 — Register a second citizen (smoke test for bulk path)
-
-```powershell
-$kp2  = New-Svrn7KeyPair
-$did2 = New-Svrn7Did -KeyPair $kp2 -MethodName "bindloss"
-Initialize-Svrn7Citizen -DidDocument $did2 -KeyPair $kp2 | Select-Object CitizenDid, Success
-```
-
-```powershell
-# Confirm both are now members
-Get-Svrn7SocietyMembers | Select-Object MemberCount
-```
-
-### D.8 — Add a secondary DID method and issue a secondary DID for "mwherman"
-
-```powershell
-# Register a second DID method name under this Society
-Initialize-Svrn7SocietyDidMethod -MethodName "bindlossgov"
-
-# Issue a secondary DID for mwherman under the new method
-Add-Svrn7CitizenDid -CitizenPrimaryDid $did.Did -MethodName "bindlossgov"
-```
-
-Expected:
-
-```
-CitizenPrimaryDid : did:bindloss:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
-SecondaryDid      : did:bindlossgov:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
-MethodName        : bindlossgov
-Success           : True
-```
-
-Note: both DIDs share the same identifier component (the base58-encoded public key) — the
-method prefix is the only difference. Both resolve to the same `CitizenRecord`.
-
-```powershell
-# Confirm the secondary DID is also recognised as a member
-Test-Svrn7SocietyMember -Did "did:bindlossgov:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-```
-
-### D.9 — List all DID methods for this Society
-
-```powershell
-Get-Svrn7SocietyDidMethods | Format-Table MethodName, IsPrimary, Status -AutoSize
-```
-
-Expected:
-
-```
-MethodName   IsPrimary Status
-----------   --------- ------
-bindloss     True      Active
-bindlossgov  False     Active
-```
-
----
-
-## Scenario C — Common error conditions
+## Common Error Conditions
 
 | Symptom | Cause | Fix |
 |---|---|---|
 | `400 Bad Request` on POST /didcomm | Body is empty, not valid JSON, or missing `type` field at root | Add `"type"` key to the message root |
-| `202` but log shows `No LOBE registered for @type` | `type` URI does not match any registered protocol | Check `lobes.config.json` and the `.lobe.json` protocol URIs |
+| `202` but log shows `No LOBE registered for @type` | `type` URI does not match any registered protocol | Check `lobes.config.json` and `.lobe.json` protocol URIs |
 | `202` but log shows `CitizenAlreadyRegisteredException` | Citizen DID already registered | Expected — use a new key pair and DID |
-| `202` but log shows `SocietyEndowmentDepletedException` | Society overdraft ceiling reached | Check `Get-Svrn7OverdraftStatus`; await Federation top-up |
-| Agent 2 log: `No DIDComm service endpoint for <DID>` | Citizen DID document has no `DIDComm` service entry | Register the citizen's DID document before sending the receipt |
-| Switchboard epoch gate log warning | `type` URI requires a higher epoch than `CurrentEpoch` | Only `Svrn7.Society.0.8.0/transfer-order` and `Svrn7.Society.0.8.0/transfer-order-receipt` are epoch-gated (require Epoch 1). `Svrn7.Society.0.8.0/transfer-request` is not epoch-gated. |
-| `202` but Switchboard log shows `HandleIncomingTransferMessageAsync` error on `Svrn7.Society.0.8.0/transfer-request` | `Invoke-Svrn7IncomingTransfer` passes the stored body to `HandleIncomingTransferMessageAsync`, which expects a packed transfer credential, not a plaintext JSON body | Dev testing of transfer routing only — use a properly signed `TransferOrderCredential` body for production transfers |
-| `202` but log shows `unknown message type 'application/didcomm-encrypted+json'` | Encrypted JWE was sent — `UnpackAsync` does not decrypt JWE; stores raw ciphertext with wrong type | Use plaintext messages for dev/test (`typ = "application/didcomm-plain+json"`, no `protected_` wrapper) |
+| `202` but log shows `SocietyEndowmentDepletedException` | Society overdraft ceiling reached | Check overdraft-query; await Federation top-up |
+| Agent 2 log: `No DIDComm service endpoint for <DID>` | Citizen DID document has no DIDComm service entry | Register the citizen's DID document before sending the receipt |
+| `202` but `unknown message type application/didcomm-encrypted+json'` | Encrypted JWE sent — UnpackAsync does not decrypt JWE | Use plaintext messages for dev/test |
 
 ---
 
-## Scenario F — Test teardown: Remove all LiteDB databases
+## Scenario F — Test Teardown: Remove All LiteDB Databases
 
 `Remove-Svrn7Databases` deletes all five LiteDB files and their companion journal files.
-**Stop the TDA host before running this** — LiteDB holds an exclusive file lock while the process is running.
+**Stop the TDA host before running this.**
 
-### F.1 — Interactive teardown (prompts for confirmation)
+### F.1 — Interactive teardown
 
 ```powershell
-# Defaults match the Svrn7Options/SocietyOptions path defaults.
-# PowerShell will display a High-impact confirmation prompt.
 Remove-Svrn7Databases
 ```
 
@@ -1243,7 +232,7 @@ Remove-Svrn7Databases -Confirm:$false
 Remove-Svrn7Databases -WhatIf
 ```
 
-Expected output (one row per candidate path):
+Expected output:
 
 ```
 Path                   Existed Removed
@@ -1251,13 +240,7 @@ Path                   Existed Removed
 svrn7.db               True    True
 svrn7.db-log           False   False
 svrn7-dids.db          True    True
-svrn7-dids.db-log      False   False
-svrn7-vcs.db           True    True
-svrn7-vcs.db-log       False   False
-svrn7-inbox.db         True    True
-svrn7-inbox.db-log     False   False
-svrn7-schemas.db       True    True
-svrn7-schemas.db-log   False   False
+...
 ```
 
 ### F.4 — Custom data directory
@@ -1278,10 +261,10 @@ Remove-Svrn7Databases `
 # 1. Tear down previous run
 Remove-Svrn7Databases -Confirm:$false
 
-# 2. Start TDA host (separate process or background job)
-Start-Process dotnet -ArgumentList '.\Svrn7.TDA.dll','--port','8443','--name','MyTDA' -NoNewWindow
+# 2. Start TDA host
+Start-Process dotnet -ArgumentList '.\Svrn7.TDA.dll','--port','8441','--name','Federation' -NoNewWindow
 
-# 3. Run test scenarios A/B/D/E ...
+# 3. Run test scenarios ...
 
 # 4. Tear down
 Remove-Svrn7Databases -Confirm:$false
@@ -1296,5 +279,3 @@ Remove-Svrn7Databases -Confirm:$false
 | `-VcsDbPath` | `svrn7-vcs.db` | Verifiable Credential registry |
 | `-InboxDbPath` | `svrn7-inbox.db` | DIDComm inbox, outbox, processed orders |
 | `-SchemasDbPath` | `svrn7-schemas.db` | JSON Schema 2020-12 registry |
-
-Each path also generates a `{path}-log` candidate (LiteDB 5 journal file). If present it is removed automatically.
