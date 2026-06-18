@@ -24,7 +24,6 @@ artifacts/
 
 ## Test results
 TestResults/
-coverage/
 *.trx
 *.coverage
 *.coveragexml

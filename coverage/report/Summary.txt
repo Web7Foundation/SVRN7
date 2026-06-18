@@ -1,0 +1,169 @@
+Summary
+  Generated on: 2026-06-18 - 9:13:08 PM
+  Coverage date: 2026-06-18 - 7:36:52 PM - 2026-06-18 - 9:12:48 PM
+  Parser: MultiReport (4x Cobertura)
+  Assemblies: 9
+  Classes: 131
+  Files: 39
+  Line coverage: 46.2%
+  Covered lines: 2375
+  Uncovered lines: 2758
+  Coverable lines: 5133
+  Total lines: 10471
+  Branch coverage: 33.2% (332 of 998)
+  Covered branches: 332
+  Total branches: 998
+  Method coverage: 54.8% (521 of 949)
+  Full method coverage: 49.2% (467 of 949)
+  Covered methods: 521
+  Fully covered methods: 467
+  Total methods: 949
+
+Svrn7.Core                                                  55.6%
+  Svrn7.Core.Exceptions.ConfigurationException                 0%
+  Svrn7.Core.Exceptions.DeregisteredDidMethodException         0%
+  Svrn7.Core.Exceptions.DormantDidMethodException              0%
+  Svrn7.Core.Exceptions.DoubleSpendException                   0%
+  Svrn7.Core.Exceptions.DuplicateDidMethodException            0%
+  Svrn7.Core.Exceptions.EndowmentException                     0%
+  Svrn7.Core.Exceptions.EpochViolationException             85.7%
+  Svrn7.Core.Exceptions.FederationUnavailableException         0%
+  Svrn7.Core.Exceptions.InsufficientBalanceException        71.4%
+  Svrn7.Core.Exceptions.InvalidCredentialException             0%
+  Svrn7.Core.Exceptions.InvalidDidException                    0%
+  Svrn7.Core.Exceptions.MerkleIntegrityException               0%
+  Svrn7.Core.Exceptions.NonceReplayException                66.6%
+  Svrn7.Core.Exceptions.NotFoundException                      0%
+  Svrn7.Core.Exceptions.PrimaryDidMethodException              0%
+  Svrn7.Core.Exceptions.SanctionedPartyException               0%
+  Svrn7.Core.Exceptions.SignatureVerificationException       100%
+  Svrn7.Core.Exceptions.SocietyEndowmentDepletedException      0%
+  Svrn7.Core.Exceptions.StaleTransferException               100%
+  Svrn7.Core.Exceptions.Svrn7Exception                        50%
+  Svrn7.Core.Exceptions.UnresolvableDidException               0%
+  Svrn7.Core.Interfaces.CrossSocietyVcQueryResult             60%
+  Svrn7.Core.Models.BalanceResult                            100%
+  Svrn7.Core.Models.CitizenDidRecord                        83.3%
+  Svrn7.Core.Models.CitizenRecord                           83.3%
+  Svrn7.Core.Models.DidDocument                             95.4%
+  Svrn7.Core.Models.DidProof                                   0%
+  Svrn7.Core.Models.DidResolutionResult                     66.6%
+  Svrn7.Core.Models.DidServiceEndpoint                         0%
+  Svrn7.Core.Models.DidVerificationMethod                   83.3%
+  Svrn7.Core.Models.FederationRecord                           0%
+  Svrn7.Core.Models.InboxMessage                            96.7%
+  Svrn7.Core.Models.LogEntry                                83.3%
+  Svrn7.Core.Models.NonceRecord                                0%
+  Svrn7.Core.Models.OperationResult                         83.3%
+  Svrn7.Core.Models.OutboxRecord                            77.7%
+  Svrn7.Core.Models.OverdraftDrawReceipt                       0%
+  Svrn7.Core.Models.OverdraftDrawRequest                       0%
+  Svrn7.Core.Models.ProcessedOrderRecord                       0%
+  Svrn7.Core.Models.RegisterCitizenInSocietyRequest           60%
+  Svrn7.Core.Models.RegisterCitizenRequest                  66.6%
+  Svrn7.Core.Models.RegisterSocietyRequest                  83.3%
+  Svrn7.Core.Models.RevocationEvent                           80%
+  Svrn7.Core.Models.SocietyMembershipRecord                   75%
+  Svrn7.Core.Models.SocietyOverdraftRecord                     0%
+  Svrn7.Core.Models.SocietyRecord                           83.3%
+  Svrn7.Core.Models.Svrn7KeyPair                              60%
+  Svrn7.Core.Models.TransferOrderCredential                    0%
+  Svrn7.Core.Models.TransferReceiptCredential                  0%
+  Svrn7.Core.Models.TransferRequest                         87.5%
+  Svrn7.Core.Models.TreeHead                                  80%
+  Svrn7.Core.Models.Utxo                                    87.5%
+  Svrn7.Core.Models.VcRecord                                91.6%
+  Svrn7.Core.Models.VcResolutionResult                         0%
+  Svrn7.Core.Models.Wallet                                    80%
+  Svrn7.Core.Svrn7Constants                                  100%
+  Svrn7.Core.TdaResourceId                                   100%
+
+Svrn7.Crypto                                                98.3%
+  Svrn7.Crypto.CryptoService                                98.3%
+
+Svrn7.DIDComm                                               84.7%
+  Svrn7.DIDComm.DIDCommMessage                              85.7%
+  Svrn7.DIDComm.DIDCommMessageBuilder                       86.6%
+  Svrn7.DIDComm.DIDCommPackingService                       83.3%
+  Svrn7.DIDComm.DIDCommUnpackedMessage                      89.4%
+
+Svrn7.Federation                                            54.5%
+  Svrn7.Federation.ServiceCollectionExtensions                 0%
+  Svrn7.Federation.Svrn7BackgroundService                      0%
+  Svrn7.Federation.Svrn7Driver                              69.3%
+  Svrn7.Federation.Svrn7HealthCheck                            0%
+  Svrn7.Federation.Svrn7Options                              100%
+
+Svrn7.Identity                                              26.4%
+  Svrn7.Identity.DIDDocumentService                            0%
+  Svrn7.Identity.InMemorySanctionsChecker                      0%
+  Svrn7.Identity.PassthroughSanctionsChecker                 100%
+  Svrn7.Identity.VcService                                  46.6%
+
+Svrn7.Ledger                                                88.9%
+  Svrn7.Ledger.InvalidAmountException                          0%
+  Svrn7.Ledger.MerkleLog                                    86.4%
+  Svrn7.Ledger.TransferValidator                            92.8%
+
+Svrn7.Society                                               36.6%
+  Svrn7.Society.DIDCommMessageProcessorService                 0%
+  Svrn7.Society.DIDCommTransferHandler                         0%
+  Svrn7.Society.FederationDidDocumentResolver                  0%
+  Svrn7.Society.FederationVcDocumentResolver                37.8%
+  Svrn7.Society.InboxLiteContext                            78.9%
+  Svrn7.Society.LiteInboxStore                              82.4%
+  Svrn7.Society.LiteOutboxStore                                0%
+  Svrn7.Society.LiteProcessedOrderStore                        0%
+  Svrn7.Society.LiteSchemaRegistry                          90.9%
+  Svrn7.Society.LiteSchemaResolver                           100%
+  Svrn7.Society.LiteSocietyMembershipStore                  37.5%
+  Svrn7.Society.SchemaLiteContext                            100%
+  Svrn7.Society.SchemaRecord                                 100%
+  Svrn7.Society.SocietyServiceCollectionExtensions             0%
+  Svrn7.Society.SocietyTransferValidator                    87.1%
+  Svrn7.Society.Svrn7SocietyDriver                          28.1%
+  Svrn7.Society.Svrn7SocietyOptions                          100%
+
+Svrn7.Store                                                 64.1%
+  Svrn7.Store.DidRegistryLiteContext                         100%
+  Svrn7.Store.FederationLiteContext                         77.2%
+  Svrn7.Store.LiteDidDocumentRegistry                         65%
+  Svrn7.Store.LiteFederationStore                           21.7%
+  Svrn7.Store.LiteIdentityRegistry                            79%
+  Svrn7.Store.LiteTransferNonceStore                           0%
+  Svrn7.Store.LiteVcDocumentResolver                         7.1%
+  Svrn7.Store.LiteVcRegistry                                71.4%
+  Svrn7.Store.LiteWalletStore                               56.8%
+  Svrn7.Store.LocalDidDocumentResolver                      87.5%
+  Svrn7.Store.Svrn7LiteContext                              94.9%
+  Svrn7.Store.VcRegistryLiteContext                          100%
+
+Svrn7.TDA                                                   30.8%
+  Program                                                      0%
+  Svrn7.TDA.DIDCommMessageSwitchboard                       13.7%
+  Svrn7.TDA.DnsTxtHelper                                       0%
+  Svrn7.TDA.DrnDirectory                                    62.5%
+  Svrn7.TDA.InboxMessageView                                   0%
+  Svrn7.TDA.IsolatedPipeline                                   0%
+  Svrn7.TDA.IsolatedRunspaceFactory                           27%
+  Svrn7.TDA.KestrelListenerService                          49.1%
+  Svrn7.TDA.LobeAiMetadata                                   100%
+  Svrn7.TDA.LobeCmdlet                                      77.7%
+  Svrn7.TDA.LobeCmdletAnnotations                            100%
+  Svrn7.TDA.LobeConfig                                       100%
+  Svrn7.TDA.LobeDependencies                                 100%
+  Svrn7.TDA.LobeDescriptor                                   100%
+  Svrn7.TDA.LobeManager                                     66.6%
+  Svrn7.TDA.LobeMetadata                                     100%
+  Svrn7.TDA.LobeProtocol                                     100%
+  Svrn7.TDA.LobeProtocolRegistration                        62.5%
+  Svrn7.TDA.OutboundMessage                                  100%
+  Svrn7.TDA.PendingResolutionEntry                             0%
+  Svrn7.TDA.PendingResolutionStore                          33.3%
+  Svrn7.TDA.Svrn7RunspaceContext                            33.6%
+  Svrn7.TDA.Svrn7Telemetry                                     0%
+  Svrn7.TDA.SwitchboardHostedService                           0%
+  Svrn7.TDA.TdaOptions                                      95.4%
+  Svrn7.TDA.TdaResourceAddress                                 0%
+  Svrn7.TDA.TdaServiceCollectionExtensions                     0%
+  Svrn7.TDA.WebSocketNotifyHub                              10.8%
