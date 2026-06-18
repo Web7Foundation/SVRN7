@@ -176,13 +176,13 @@ scalability with AI capability — see:
 
 Each participant — Federation, Society, and Citizen — operates a TDA. Every TDA
 starts as a **Wanderer**: on first run it auto-generates a secp256k1 key pair, creates
-a `did:drn:wanderer.testnet.svrn7.net/agent/1.0/{guid}` DID and DIDDocument with
+a `did:drn:wanderer.svrn7.net/agent/1.0/{genesis-hash}` DID and DIDDocument with
 `Svrn7Role=Wanderer`, and persists the identity to `{port}/mem/agent-identity.json`.
 Role is **additive** — promoting a Wanderer to Federation, Society, or Citizen creates
 an additional DID alongside the primary Wanderer DID. The only required startup
 parameter is `--port`.
 
-To start a local four-node testnet (all start as Wanderers):
+To start a local four-node dev network (all start as Wanderers):
 
 ```powershell
 .\Initialize-Testnet.ps1   # Wanderer1:8441  Wanderer2:8442  Wanderer3:8443  Wanderer4:8444

@@ -195,12 +195,12 @@ Testnet script: `tools/Initialize-Testnet.ps1` launches Wanderer1–4 on ports 8
 
 | Role | `Svrn7Role` enum | DID format |
 |---|---|---|
-| Wanderer | `Wanderer` | `did:drn:wanderer.testnet.svrn7.net/agent/1.0/{guid-N}` (GUID-based, auto-generated) |
-| Citizen | `Citizen` | `did:{method}:{base58-secp256k1-pubkey}` |
-| Society | `Society` | Human-assigned (e.g. `did:drn:bindloss.svrn7.net`) |
-| Federation | `Federation` | Human-assigned (e.g. `did:drn:solo.svrn7.net`) |
+| Wanderer | `Wanderer` | `did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>` |
+| Citizen | `Citizen` | `did:drn:<societyname>.svrn7.net/citizen/1.0/<genesis-hash>` |
+| Society | `Society` | `did:drn:federation.svrn7.net/<societyname>/1.0/<genesis-hash>` |
+| Federation | `Federation` | `did:drn:federation.svrn7.net/federation/1.0/<genesis-hash>` |
 
-`New-Svrn7Did` produces crypto-derived (Citizen) DIDs only. Society/Federation DIDs are specified literally in registration message bodies.
+All DIDs use the `did:drn:` method. `<genesis-hash>` = `Blake3(genesis_secp256k1_compressed_pubkey_bytes)` hex-encoded (64 chars). Derived once from the initial key pair and never changes — key rotation updates the DID Document's `verificationMethod` entries without altering the DID itself. `New-Svrn7Did` derives the DID deterministically from the key pair and role.
 
 ### `DidStatus` enum
 
@@ -215,7 +215,7 @@ Testnet script: `tools/Initialize-Testnet.ps1` launches Wanderer1–4 on ports 8
 On startup with an empty DID registry the TDA auto-generates a Wanderer identity and writes it to `{port}/mem/agent-identity.json`:
 
 ```json
-{ "did": "did:drn:wanderer.testnet.svrn7.net/agent/1.0/<guid>", "publicKeyHex": "...", "privateKeyHex": "...", "role": "Wanderer" }
+{ "did": "did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>", "publicKeyHex": "...", "privateKeyHex": "...", "role": "Wanderer" }
 ```
 
 ---

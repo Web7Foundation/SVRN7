@@ -110,7 +110,7 @@ Every TDA starts as a Wanderer. Role is additive — promotion creates an additi
 DID alongside the primary Wanderer DID. The only required startup parameter is --port.
 
 Wanderer (every TDA, auto-bootstrapped on first run)
-  └── DID: did:drn:wanderer.testnet.svrn7.net/agent/1.0/{guid}
+  └── DID: did:drn:wanderer.svrn7.net/agent/1.0/{genesis-hash}
   └── Svrn7Role = Wanderer
   └── Svrn7Name = "TDA-{port}" (auto-generated)
   └── Key pair: secp256k1, persisted to {port}/mem/agent-identity.json
@@ -148,7 +148,7 @@ Web 7.0 Pando architecture.
 TXT record convention:
   federation.<domain>.drn.directory  IN TXT  "<DIDComm endpoint URL>"
 
-Example (dev/testnet — production MUST use https://):
+Example (local dev — production MUST use https://):
   federation.svrn7.net.drn.directory  IN TXT  "http://localhost:8441/didcomm"
 
 Resolution algorithm (given did:drn:federation.<domain>/agent/<key>):

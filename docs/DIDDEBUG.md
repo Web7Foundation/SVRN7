@@ -12,17 +12,20 @@ roles.  The `Role` field and DID format distinguish the four variants:
 
 | Role | `DidDocument.Role` | DID format | Created by |
 |---|---|---|---|
-| **Wanderer** | `Wanderer` | `did:drn:wanderer.testnet.svrn7.net/agent/1.0/{guid}` | TDA auto-generates on first run; key material persisted to `{port}/mem/agent-identity.json` |
-| **Citizen** | `Citizen` | `did:{method}:{base58-secp256k1-pubkey}` | Society creates during `register-citizen` processing; stored in Society's registry; copy sent to Citizen via `receipt` |
-| **Society** | `Society` | `did:drn:{name}.svrn7.net` (human-assigned) | Federation creates during `register-society` processing; stored in Federation's registry; copy sent to Society via `register-society-result` |
-| **Federation** | `Federation` | `did:drn:{name}.svrn7.net` (human-assigned) | Self-created during `initialize-federation` |
+| **Wanderer** | `Wanderer` | `did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>` | TDA auto-generates on first run; key material persisted to `{port}/mem/agent-identity.json` |
+| **Citizen** | `Citizen` | `did:drn:<societyname>.svrn7.net/citizen/1.0/<genesis-hash>` | Society creates during `register-citizen` processing; stored in Society's registry; copy sent to Citizen via `receipt` |
+| **Society** | `Society` | `did:drn:federation.svrn7.net/<societyname>/1.0/<genesis-hash>` | Federation creates during `register-society` processing; stored in Federation's registry; copy sent to Society via `register-society-result` |
+| **Federation** | `Federation` | `did:drn:federation.svrn7.net/federation/1.0/<genesis-hash>` | Self-created during `initialize-federation` |
+
+`<genesis-hash>` = `Blake3(genesis_secp256k1_compressed_pubkey_bytes)` hex-encoded (64 chars).
+Derived once; stable across key rotations — key rotation updates `verificationMethod` in the DID Document, not the DID itself.
 
 **Key fields shared by all four types:**
 
 | Field | Purpose |
 |---|---|
 | `Did` | W3C DID identifier — the primary lookup key |
-| `MethodName` | SVRN7 registry key (`drn`, `bindloss`, etc.) |
+| `MethodName` | SVRN7 registry key — always `drn` |
 | `VerificationMethod[]` | secp256k1 or Ed25519 public keys |
 | `ServiceEndpoints[]` | DIDComm endpoints (`Type = "DIDCommMessaging"`, `ServiceEndpoint = "http://host:port/didcomm"`) |
 | `Role` | Enum tag — used for role-based resolution escalation |
@@ -107,7 +110,7 @@ builds the `DidDocument` record in memory. No driver or database is needed — t
 pure crypto operation.
 
 ```powershell
-$didDoc = New-Svrn7Did -KeyPair $kp -MethodName "drn" `
+$didDoc = New-Svrn7Did -KeyPair $kp -Role 'Citizen' -SocietyName 'bindloss' `
               -ServiceEndpointUrl "http://localhost:8443/didcomm" `
               -Svrn7Name "MyTDA"
 
@@ -117,11 +120,11 @@ $didDoc.Did
 Expected output:
 
 ```
-did:drn:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
+did:drn:bindloss.svrn7.net/citizen/1.0/a3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4
 ```
 
-The DID string is derived deterministically from `PublicKeyHex` — the same key pair
-always produces the same DID regardless of method name or other parameters.
+The DID string is derived deterministically from `Blake3(PublicKeyHex bytes)` — the same
+genesis key pair always produces the same DID regardless of subsequent key rotations.
 
 ---
 
@@ -162,7 +165,7 @@ $reg | Format-List CitizenDid, Success, EndowmentSvrn7
 Expected output:
 
 ```
-CitizenDid     : did:drn:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
+CitizenDid     : did:drn:bindloss.svrn7.net/citizen/1.0/a3d4e5f6...c3d4
 Success        : True
 EndowmentSvrn7 : 1000.000000
 ```
@@ -179,7 +182,7 @@ $result.Document.DocumentJson | ConvertFrom-Json | ConvertTo-Json -Depth 5
 Expected:
 
 ```
-Did     : did:drn:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
+Did     : did:drn:bindloss.svrn7.net/citizen/1.0/a3d4e5f6...c3d4
 Version : 1
 Status  : Active
 Role    : Citizen
@@ -202,19 +205,17 @@ in the stored `DidDocument` so other TDAs can discover it via resolution.
 $kp = New-Svrn7KeyPair   # D1.1 — from PS CLI
 
 $body = @{
-    federationDid        = 'did:drn:foundation.svrn7.net'
-    federationName       = 'Web 7.0 Foundation'
-    publicKeyHex         = $kp.PublicKeyHex
-    primaryDidMethodName = 'drn'
-    serviceEndpointUrl   = 'https://foundation.svrn7.net:8443/didcomm'
+    federationName     = 'Web 7.0 Foundation'
+    publicKeyHex       = $kp.PublicKeyHex
+    serviceEndpointUrl = 'https://foundation.svrn7.net:8443/didcomm'
 } | ConvertTo-Json -Compress
 
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation'
-    from = 'did:drn:foundation.svrn7.net'
-    to   = @('did:drn:bindloss.svrn7.net')
+    from = 'did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>'
+    to   = @('did:drn:federation.svrn7.net/federation/1.0/<genesis-hash>')
     body = $body
 } | ConvertTo-Json
 
@@ -224,9 +225,9 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/init)
+[Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation)
         → Invoke-Web7FederationInit [Svrn7.Federation]
-[Info]  Federation initialised: did:drn:foundation.svrn7.net (Web 7.0 Foundation)
+[Info]  Federation initialised: did:drn:federation.svrn7.net/federation/1.0/<genesis-hash> (Web 7.0 Foundation)
 ```
 
 ### D2.1 — Register a Society
@@ -235,10 +236,9 @@ Expected TDA log:
 $kp = New-Svrn7KeyPair   # D1.1 — from PS CLI
 
 $body = @{
-    societyDid           = 'did:drn:bindloss.svrn7.net'
+    societyName          = 'bindloss'
+    societyDisplayName   = 'Bindloss Alberta'
     publicKeyHex         = $kp.PublicKeyHex
-    societyName          = 'Bindloss Alberta'
-    primaryDidMethodName = 'bindloss'
     serviceEndpointUrl   = 'https://bindloss.svrn7.net:8443/didcomm'
     drawAmountGrana      = 1000000000000
     overdraftCeilingGrana= 10000000000000
@@ -248,8 +248,8 @@ $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society'
-    from = 'did:drn:foundation.svrn7.net'
-    to   = @('did:drn:bindloss.svrn7.net')
+    from = 'did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>'
+    to   = @('did:drn:federation.svrn7.net/federation/1.0/<genesis-hash>')
     body = $body
 } | ConvertTo-Json
 
@@ -259,17 +259,17 @@ Send-DIDCommMessage -Body $msg
 Expected TDA log:
 
 ```
-[Info]  Society registered: did:drn:bindloss.svrn7.net (Bindloss Alberta) method=bindloss
+[Info]  Society registered: did:drn:federation.svrn7.net/bindloss/1.0/<genesis-hash> (Bindloss Alberta)
 ```
 
 ### D2.2 — Register a Citizen
 
 ```powershell
-$kp         = New-Svrn7KeyPair   # D1.1 — from PS CLI
-$citizenDid = 'did:bindloss:mwherman001'   # client-assigned DID string
+$kp = New-Svrn7KeyPair   # D1.1 — from PS CLI
+# DID is derived by the Society from publicKeyHex during register-citizen processing
+$citizenDid = New-Svrn7Did -KeyPair $kp -Role 'Citizen' -SocietyName 'bindloss'
 
 $body = @{
-    citizenDid         = $citizenDid
     publicKeyHex       = $kp.PublicKeyHex
     displayName        = 'mwherman'
     serviceEndpointUrl = 'https://mwherman.svrn7.net:8443/didcomm'
@@ -279,8 +279,8 @@ $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = 'did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen'
-    from = $citizenDid
-    to   = @('did:drn:bindloss.svrn7.net')
+    from = $citizenDid.Did
+    to   = @('did:drn:federation.svrn7.net/bindloss/1.0/<genesis-hash>')
     body = $body
 } | ConvertTo-Json
 
@@ -292,7 +292,7 @@ Expected TDA log:
 ```
 [Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen)
         → ConvertFrom-Web7OnboardRequest [Svrn7.Onboarding]
-[Info]  Citizen registered: did:bindloss:mwherman001
+[Info]  Citizen registered: did:drn:bindloss.svrn7.net/citizen/1.0/<genesis-hash>
 ```
 
 ---
@@ -437,129 +437,6 @@ $result.ErrorCode  # 'notFound'
 Test-Svrn7DidActive -Did $didDoc.Did   # $true
 ```
 
-### D4.4 — Resolve a citizen's primary DID from any DID
-
-```powershell
-# Given a secondary DID did:sovroniamed:3J98... returns did:sovronia:3J98...
-Resolve-Svrn7CitizenPrimaryDid -Did 'did:sovroniamed:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy'
-```
-
-Returns `$null` if the DID is not registered.
-
----
-
-## Scenario D5 — DID method management (Federation LOBE)
-
-### D5.1 — Check the status of a method name
-
-```powershell
-Get-Svrn7DidMethodStatus -MethodName 'sovronia'
-# Active | Dormant | (not returned = Available)
-```
-
-### D5.2 — List all registered method names
-
-```powershell
-Get-Svrn7DidMethods | Format-Table MethodName, Status, SocietyDid -AutoSize
-```
-
-Filter by Society:
-
-```powershell
-Get-Svrn7DidMethods -SocietyDid 'did:drn:bindloss.svrn7.net' -Status Active
-```
-
-### D5.3 — Register an additional method name
-
-```powershell
-Register-Svrn7DidMethod -SocietyDid 'did:drn:bindloss.svrn7.net' -MethodName 'bindlossedu'
-```
-
-Expected output:
-
-```
-SocietyDid : did:drn:bindloss.svrn7.net
-MethodName : bindlossedu
-Status     : Active
-Success    : True
-```
-
-Pipeline form:
-
-```powershell
-'bindlossedu','bindlosshealth' | Register-Svrn7DidMethod -SocietyDid 'did:drn:bindloss.svrn7.net'
-```
-
-### D5.4 — Deregister a method name
-
-The primary method name cannot be deregistered. The name enters a 30-day dormancy period.
-
-```powershell
-Unregister-Svrn7DidMethod -SocietyDid 'did:drn:bindloss.svrn7.net' -MethodName 'bindlossedu'
-Get-Svrn7DidMethodStatus -MethodName 'bindlossedu'   # Dormant
-```
-
----
-
-## Scenario D6 — DID method management (Society LOBE)
-
-`-SocietyDid` is inferred from the loaded Society driver — no parameter needed.
-
-### D6.1 — Register an additional method name
-
-```powershell
-Initialize-Svrn7SocietyDidMethod -MethodName 'sovroniamed'
-'sovroniaedu','sovroniahealth' | Initialize-Svrn7SocietyDidMethod
-```
-
-### D6.2 — List method names for this Society
-
-```powershell
-Get-Svrn7SocietyDidMethods | Format-Table MethodName, Status, IsPrimary -AutoSize
-```
-
-### D6.3 — Deregister a method name
-
-```powershell
-Unregister-Svrn7SocietyDidMethod -MethodName 'sovroniaedu'
-```
-
----
-
-## Scenario D7 — Secondary DIDs for citizens (Society LOBE)
-
-A citizen's secondary DID uses the same base58-encoded public key as the primary, but
-under a different method name. Both DIDs resolve to the same `CitizenRecord`.
-
-### D7.1 — Issue a secondary DID
-
-```powershell
-$citizenPrimaryDid = 'did:sovronia:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy'
-Add-Svrn7CitizenDid -CitizenPrimaryDid $citizenPrimaryDid -MethodName 'sovroniamed'
-```
-
-Expected output:
-
-```
-CitizenPrimaryDid : did:sovronia:3J98...
-SecondaryDid      : did:sovroniamed:3J98...
-MethodName        : sovroniamed
-Success           : True
-```
-
-### D7.2 — List all DIDs for a citizen
-
-```powershell
-Get-Svrn7CitizenDids -PrimaryDid $citizenPrimaryDid | Format-Table Did, IsPrimary, MethodName
-```
-
-### D7.3 — Resolve a secondary DID back to primary
-
-```powershell
-Resolve-Svrn7CitizenPrimaryDid -Did 'did:sovroniamed:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy'
-# did:sovronia:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
-```
-
 ---
 
 ## Scenario D8 — DIDComm-based DID resolution (Identity LOBE, TDA running)
@@ -572,8 +449,8 @@ Resolve-Svrn7CitizenPrimaryDid -Did 'did:sovroniamed:3J98t1WpEZ73CNmQviecrnyiWrn
 ### D8.1 — Send a DID resolve request
 
 ```powershell
-$requesterDid = 'did:drn:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy'
-$targetDid    = 'did:sovronia:abc123...'
+$requesterDid = 'did:drn:bindloss.svrn7.net/citizen/1.0/<genesis-hash>'
+$targetDid    = 'did:drn:sovronia.svrn7.net/citizen/1.0/<genesis-hash>'
 
 $body = @{ did = $targetDid; from = $requesterDid } | ConvertTo-Json -Compress
 
@@ -582,7 +459,7 @@ $msg = @{
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request'
     from = $requesterDid
-    to   = @('did:drn:bindloss.svrn7.net')
+    to   = @('did:drn:federation.svrn7.net/bindloss/1.0/<genesis-hash>')
     body = $body
 } | ConvertTo-Json
 
@@ -594,16 +471,16 @@ Expected TDA log:
 ```
 [Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request)
         → Resolve-Svrn7Did [Svrn7.Identity]
-[Info]  Invoke-Svrn7DidResolveResponse: requestedDid='did:sovronia:abc123...' found=True
+[Info]  Invoke-Svrn7DidResolveResponse: requestedDid='did:drn:sovronia.svrn7.net/citizen/1.0/<genesis-hash>' found=True
 ```
 
 ### D8.2 — Response payload
 
 ```json
 {
-  "from":         "did:drn:bindloss.svrn7.net",
-  "to":           "did:drn:3J98...",
-  "requestedDid": "did:sovronia:abc123...",
+  "from":         "did:drn:federation.svrn7.net/bindloss/1.0/<genesis-hash>",
+  "to":           "did:drn:bindloss.svrn7.net/citizen/1.0/<genesis-hash>",
+  "requestedDid": "did:drn:sovronia.svrn7.net/citizen/1.0/<genesis-hash>",
   "found":        true,
   "didDocument":  { ... },
   "resolvedAt":   "2026-06-05T..."
@@ -641,24 +518,13 @@ Initialize-Svrn7Federation / Initialize-Svrn7Society / Register-Svrn7Citizen
 | Cmdlet | Key parameters | LOBE | Requires TDA |
 |--------|---------------|------|:---:|
 | `New-Svrn7KeyPair` | — | Federation | No |
-| `New-Svrn7Did` | `-KeyPair` `[-MethodName]` `[-ServiceEndpointUrl]` `[-Svrn7Role]` `[-Svrn7Name]` | Federation | No |
+| `New-Svrn7Did` | `-KeyPair` `-Role` `[-SocietyName]` `[-ServiceEndpointUrl]` `[-Svrn7Name]` | Federation | No |
 | `Initialize-Svrn7Federation` | *(no parameters — reads Wanderer DIDDocument)* | Federation | Yes |
 | `Initialize-Svrn7Citizen` | `-DidDocument` `-KeyPair` | Federation | Yes |
-| `Register-Svrn7Citizen` | `-DidDocument` `-KeyPair` `[-PreferredMethodName]` | Society | Yes |
+| `Register-Svrn7Citizen` | `-DidDocument` `-KeyPair` | Society | Yes |
 | `Initialize-Svrn7Society` | `-DidDocument` `-KeyPair` `-Name` | Federation | Yes |
 | `Resolve-Svrn7Did` | `-Did` | Federation | Yes |
 | `Test-Svrn7DidActive` | `-Did` | Federation | Yes |
-| `Resolve-Svrn7CitizenPrimaryDid` | `-Did` | Federation | Yes |
-| `Get-Svrn7CitizenDids` | `-PrimaryDid` | Federation | Yes |
-| `Register-Svrn7DidMethod` | `-SocietyDid` `-MethodName` | Federation | Yes |
-| `Unregister-Svrn7DidMethod` | `-SocietyDid` `-MethodName` | Federation | Yes |
-| `Get-Svrn7DidMethodStatus` | `-MethodName` | Federation | Yes |
-| `Get-Svrn7DidMethods` | `[-SocietyDid]` `[-Status]` | Federation | Yes |
-| `Register-Svrn7Citizen` | `-DidDocument` `-KeyPair` `[-PreferredMethodName]` | Society | Yes |
-| `Initialize-Svrn7SocietyDidMethod` | `-MethodName` | Society | Yes |
-| `Unregister-Svrn7SocietyDidMethod` | `-MethodName` | Society | Yes |
-| `Get-Svrn7SocietyDidMethods` | — | Society | Yes |
-| `Add-Svrn7CitizenDid` | `-CitizenPrimaryDid` `-MethodName` | Society | Yes |
 | `Resolve-Svrn7Did` (DIDComm handler) | `-MessageDid` | Identity | Yes |
 | `Invoke-Svrn7DidResolveResponse` | `-MessageDid` | Identity | Yes |
 

@@ -64,7 +64,7 @@ Start-Process cmd.exe -ArgumentList '/k title W6 [Wanderer]:8446 && dotnet ".\Sv
 > **Production / staging:** Add `--federation-domain svrn7.net` to auto-discover the
 > Federation TDA endpoint via drn.directory DNS at startup.  The discovered URL is shown
 > in the banner (`Fed Endpoint`) and exposed as `$SVRN7.FederationEndpointUrl` in every
-> LOBE runspace.  Omitted here because the testnet has no live drn.directory DNS record.
+> LOBE runspace.  Omit for standalone dev runs with no live drn.directory DNS record.
 
 W5 has no prior databases — this is a first run.  Expected startup banner:
 
@@ -77,7 +77,7 @@ W5 has no prior databases — this is a first run.  Expected startup banner:
   TDA Name    : W5
   First run   : yes — Wanderer identity created
   Role        : Wanderer
-  Agent DID   : did:drn:wanderer.testnet.svrn7.net/agent/1.0/<guid-W5>
+  Agent DID   : did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash-W5>
   Listen port : 8445
   LOBEs       : 4 eager  8 JIT  (N protocols  N cmdlets)
     Eager     : Svrn7.Common  Svrn7.Federation  Svrn7.Society  Svrn7.UX
@@ -98,7 +98,7 @@ Note the `Agent DID` line — this is W5's Wanderer identity.  It is also writte
 
 ## Step 3 — Read the Wanderer DIDs (Terminal C)
 
-W5 and W6 each generate a unique GUID-based DID on first run.  Read both from their
+W5 and W6 each generate a unique public-key-derived DID on first run.  Read both from their
 identity files:
 
 ```powershell
@@ -114,8 +114,8 @@ Write-Host "W6 DID: $w6Did"
 Expected:
 
 ```
-W5 DID: did:drn:wanderer.testnet.svrn7.net/agent/1.0/<guid-W5>
-W6 DID: did:drn:wanderer.testnet.svrn7.net/agent/1.0/<guid-W6>
+W5 DID: did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash-W5>
+W6 DID: did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash-W6>
 ```
 
 ---
@@ -199,7 +199,7 @@ info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
 
 info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
       [PS Info] Invoke-PandoDiagnosticsDateResult: serverUtc=2026-06-15T... epoch=0
-          from='did:drn:wanderer.testnet.svrn7.net/agent/1.0/<guid-W6>'
+          from='did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash-W6>'
 ```
 
 The `from` field shows W6's DID confirming the reply originated from W6.

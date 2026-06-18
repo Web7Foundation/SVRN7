@@ -86,7 +86,7 @@ $endpoint = Resolve-FederationEndpoint `
     -FederationDid "did:drn:federation.svrn7.net/agent/1.0/abc123"
 
 Write-Host "Federation endpoint: $endpoint"
-# http://localhost:8441/didcomm  (testnet)
+# http://localhost:8441/didcomm  (local dev)
 # https://tda.svrn7.net:8441/didcomm  (production)
 ```
 
@@ -111,7 +111,7 @@ $msg = [ordered]@{
     typ  = "application/didcomm-plain+json"
     id   = [System.Guid]::NewGuid().ToString("N")
     type = "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list"
-    from = "did:drn:wanderer.testnet.svrn7.net/agent/1.0/<your-guid>"
+    from = "did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>"
     to   = @("<federation-did>")
     body = @{ replyEndpoint = "http://localhost:8445/didcomm" }
 } | ConvertTo-Json -Depth 5

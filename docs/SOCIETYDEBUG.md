@@ -77,7 +77,7 @@ Expected startup banner (first run):
   TDA Name    : Bindloss
   First run   : yes — Wanderer identity created
   Role        : Wanderer
-  Agent DID   : did:drn:wanderer.testnet.svrn7.net/agent/1.0/<guid>
+  Agent DID   : did:drn:wanderer.svrn7.net/agent/1.0/<base58-pubkey>
   Listen port : 8442
 ────────────────────────────────────────────────────────────────────────────────
   Federation  : (not yet initialised)

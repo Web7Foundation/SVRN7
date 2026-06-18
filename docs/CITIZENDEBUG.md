@@ -56,7 +56,7 @@ The Citizen TDA starts as a Wanderer.  Expected startup banner:
   TDA Name    : mwherman
   First run   : yes — Wanderer identity created
   Role        : Wanderer
-  Agent DID   : did:drn:wanderer.testnet.svrn7.net/agent/1.0/<guid>
+  Agent DID   : did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>
   Listen port : 8443
 ```
 

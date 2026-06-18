@@ -12,7 +12,7 @@ before it starts.
 
 The Federation TDA is the root tier of the Web 7.0 Pando hierarchy.  It holds the
 shared ledger, registers Societies, and serves `society-list` responses to Wanderers
-seeking to join a Society.  One Federation TDA exists per network (testnet, mainnet).
+seeking to join a Society.  One Federation TDA exists per network deployment.
 
 Key protocols handled by a Federation TDA:
 
@@ -70,7 +70,7 @@ Expected startup banner (first run):
   TDA Name    : Federation
   First run   : yes — Wanderer identity created
   Role        : Wanderer
-  Agent DID   : did:drn:wanderer.testnet.svrn7.net/agent/1.0/<guid>
+  Agent DID   : did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>
   Listen port : 8441
 ────────────────────────────────────────────────────────────────────────────────
   Federation  : (not yet initialised — see §E.0 to initialise)

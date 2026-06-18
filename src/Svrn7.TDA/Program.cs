@@ -217,8 +217,9 @@ bool    isFirstRun;
 if (await driver.DidRegistry.CountAsync() == 0)
 {
     isFirstRun = true;
-    var kp   = driver.GenerateSecp256k1KeyPair();
-    agentDid  = $"did:drn:wanderer.testnet.svrn7.net/agent/1.0/{Guid.NewGuid():N}";
+    var kp          = driver.GenerateSecp256k1KeyPair();
+    var genesisHash = await driver.Blake3HexAsync(Convert.FromHexString(kp.PublicKeyHex));
+    agentDid        = $"did:drn:wanderer.svrn7.net/agent/1.0/{genesisHash}";
     svrn7Name = tdaName;
 
     var didDoc = driver.CreateDidDocument(agentDid, kp.PublicKeyHex, "drn",
