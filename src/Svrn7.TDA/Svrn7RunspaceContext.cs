@@ -42,6 +42,7 @@ public sealed class Svrn7RunspaceContext
     private volatile int                     _currentEpoch;
     private volatile string                  _parentTdaDid         = string.Empty;
     private volatile string                  _parentTdaEndpointUrl = string.Empty;
+    private          string                  _federationEndpointUrl = string.Empty;
 
     private static readonly JsonSerializerOptions _jsonOpts =
         new() { WriteIndented = false };
@@ -100,6 +101,14 @@ public sealed class Svrn7RunspaceContext
     /// </summary>
     public string ServiceEndpointUrl { get; }
 
+    /// <summary>
+    /// DIDComm endpoint URL of the Federation TDA, discovered at TDA startup via
+    /// drn.directory DNS. Empty when <c>--federation-domain</c> / <c>Tda:FederationDomain</c>
+    /// is not configured, or when no drn.directory TXT record was found.
+    /// In LOBE cmdlets: <c>$SVRN7.FederationEndpointUrl</c>.
+    /// </summary>
+    public string FederationEndpointUrl => _federationEndpointUrl;
+
     // ── Internal surface (used by Switchboard, not directly by cmdlets) ───────
 
     internal IInboxStore         Inbox           => _inbox;
@@ -112,26 +121,28 @@ public sealed class Svrn7RunspaceContext
         IMemoryCache           cache,
         IProcessedOrderStore   processedOrders,
         PendingResolutionStore pendingResolutions,
-        int                    initialEpoch         = 0,
-        Svrn7Role              role                 = Svrn7Role.Federation,
-        string                 agentDid             = "",
-        string                 parentTdaDid         = "",
-        string                 parentTdaEndpointUrl = "",
-        string                 serviceEndpointUrl   = "",
-        string                 agentIdentityPath    = "")
+        int                    initialEpoch           = 0,
+        Svrn7Role              role                   = Svrn7Role.Federation,
+        string                 agentDid               = "",
+        string                 parentTdaDid           = "",
+        string                 parentTdaEndpointUrl   = "",
+        string                 serviceEndpointUrl     = "",
+        string                 agentIdentityPath      = "",
+        string                 federationEndpointUrl  = "")
     {
-        Driver                = driver;
-        Role                  = role;
-        AgentDid              = agentDid;
-        ServiceEndpointUrl    = serviceEndpointUrl;
-        _parentTdaDid         = parentTdaDid;
-        _parentTdaEndpointUrl = parentTdaEndpointUrl;
-        _agentIdentityPath    = agentIdentityPath;
-        _inbox                = inbox;
-        _cache                = cache;
-        _processedOrders      = processedOrders;
-        _pendingResolutions   = pendingResolutions;
-        _currentEpoch         = initialEpoch;
+        Driver                 = driver;
+        Role                   = role;
+        AgentDid               = agentDid;
+        ServiceEndpointUrl     = serviceEndpointUrl;
+        _parentTdaDid          = parentTdaDid;
+        _parentTdaEndpointUrl  = parentTdaEndpointUrl;
+        _federationEndpointUrl = federationEndpointUrl;
+        _agentIdentityPath     = agentIdentityPath;
+        _inbox                 = inbox;
+        _cache                 = cache;
+        _processedOrders       = processedOrders;
+        _pendingResolutions    = pendingResolutions;
+        _currentEpoch          = initialEpoch;
     }
 
     /// <summary>

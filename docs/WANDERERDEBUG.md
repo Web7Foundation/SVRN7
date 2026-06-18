@@ -61,6 +61,11 @@ Start-Process cmd.exe -ArgumentList '/k title W5 [Wanderer]:8445 && dotnet ".\Sv
 Start-Process cmd.exe -ArgumentList '/k title W6 [Wanderer]:8446 && dotnet ".\Svrn7.TDA.dll" --port 8446 --name W6'
 ```
 
+> **Production / staging:** Add `--federation-domain svrn7.net` to auto-discover the
+> Federation TDA endpoint via drn.directory DNS at startup.  The discovered URL is shown
+> in the banner (`Fed Endpoint`) and exposed as `$SVRN7.FederationEndpointUrl` in every
+> LOBE runspace.  Omitted here because the testnet has no live drn.directory DNS record.
+
 W5 has no prior databases — this is a first run.  Expected startup banner:
 
 ```
@@ -267,6 +272,12 @@ network lookup.
 
 `replyEndpoint` is required because W5 is not yet registered anywhere; the Federation
 cannot resolve W5's endpoint from its DID registry.
+
+> **Production note:** When W5 is started with `--federation-domain svrn7.net`, the
+> Federation endpoint URL is discovered at startup and available inside any LOBE handler
+> as `$SVRN7.FederationEndpointUrl`.  In standalone PowerShell (Terminal C), use
+> `Resolve-FederationEndpoint -FederationDid "svrn7.net"` instead of the hardcoded
+> `http://localhost:8441/didcomm` below.
 
 ```powershell
 # Ensure the send helper is loaded (if not already from Step 4)

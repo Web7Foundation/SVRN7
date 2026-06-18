@@ -139,6 +139,20 @@ public sealed class TdaOptions
     /// </summary>
     public string AgentIdentityPath { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Domain used to discover the Federation TDA endpoint via drn.directory DNS TXT lookup.
+    /// Example: "svrn7.net" → queries "federation.svrn7.net.drn.directory".
+    /// Configured via <c>Tda:FederationDomain</c> or <c>--federation-domain</c>.
+    /// </summary>
+    public string FederationDomain { get; set; } = string.Empty;
+
+    /// <summary>
+    /// DIDComm endpoint URL of the Federation TDA, discovered at startup via drn.directory.
+    /// Populated by Program.cs when <see cref="FederationDomain"/> is set.
+    /// Exposed as <c>$SVRN7.FederationEndpointUrl</c> in all LOBE runspaces.
+    /// </summary>
+    public string FederationEndpointUrl { get; set; } = string.Empty;
+
     // ── Data Storage databases ────────────────────────────────────────────────
 
     /// <summary>Path to svrn7-inbox.db (Long-Term Message Memory).</summary>
@@ -252,13 +266,14 @@ public static class TdaServiceCollectionExtensions
             var orders  = sp.GetRequiredService<IProcessedOrderStore>();
             var pending = sp.GetRequiredService<PendingResolutionStore>();
             return new Svrn7RunspaceContext(driver, inbox, cache, orders, pending,
-                initialEpoch:         Svrn7.Core.Svrn7Constants.Epochs.Endowment,
-                role:                 opts.Role,
-                agentDid:             opts.AgentDid,
-                parentTdaDid:         opts.ParentTdaDid,
-                parentTdaEndpointUrl: opts.ParentTdaEndpointUrl,
-                serviceEndpointUrl:   opts.ServiceEndpointUrl,
-                agentIdentityPath:    opts.AgentIdentityPath);
+                initialEpoch:          Svrn7.Core.Svrn7Constants.Epochs.Endowment,
+                role:                  opts.Role,
+                agentDid:              opts.AgentDid,
+                parentTdaDid:          opts.ParentTdaDid,
+                parentTdaEndpointUrl:  opts.ParentTdaEndpointUrl,
+                serviceEndpointUrl:    opts.ServiceEndpointUrl,
+                agentIdentityPath:     opts.AgentIdentityPath,
+                federationEndpointUrl: opts.FederationEndpointUrl);
         });
 
         // 4a. WebSocketNotifyHub — local PandoMail push channel singleton.

@@ -35,6 +35,12 @@ using Svrn7.TDA;
 //                  endpoint (scheme + host, no trailing slash).
 //                  Default: http://localhost
 //                  Full endpoint stored: <url>:{port}/didcomm
+// --federation-domain <domain>
+//                  Bare domain used to auto-discover the Federation TDA DIDComm endpoint
+//                  via drn.directory DNS at startup (e.g. "svrn7.net").
+//                  Equivalent to setting Tda:FederationDomain in appsettings.json.
+//                  Discovered URL is exposed as $SVRN7.FederationEndpointUrl in LOBEs.
+//                  Leave unset for testnet / manual endpoint configuration.
 // --reset          Delete all databases and agent-identity.json for this port before
 //                  starting, forcing a clean first-run Wanderer bootstrap.
 // --help           Display this help and exit.
@@ -61,6 +67,14 @@ if (Array.IndexOf(args, "--help") >= 0 || Array.IndexOf(args, "-h") >= 0)
                             service endpoint (scheme + host, no trailing slash).
                             Default: http://localhost
                             Full endpoint stored: <url>:{port}/didcomm
+
+          --federation-domain <domain>
+                            Bare domain to auto-discover the Federation TDA endpoint
+                            via drn.directory DNS at startup. Example: "svrn7.net"
+                            queries "federation.svrn7.net.drn.directory" for a TXT
+                            record containing the Federation DIDComm endpoint URL.
+                            Discovered URL exposed as $SVRN7.FederationEndpointUrl.
+                            Also configurable via Tda:FederationDomain in appsettings.
 
           --reset           Delete all databases and agent-identity.json for this
                             port before starting, forcing a clean first-run
@@ -107,6 +121,14 @@ string tdaUrl;
     tdaUrl = urlIdx >= 0 && urlIdx + 1 < args.Length && !string.IsNullOrWhiteSpace(args[urlIdx + 1])
         ? args[urlIdx + 1].TrimEnd('/')
         : "http://localhost";
+}
+
+string federationDomainArg;
+{
+    var fdIdx = Array.IndexOf(args, "--federation-domain");
+    federationDomainArg = fdIdx >= 0 && fdIdx + 1 < args.Length && !string.IsNullOrWhiteSpace(args[fdIdx + 1])
+        ? args[fdIdx + 1].Trim()
+        : string.Empty;
 }
 
 bool forceReset = Array.IndexOf(args, "--reset") >= 0;
@@ -173,6 +195,9 @@ var host = Host.CreateDefaultBuilder(args)
                                                      ?? Path.Combine(AppContext.BaseDirectory, "lobes", "lobes.config.json");
             opts.ParentTdaDid                      = ctx.Configuration["Tda:ParentTdaDid"]         ?? string.Empty;
             opts.ParentTdaEndpointUrl              = ctx.Configuration["Tda:ParentTdaEndpointUrl"] ?? string.Empty;
+            opts.FederationDomain                  = !string.IsNullOrEmpty(federationDomainArg)
+                                                     ? federationDomainArg
+                                                     : ctx.Configuration["Tda:FederationDomain"] ?? string.Empty;
         });
     })
     .Build();
@@ -235,9 +260,20 @@ else
 
 // Publish runtime values into TdaOptions so Svrn7RunspaceContext
 // (constructed lazily during host.StartAsync) picks them up via the factory.
-tdaOpts.AgentDid          = agentDid ?? tdaOpts.SocietyDid;
+tdaOpts.AgentDid           = agentDid ?? tdaOpts.SocietyDid;
 tdaOpts.ServiceEndpointUrl = $"{tdaUrl}:{port}/didcomm";
 tdaOpts.AgentIdentityPath  = identityPath;
+
+// ── drn.directory Federation endpoint discovery ───────────────────────────────
+// If a FederationDomain is configured and no endpoint is already known, query
+// drn.directory DNS to discover the Federation TDA's DIDComm endpoint.
+// Result is stored in FederationEndpointUrl and exposed as $SVRN7.FederationEndpointUrl.
+if (!string.IsNullOrEmpty(tdaOpts.FederationDomain) && string.IsNullOrEmpty(tdaOpts.FederationEndpointUrl))
+{
+    var discovered = await DrnDirectory.GetFederationEndpointAsync(tdaOpts.FederationDomain);
+    if (discovered is not null)
+        tdaOpts.FederationEndpointUrl = discovered;
+}
 
 // ── Startup banner ────────────────────────────────────────────────────────────
 {
@@ -288,6 +324,11 @@ tdaOpts.AgentIdentityPath  = identityPath;
     Console.WriteLine($"  Role        : {tdaOpts.Role}");
     Console.WriteLine($"  Agent DID   : {agentDid ?? tdaOpts.SocietyDid}");
     Console.WriteLine($"  Listen port : {port}");
+    if (!string.IsNullOrEmpty(tdaOpts.FederationDomain))
+    {
+        Console.WriteLine($"  Fed Domain  : {tdaOpts.FederationDomain}");
+        Console.WriteLine($"  Fed Endpoint: {(!string.IsNullOrEmpty(tdaOpts.FederationEndpointUrl) ? tdaOpts.FederationEndpointUrl : "(no drn.directory record found)")}");
+    }
     // JIT = all discovered descriptors whose module is not in the eager list.
     var eagerModuleNames = lobeConfig.Eager
         .Select(f => Path.GetFileNameWithoutExtension(f))

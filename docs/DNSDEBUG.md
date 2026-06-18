@@ -133,6 +133,47 @@ Write-Host "Endpoint: $endpoint"
 
 ---
 
+### D.6 — Auto-discovery at TDA startup
+
+Pass `--federation-domain` when launching the TDA to auto-discover the Federation endpoint:
+
+```powershell
+dotnet .\Svrn7.TDA.dll --port 8445 --name W5 --federation-domain svrn7.net
+```
+
+The TDA queries `federation.svrn7.net.drn.directory` during startup.  When a TXT record
+is found, the banner shows:
+
+```
+  Fed Domain  : svrn7.net
+  Fed Endpoint: https://tda.svrn7.net:8441/didcomm
+```
+
+Inside any LOBE handler running in that TDA:
+
+```powershell
+$fedEndpoint = $SVRN7.FederationEndpointUrl
+```
+
+Equivalent config approach (in `appsettings.json` or environment variable):
+
+```json
+"Tda": {
+  "FederationDomain": "svrn7.net"
+}
+```
+
+When no drn.directory record exists, the banner shows:
+
+```
+  Fed Domain  : svrn7.net
+  Fed Endpoint: (no drn.directory record found)
+```
+
+and `$SVRN7.FederationEndpointUrl` is an empty string.
+
+---
+
 ### D.5 — Verify DnsClient.dll is present
 
 ```powershell
