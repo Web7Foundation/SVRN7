@@ -35,9 +35,9 @@ All standalone scenarios below assume you have `cd`'d to the TDA output director
 cd src\Svrn7.TDA\bin\Debug\net8.0
 ```
 
-> **Note:** Do not dot-source `.psm1` files directly in PowerShell 7 — PS7 detects the
-> `.psm1` extension and applies module-context scoping, so functions are invisible to the
-> caller. Use `[scriptblock]::Create` to load them into the current scope instead.
+> **Note:** Always load `.psm1` files with `Import-Module`, not dot-source. PS7 detects
+> the `.psm1` extension on dot-source and applies module-context scoping, making functions
+> invisible to the caller.
 
 ---
 
@@ -79,7 +79,7 @@ All three forms resolve to the same drn.directory query label:
 ### D.1 — Resolve from a full Federation DID (standalone PowerShell)
 
 ```powershell
-[scriptblock]::Create([System.IO.File]::ReadAllText('.\lobes\Svrn7.Common.0.8.0\Svrn7.Common.0.8.0.psm1')).Invoke()
+Import-Module .\lobes\Svrn7.Common.0.8.0\Svrn7.Common.0.8.0.psm1
 Initialize-Svrn7Assemblies
 
 $endpoint = Resolve-FederationEndpoint `
