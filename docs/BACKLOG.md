@@ -446,3 +446,30 @@ default.  Dead-lettering version-less messages (P-006) is the correct default.
 **Acceptable use:** opt-in for development tooling and single-version
 deployments where "highest" is always "only".  Never in production with
 multiple versions installed.
+
+---
+
+## TDA-009 — WebSocket /didcomm-notify channel encryption (PandoMail ↔ Citizen TDA)
+
+**Area:** `WebSocketNotifyHub`, `KestrelListenerService`, `TdaMailClient`, `DIDCommPackingService`
+
+**Summary:** The `/didcomm-notify` WebSocket channel currently uses plaintext DIDComm
+(`application/didcomm-plain+json`) in both directions.  This is acceptable today because:
+
+1. PandoMail holds no key material of its own and has no access to the Citizen TDA's keys.
+2. The channel is localhost-only — not published in the TDA's DID Document, not reachable
+   from the network.
+3. PandoMail shares the Citizen TDA's DID; it is a local UI attachment, not a DIDComm peer.
+
+**When this becomes a requirement:** If PandoMail runs on a separate host, or if the
+localhost isolation assumption is relaxed, the channel will need encryption.
+
+**Preferred approach:** The TDA generates an ephemeral session key at WebSocket connect
+time and returns it to PandoMail in the handshake response.  PandoMail uses the session
+key for the lifetime of the connection — no long-lived key material is stored in PandoMail.
+All private key operations remain inside the TDA process.
+
+This avoids giving PandoMail any long-lived secrets while still providing per-session
+channel confidentiality.
+
+**No code change required now** — tracked here for design continuity.
