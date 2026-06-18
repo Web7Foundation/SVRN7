@@ -335,11 +335,9 @@ if (!string.IsNullOrEmpty(tdaOpts.FederationDomain) && string.IsNullOrEmpty(tdaO
     Console.WriteLine($"  Initialized : {(isFirstRun ? "no — new Wanderer identity created" : "yes — using existing identity")}");
     Console.WriteLine($"  Agent DID   : {agentDid ?? tdaOpts.SocietyDid}");
     Console.WriteLine($"  Listen port : {port}");
-    if (!string.IsNullOrEmpty(tdaOpts.FederationDomain))
-    {
-        Console.WriteLine($"  Fed Domain  : {tdaOpts.FederationDomain}");
-        Console.WriteLine($"  Fed Endpoint: {(!string.IsNullOrEmpty(tdaOpts.FederationEndpointUrl) ? tdaOpts.FederationEndpointUrl : "(no drn.directory record found)")}");
-    }
+    Console.WriteLine($"  Fed Domain  : {(!string.IsNullOrEmpty(tdaOpts.FederationDomain)    ? tdaOpts.FederationDomain    : "(not configured — use --federation-domain)")}");
+    Console.WriteLine($"  Fed Endpoint: {(!string.IsNullOrEmpty(tdaOpts.FederationEndpointUrl) ? tdaOpts.FederationEndpointUrl : "(not resolved — no drn.directory record found)")}");
+
     // JIT = all discovered descriptors whose module is not in the eager list.
     var eagerModuleNames = lobeConfig.Eager
         .Select(f => Path.GetFileNameWithoutExtension(f))
