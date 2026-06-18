@@ -165,7 +165,7 @@ public sealed class DIDCommPackingService : IDIDCommService
         return Task.FromResult(JsonSerializer.Serialize(new
         {
             payload    = payload,
-            signatures = new[] { new { header = new { kid = "key-1" }, protected_ = header, signature = sig } }
+            signatures = new[] { new { header = new { kid = "key-1" }, @protected = header, signature = sig } }
         }));
     }
 
@@ -287,7 +287,7 @@ public sealed class DIDCommPackingService : IDIDCommService
 
         return JsonSerializer.Serialize(new
         {
-            protected_    = protectedHeader,
+            @protected    = protectedHeader,
             recipients    = new[] { new { header = new { kid = "key-agreement-1" }, encrypted_key = B64(wrappedCek) } },
             iv            = B64(nonce),
             ciphertext    = B64(ct),
@@ -302,8 +302,8 @@ public sealed class DIDCommPackingService : IDIDCommService
         using var doc  = JsonDocument.Parse(packed);
         var root       = doc.RootElement;
 
-        var protectedB64  = root.GetProperty("protected_").GetString()
-            ?? throw new InvalidOperationException("JWE missing 'protected_' header.");
+        var protectedB64  = root.GetProperty("protected").GetString()
+            ?? throw new InvalidOperationException("JWE missing 'protected' header.");
         var wrappedCekB64 = root.GetProperty("recipients")[0]
             .GetProperty("encrypted_key").GetString()
             ?? throw new InvalidOperationException("JWE missing encrypted_key.");
@@ -384,7 +384,7 @@ public sealed class DIDCommPackingService : IDIDCommService
         if (_resolver is not null && msgFrom is not null)
         {
             var sig0      = root.GetProperty("signatures")[0];
-            var protHdr   = sig0.GetProperty("protected_").GetString()!;
+            var protHdr   = sig0.GetProperty("protected").GetString()!;
             var sigB64    = sig0.GetProperty("signature").GetString()!;
             var sigInput  = Encoding.ASCII.GetBytes($"{protHdr}.{payloadB64}");
             var sigBytes  = FromB64(sigB64);
