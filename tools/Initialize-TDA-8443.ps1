@@ -57,7 +57,7 @@ foreach ($node in $nodes) {
     # On Windows, open each TDA in its own titled console window
     if ($IsWindows) {
         $psi.FileName        = 'cmd.exe'
-        $psi.Arguments       = "/k title $($node.Name) [Wanderer] :$($node.Port) && dotnet `"$dll`" --port $($node.Port) --name $($node.Name)" #" --reset"
+        $psi.Arguments       = "/k title $($node.Name) [Wanderer] :$($node.Port) && dotnet `"$dll`" --port $($node.Port) --name $($node.Name) --federationdomain svrn7.net" #" --reset"
         $psi.UseShellExecute = $true
     }
 
