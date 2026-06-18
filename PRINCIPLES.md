@@ -102,3 +102,29 @@ is recorded in the inbox store with `Failed` status and is never silently discar
 observable, replayable, and auditable.
 
 ---
+
+## P-007 — Cryptographic suites
+
+The platform uses a fixed set of algorithms, one per function.  Do not introduce additional
+suites without a documented rationale and a migration plan.
+
+| Purpose | Algorithm | Library | Portable |
+|---|---|---|---|
+| DID genesis hash | Blake3 | Blake3.NET | Yes — managed, SIMD fallback on ARM |
+| Identity signing (DID, transactions) | secp256k1 ECDSA | NBitcoin.Secp256k1 | Yes — fully managed |
+| DIDComm message signing (JWS) | Ed25519 | NSec (libsodium) | Yes — ARM binaries in NuGet |
+| DIDComm key agreement (JWE) | X25519 ECDH-ES | NSec (libsodium) | Yes — ARM binaries in NuGet |
+| JWE KEK derivation | HKDF-SHA-256 | NSec (libsodium) | Yes — ARM binaries in NuGet |
+| JWE key wrapping | AES-256 RFC 3394 | `System.Security.Cryptography.Aes` (ECB) | Yes — .NET runtime built-in |
+| JWE content encryption | AES-256-GCM | `System.Security.Cryptography.AesGcm` | Yes — .NET runtime built-in |
+
+**Portability:** All suites work on Windows, Linux, macOS, Android, and iOS under .NET 8+.
+NSec's NuGet packages bundle ARM64/ARM native libsodium binaries for Android and iOS.
+`System.Security.Cryptography` primitives are part of the .NET runtime on all targets.
+
+**Wire format for DIDComm encryption:** ECDH-ES+A256KW (protected header), A256GCM (content),
+as defined in JWA (RFC 7518).  The HKDF step uses NSec's built-in derivation over the
+raw X25519 shared secret — not the JWA Concat KDF — since this is an internal protocol
+and interoperability with third-party JWE implementations is not a current requirement.
+
+---
