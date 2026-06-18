@@ -788,6 +788,127 @@ public class BalanceTests : IAsyncLifetime
     }
 }
 
+// ── TransferValidator step tests ─────────────────────────────────────────────
+
+public class TransferValidatorTests
+{
+    private readonly ICryptoService _crypto = new CryptoService();
+
+    private async Task<(TransferValidator v, string payer, Svrn7KeyPair kp, string soc, Svrn7LiteContext ctx)>
+        MakeAsync(int epoch = 0, ISanctionsChecker? sanctions = null)
+    {
+        var ctx      = new Svrn7LiteContext(":memory:");
+        var registry = new LiteIdentityRegistry(ctx);
+        var wallets  = new LiteWalletStore(ctx);
+        var kp       = _crypto.GenerateSecp256k1KeyPair();
+        var payer    = "did:drn:sovronia.svrn7.net/citizen/1.0/valp";
+        var socKp    = _crypto.GenerateSecp256k1KeyPair();
+        var soc      = "did:drn:federation.svrn7.net/sovronia/1.0/soc";
+
+        await registry.RegisterCitizenAsync(new CitizenRecord
+            { Did = payer, PublicKeyHex = kp.PublicKeyHex, EncryptedPrivateKeyBase64 = "test" });
+        await registry.RegisterSocietyAsync(new SocietyRecord
+            { Did = soc, PublicKeyHex = socKp.PublicKeyHex, SocietyName = "sovronia" });
+        await wallets.AddUtxoAsync(new Utxo
+            { Id = Guid.NewGuid().ToString("N"), OwnerDid = payer, AmountGrana = 1_000L });
+
+        var v = new TransferValidator(wallets, registry,
+            sanctions ?? new PassthroughSanctionsChecker(), _crypto,
+            new InMemoryTransferNonceStore(), epoch);
+
+        return (v, payer, kp, soc, ctx);
+    }
+
+    private TransferRequest BuildRequest(string payer, byte[] key, string payee, long grana,
+        string? nonce = null, DateTimeOffset? ts = null)
+    {
+        nonce ??= Guid.NewGuid().ToString("N");
+        var stamp = ts ?? DateTimeOffset.UtcNow;
+        var json  = JsonSerializer.Serialize(new
+        {
+            PayerDid = payer, PayeeDid = payee, AmountGrana = grana,
+            Nonce = nonce, Timestamp = stamp.ToString("O"), Memo = (string?)null
+        }, new JsonSerializerOptions { WriteIndented = false });
+        var sig = _crypto.SignSecp256k1(Encoding.UTF8.GetBytes(json), key);
+        return new TransferRequest
+        {
+            PayerDid = payer, PayeeDid = payee, AmountGrana = grana,
+            Nonce = nonce, Timestamp = stamp, Signature = sig
+        };
+    }
+
+    [Fact] public async Task Epoch0_NonCitizenPayer_ThrowsEpochViolation()
+    {
+        var (v, _, _, soc, ctx) = await MakeAsync();
+        using (ctx)
+        {
+            var unknownKp = _crypto.GenerateSecp256k1KeyPair();
+            var req = BuildRequest("did:drn:nobody", unknownKp.PrivateKeyBytes, soc, 1);
+            var ex  = await Assert.ThrowsAsync<EpochViolationException>(() => v.ValidateAsync(req));
+            ex.ViolationType.Should().Be("PayerMustBeCitizen");
+        }
+    }
+
+    [Fact] public async Task Epoch0_CitizenToNonSociety_ThrowsEpochViolation()
+    {
+        var (v, payer, kp, _, ctx) = await MakeAsync();
+        using (ctx)
+        {
+            var req = BuildRequest(payer, kp.PrivateKeyBytes, "did:drn:other.svrn7.net/citizen/1.0/x", 1);
+            var ex  = await Assert.ThrowsAsync<EpochViolationException>(() => v.ValidateAsync(req));
+            ex.ViolationType.Should().Be("PayeeMustBeActiveSociety");
+        }
+    }
+
+    [Fact] public async Task Epoch1_NonCitizenPayer_ThrowsEpochViolation()
+    {
+        var ctx = new Svrn7LiteContext(":memory:");
+        using (ctx)
+        {
+            var v         = new TransferValidator(new LiteWalletStore(ctx), new LiteIdentityRegistry(ctx),
+                new PassthroughSanctionsChecker(), _crypto, new InMemoryTransferNonceStore(), 1);
+            var unknownKp = _crypto.GenerateSecp256k1KeyPair();
+            var req       = BuildRequest("did:drn:nobody", unknownKp.PrivateKeyBytes, "did:drn:soc", 1);
+            var ex        = await Assert.ThrowsAsync<EpochViolationException>(() => v.ValidateAsync(req));
+            ex.ViolationType.Should().Be("PayerMustBeCitizen");
+        }
+    }
+
+    [Fact] public async Task SameNonce_SecondCall_ThrowsNonceReplay()
+    {
+        var (v, payer, kp, soc, ctx) = await MakeAsync();
+        using (ctx)
+        {
+            var nonce = Guid.NewGuid().ToString("N");
+            var req   = BuildRequest(payer, kp.PrivateKeyBytes, soc, 1, nonce);
+            await v.ValidateAsync(req);
+            await Assert.ThrowsAsync<NonceReplayException>(() => v.ValidateAsync(req));
+        }
+    }
+
+    [Fact] public async Task StaleTimestamp_ThrowsStaleTransfer()
+    {
+        var (v, payer, kp, soc, ctx) = await MakeAsync();
+        using (ctx)
+        {
+            var req = BuildRequest(payer, kp.PrivateKeyBytes, soc, 1,
+                ts: DateTimeOffset.UtcNow.AddMinutes(-11));
+            await Assert.ThrowsAsync<StaleTransferException>(() => v.ValidateAsync(req));
+        }
+    }
+
+    [Fact] public async Task TamperedAmount_ThrowsSignatureVerification()
+    {
+        var (v, payer, kp, soc, ctx) = await MakeAsync();
+        using (ctx)
+        {
+            var req = BuildRequest(payer, kp.PrivateKeyBytes, soc, 1);
+            await Assert.ThrowsAsync<SignatureVerificationException>(
+                () => v.ValidateAsync(req with { AmountGrana = 9_999 }));
+        }
+    }
+}
+
 // ── Test helper: in-memory nonce store (replaces LiteDB for unit tests) ───────
 internal sealed class InMemoryTransferNonceStore : ITransferNonceStore
 {

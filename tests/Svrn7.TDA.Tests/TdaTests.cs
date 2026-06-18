@@ -1514,6 +1514,21 @@ public sealed class KestrelListenerRateLimitTests : IAsyncLifetime
     }
 }
 
+// ── DrnDirectory.BuildQueryLabel tests ───────────────────────────────────────
+
+public class DrnDirectoryLabelTests
+{
+    [Theory]
+    [InlineData("did:drn:federation.svrn7.net/federation/1.0/abc123", "federation.svrn7.net.drn.directory")]
+    [InlineData("did:drn:federation.svrn7.net/agent/1.0/abc123",      "federation.svrn7.net.drn.directory")]
+    [InlineData("did:drn:federation.svrn7.net",                        "federation.svrn7.net.drn.directory")]
+    [InlineData("federation.svrn7.net",                                "federation.svrn7.net.drn.directory")]
+    [InlineData("svrn7.net",                                           "federation.svrn7.net.drn.directory")]
+    [InlineData("DID:DRN:FEDERATION.SVRN7.NET/AGENT/1.0/ABC",         "FEDERATION.SVRN7.NET.drn.directory")]
+    public void BuildQueryLabel_VariousInputForms_ProducesCorrectLabel(string input, string expected)
+        => DrnDirectory.BuildQueryLabel(input).Should().Be(expected);
+}
+
 // ── Additional stubs ──────────────────────────────────────────────────────────
 
 /// <summary>IInboxStore stub that tracks whether ResetStuckMessagesAsync was called.</summary>

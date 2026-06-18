@@ -351,6 +351,93 @@ public class VcDocumentResolverTests : IAsyncDisposable
     public async ValueTask DisposeAsync() => await _f.DisposeAsync();
 }
 
+// ── SocietyTransferValidator step tests ──────────────────────────────────────
+
+public class SocietyTransferValidatorTests
+{
+    private readonly ICryptoService _crypto = new CryptoService();
+
+    private const string SocietyDid    = "did:drn:federation.svrn7.net/sovronia/1.0/soc";
+    private const string FederationDid = "did:drn:federation.svrn7.net/federation/1.0/fed";
+
+    private async Task<(SocietyTransferValidator v, string payer, Svrn7KeyPair kp, Svrn7LiteContext ctx)>
+        MakeAsync(int epoch = Svrn7Constants.Epochs.Endowment)
+    {
+        var ctx      = new Svrn7LiteContext(":memory:");
+        var registry = new LiteIdentityRegistry(ctx);
+        var wallets  = new LiteWalletStore(ctx);
+        var kp       = _crypto.GenerateSecp256k1KeyPair();
+        var payer    = "did:drn:sovronia.svrn7.net/citizen/1.0/alice";
+
+        await registry.RegisterCitizenAsync(new CitizenRecord
+            { Did = payer, PublicKeyHex = kp.PublicKeyHex, EncryptedPrivateKeyBase64 = "test" });
+        await registry.StoreMembershipAsync(new SocietyMembershipRecord
+            { CitizenPrimaryDid = payer, SocietyDid = SocietyDid });
+        await wallets.AddUtxoAsync(new Utxo
+            { Id = Guid.NewGuid().ToString("N"), OwnerDid = payer, AmountGrana = 1_000L });
+
+        var v = new SocietyTransferValidator(wallets, registry,
+            new PassthroughSanctionsChecker(), _crypto, SocietyDid, FederationDid,
+            new InMemoryTransferNonceStore(), epoch);
+
+        return (v, payer, kp, ctx);
+    }
+
+    private TransferRequest BuildRequest(string payer, byte[] key, string payee, long grana)
+    {
+        var nonce = Guid.NewGuid().ToString("N");
+        var ts    = DateTimeOffset.UtcNow;
+        var json  = JsonSerializer.Serialize(new
+        {
+            PayerDid = payer, PayeeDid = payee, AmountGrana = grana,
+            Nonce = nonce, Timestamp = ts.ToString("O"), Memo = (string?)null
+        }, new JsonSerializerOptions { WriteIndented = false });
+        var sig = _crypto.SignSecp256k1(Encoding.UTF8.GetBytes(json), key);
+        return new TransferRequest
+        {
+            PayerDid = payer, PayeeDid = payee, AmountGrana = grana,
+            Nonce = nonce, Timestamp = ts, Signature = sig
+        };
+    }
+
+    [Fact] public async Task Epoch0_PayerNotMember_ThrowsEpochViolation()
+    {
+        var (v, _, _, ctx) = await MakeAsync();
+        using (ctx)
+        {
+            var outsiderKp = _crypto.GenerateSecp256k1KeyPair();
+            var req = BuildRequest("did:drn:other.svrn7.net/citizen/1.0/bob", outsiderKp.PrivateKeyBytes, SocietyDid, 1);
+            var ex  = await Assert.ThrowsAsync<EpochViolationException>(() => v.ValidateAsync(req));
+            ex.ViolationType.Should().Be("PayerNotMemberOfSociety");
+        }
+    }
+
+    [Fact] public async Task Epoch0_PayeeNotSocietyOrFederation_ThrowsEpochViolation()
+    {
+        var (v, payer, kp, ctx) = await MakeAsync();
+        using (ctx)
+        {
+            var req = BuildRequest(payer, kp.PrivateKeyBytes, "did:drn:other.svrn7.net/citizen/1.0/carol", 1);
+            var ex  = await Assert.ThrowsAsync<EpochViolationException>(() => v.ValidateAsync(req));
+            ex.ViolationType.Should().Be("EpochZeroPayeeRestriction");
+        }
+    }
+
+    [Fact] public async Task Epoch0_PayeeIsOwnSociety_PassesAllSteps()
+    {
+        var (v, payer, kp, ctx) = await MakeAsync();
+        using (ctx)
+            await v.ValidateAsync(BuildRequest(payer, kp.PrivateKeyBytes, SocietyDid, 1));
+    }
+
+    [Fact] public async Task Epoch0_PayeeIsFederation_PassesAllSteps()
+    {
+        var (v, payer, kp, ctx) = await MakeAsync();
+        using (ctx)
+            await v.ValidateAsync(BuildRequest(payer, kp.PrivateKeyBytes, FederationDid, 1));
+    }
+}
+
 // ── Test helper: in-memory nonce store ────────────────────────────────────────
 internal sealed class InMemoryTransferNonceStore : Svrn7.Core.Interfaces.ITransferNonceStore
 {

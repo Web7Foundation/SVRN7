@@ -30,7 +30,7 @@ public static class DrnDirectory
     /// Builds the drn.directory DNS query label from a Federation DID or domain.
     /// Result form: federation.{domain}.drn.directory
     /// </summary>
-    internal static string BuildQueryLabel(string input)
+    public static string BuildQueryLabel(string input)
     {
         // Strip did:drn: prefix
         if (input.StartsWith("did:drn:", StringComparison.OrdinalIgnoreCase))
