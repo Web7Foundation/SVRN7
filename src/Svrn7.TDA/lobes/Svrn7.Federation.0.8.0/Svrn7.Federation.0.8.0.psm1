@@ -1368,13 +1368,6 @@ function Invoke-Web7SocietyList {
             }
         })
 
-        $payload = @{
-            count       = $societies.Count
-            activeCount = $activeSocs.Count
-            societies   = $societyList
-            queriedAt   = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Depth 15 -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
 
         if (-not $endpoint) {
@@ -1389,8 +1382,13 @@ function Invoke-Web7SocietyList {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list-result'
             from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                count       = $societies.Count
+                activeCount = $activeSocs.Count
+                societies   = $societyList
+                queriedAt   = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 5
 
         [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
@@ -1506,19 +1504,6 @@ function Invoke-Web7RegisterSociety {
         $societyDocJson    = $SVRN7.GetDidDocumentJson($societyDid)
         $federationDocJson = $SVRN7.GetDidDocumentJson($SVRN7.LocalDid)
 
-        $payload = @{
-            societyDid            = $societyDid
-            societyName           = $body.societyName
-            societyDidDocument    = if ($societyDocJson)    { $societyDocJson    | ConvertFrom-Json } else { $null }
-            federationDid         = $SVRN7.LocalDid
-            federationEndpointUrl = $SVRN7.ServiceEndpointUrl
-            federationDidDocument = if ($federationDocJson) { $federationDocJson | ConvertFrom-Json } else { $null }
-            drawAmountGrana       = $request.DrawAmountGrana
-            overdraftCeilingGrana = $request.OverdraftCeilingGrana
-            success               = $true
-            registeredAt          = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Depth 15 -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
         if (-not $endpoint) {
             Write-Warning "Invoke-Web7RegisterSociety: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
@@ -1532,8 +1517,19 @@ function Invoke-Web7RegisterSociety {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society-result'
             from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                societyDid            = $societyDid
+                societyName           = $body.societyName
+                societyDidDocument    = if ($societyDocJson)    { $societyDocJson    | ConvertFrom-Json } else { $null }
+                federationDid         = $SVRN7.LocalDid
+                federationEndpointUrl = $SVRN7.ServiceEndpointUrl
+                federationDidDocument = if ($federationDocJson) { $federationDocJson | ConvertFrom-Json } else { $null }
+                drawAmountGrana       = $request.DrawAmountGrana
+                overdraftCeilingGrana = $request.OverdraftCeilingGrana
+                success               = $true
+                registeredAt          = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 5
 
         [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }

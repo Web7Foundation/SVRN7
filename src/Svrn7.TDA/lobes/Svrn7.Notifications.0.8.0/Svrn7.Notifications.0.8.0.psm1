@@ -122,16 +122,6 @@ function Send-Web7Alert {
     process {
 
 
-        $payload = @{
-            from        = $SVRN7.LocalDid
-            to          = $RecipientDid
-            alertType   = $AlertType
-            severity    = $Severity
-            message     = $Message
-            resourceDid = $ResourceDid
-            issuedAt    = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $RecipientDid
         if (-not $endpoint) {
             Write-Warning "Send-Web7Alert: no DIDComm service endpoint for '$RecipientDid' — reply skipped."
@@ -144,8 +134,16 @@ function Send-Web7Alert {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/alert'
             from = $SVRN7.LocalDid
             to   = @($RecipientDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                from        = $SVRN7.LocalDid
+                to          = $RecipientDid
+                alertType   = $AlertType
+                severity    = $Severity
+                message     = $Message
+                resourceDid = $ResourceDid
+                issuedAt    = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }

@@ -253,15 +253,6 @@ function New-Svrn7TransferIntent {
             throw "UX LOBE: AmountGrana must be greater than zero."
         }
 
-        $bodyJson = @{
-            payerDid    = $PayerDid
-            payeeDid    = $PayeeDid
-            amountGrana = $AmountGrana
-            memo        = $Memo
-            nonce       = [guid]::NewGuid().ToString('N')
-            timestamp   = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Compress
-
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $SVRN7.Driver.SocietyDid
         if (-not $peerEndpoint) {
             Write-Warning "New-Svrn7TransferIntent: no DIDComm service endpoint for Society — intent skipped."
@@ -274,8 +265,15 @@ function New-Svrn7TransferIntent {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request'
             from = $SVRN7.LocalDid
             to   = @($PayeeDid)
-            body = $bodyJson
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                payerDid    = $PayerDid
+                payeeDid    = $PayeeDid
+                amountGrana = $AmountGrana
+                memo        = $Memo
+                nonce       = [guid]::NewGuid().ToString('N')
+                timestamp   = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         [Svrn7.TDA.OutboundMessage]::new($peerEndpoint, $envelope)
     }

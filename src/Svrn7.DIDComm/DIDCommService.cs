@@ -380,7 +380,9 @@ public sealed class DIDCommPackingService : IDIDCommService
         var msgId   = pr.TryGetProperty("id",   out var idEl)   ? idEl.GetString()           : null;
         var msgType = pr.TryGetProperty("type", out var typeEl) ? typeEl.GetString() ?? ""    : "";
         var msgFrom = pr.TryGetProperty("from", out var fromEl) ? fromEl.GetString()           : null;
-        var msgBody = pr.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "{}"  : "{}";
+        var msgBody = pr.TryGetProperty("body", out var bodyEl)
+            ? bodyEl.ValueKind == JsonValueKind.String ? bodyEl.GetString() ?? "{}" : bodyEl.GetRawText()
+            : "{}";
 
         // Verify signature when we have a resolver and a sender DID
         if (_resolver is not null && msgFrom is not null)
@@ -434,7 +436,9 @@ public sealed class DIDCommPackingService : IDIDCommService
             Id   = root.TryGetProperty("id",   out var idEl)   ? idEl.GetString()           : null,
             Type = typeEl.GetString() ?? string.Empty,
             From = root.TryGetProperty("from", out var fromEl) ? fromEl.GetString()          : null,
-            Body = root.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "{}" : "{}",
+            Body = root.TryGetProperty("body", out var bodyEl)
+            ? bodyEl.ValueKind == JsonValueKind.String ? bodyEl.GetString() ?? "{}" : bodyEl.GetRawText()
+            : "{}",
             Mode = mode,
         };
 

@@ -201,15 +201,6 @@ function Get-Svrn7VcById {
         # Find-Svrn7VcsBySubject is in Svrn7.Society.0.8.0.psm1 (eager)
         $vcs = Find-Svrn7VcsBySubject -SubjectDid $subjectDid
 
-        $responsePayload = @{
-            from        = $SVRN7.LocalDid
-            to          = $body.from
-            subjectDid  = $subjectDid
-            found       = ($vcs.Count -gt 0)
-            credentials = $vcs
-            resolvedAt  = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Depth 10 -Compress
-
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $body.from
         if (-not $peerEndpoint) {
             Write-Warning "Get-Svrn7VcById: no DIDComm service endpoint for '$($body.from)' — reply skipped."
@@ -222,8 +213,15 @@ function Get-Svrn7VcById {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/vc-resolve-by-subject-response'
             from = $SVRN7.LocalDid
             to   = @($body.from)
-            body = $responsePayload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                from        = $SVRN7.LocalDid
+                to          = $body.from
+                subjectDid  = $subjectDid
+                found       = ($vcs.Count -gt 0)
+                credentials = $vcs
+                resolvedAt  = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 5
 
         Write-Information "Get-Svrn7VcById: subjectDid='$subjectDid' found=$($vcs.Count -gt 0) replying to '$($body.from)'"
 
@@ -370,8 +368,8 @@ function Invoke-Svrn7DidResolveResponse {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response'
             from = $SVRN7.LocalDid
             to   = @($pending.ImmediateRequesterDid)
-            body = $msg.PackedPayload
-        } | ConvertTo-Json -Compress
+            body = $msg.PackedPayload | ConvertFrom-Json
+        } | ConvertTo-Json -Compress -Depth 5
 
         [Svrn7.TDA.OutboundMessage]::new($pending.ImmediateRequesterEndpoint, $relayEnvelope)
     }
@@ -414,8 +412,8 @@ function New-DidResolveResponseMessage {
         type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response'
         from = $SVRN7.LocalDid
         to   = @($RecipientDid)
-        body = $responseBody | ConvertTo-Json -Depth 10 -Compress
-    } | ConvertTo-Json -Compress
+        body = $responseBody
+    } | ConvertTo-Json -Compress -Depth 5
 
     [Svrn7.TDA.OutboundMessage]::new($replyEndpoint, $envelope)
 }
@@ -434,21 +432,19 @@ function New-DidResolveForwardMessage {
         [Parameter(Mandatory)] [string] $TargetDid,
         [Parameter(Mandatory)] [string] $TargetEndpoint
     )
-    $forwardBody = [ordered]@{
-        requestedDid         = $RequestedDid
-        requestId            = [Guid]::NewGuid().ToString('N')
-        originalRequesterDid = $OriginalRequesterDid
-        originalRequestId    = $OriginalRequestId
-    } | ConvertTo-Json -Compress
-
     $envelope = [ordered]@{
         typ  = 'application/didcomm-plain+json'
         id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
         type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request'
         from = $SVRN7.LocalDid
         to   = @($TargetDid)
-        body = $forwardBody
-    } | ConvertTo-Json -Compress
+        body = [ordered]@{
+            requestedDid         = $RequestedDid
+            requestId            = [Guid]::NewGuid().ToString('N')
+            originalRequesterDid = $OriginalRequesterDid
+            originalRequestId    = $OriginalRequestId
+        }
+    } | ConvertTo-Json -Compress -Depth 3
 
     [Svrn7.TDA.OutboundMessage]::new($TargetEndpoint, $envelope)
 }

@@ -40,21 +40,19 @@ function Invoke-PandoDiagnosticsDateQuery {
             return
         }
 
-        $payload = @{
-            serverUtc       = $now.UtcDateTime.ToString('o')
-            serverUtcOffset = '+00:00'
-            currentEpoch    = $SVRN7.CurrentEpoch
-            respondedAt     = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Compress
-
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/Issue-TOD'
             from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                serverUtc       = $now.UtcDateTime.ToString('o')
+                serverUtcOffset = '+00:00'
+                currentEpoch    = $SVRN7.CurrentEpoch
+                respondedAt     = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }

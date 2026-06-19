@@ -95,19 +95,17 @@ function Dequeue-PandoMail {
         # Push Email-Notify to PandoMail via the local WebSocket hub.
         # The Switchboard delivers any OutboundMessage whose PeerEndpoint starts
         # with "ws://" through WebSocketNotifyHub.PushAsync instead of HTTP/2 POST.
-        $notifyBody = [ordered]@{
-            messageDid = $MessageDid
-            senderDid  = $record.SenderDid
-            subject    = $record.Subject
-            receivedAt = $record.ReceivedAt
-        } | ConvertTo-Json -Compress
-
         $notifyEnvelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Email-Notify/1.0/new-message'
-            body = $notifyBody
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                messageDid = $MessageDid
+                senderDid  = $record.SenderDid
+                subject    = $record.Subject
+                receivedAt = $record.ReceivedAt
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         # Output the record for any pipeline caller, then the notification OutboundMessage.
         $record
@@ -172,12 +170,6 @@ Content-Type: text/plain; charset=utf-8
 
 $Body
 "@
-        $payload = @{
-            from        = $SVRN7.LocalDid
-            to          = $RecipientDid
-            rfc5322Body = $rfc5322
-        } | ConvertTo-Json -Compress
-
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $RecipientDid
         if (-not $peerEndpoint) {
             Write-Warning "Enqueue-PandoMail: no DIDComm service endpoint for '$RecipientDid' — reply skipped."
@@ -190,8 +182,12 @@ $Body
             type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail'
             from = $SVRN7.LocalDid
             to   = @($RecipientDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                from        = $SVRN7.LocalDid
+                to          = $RecipientDid
+                rfc5322Body = $rfc5322
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         [Svrn7.TDA.OutboundMessage]::new($peerEndpoint, $envelope)
     }
@@ -255,20 +251,18 @@ function Invoke-PandoMailList {
             }
         })
 
-        $responseBody = [ordered]@{
-            emails        = $emailList
-            count         = $emailList.Count
-            correlationId = $correlationId
-        } | ConvertTo-Json -Compress -Depth 5
-
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Get-PandoMails'
             from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
-            body = $responseBody
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                emails        = $emailList
+                count         = $emailList.Count
+                correlationId = $correlationId
+            }
+        } | ConvertTo-Json -Compress -Depth 5
 
         Write-Verbose "Email LOBE: List-Emails returning $($emailList.Count) messages via WebSocket."
         [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $envelope)
@@ -360,18 +354,16 @@ function Get-TdaDid {
 
         $correlationId = Get-BodyField $body 'correlationId' ''
 
-        $responseBody = [ordered]@{
-            did           = $SVRN7.LocalDid
-            correlationId = $correlationId
-        } | ConvertTo-Json -Compress
-
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Reply-TdaDid'
             from = $SVRN7.LocalDid
-            body = $responseBody
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                did           = $SVRN7.LocalDid
+                correlationId = $correlationId
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $envelope)
     }

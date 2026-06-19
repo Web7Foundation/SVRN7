@@ -151,13 +151,6 @@ function Publish-Web7Presence {
             return
         }
 
-        $payload = @{
-            did        = $SVRN7.LocalDid
-            status     = $Status
-            since      = [datetimeoffset]::UtcNow.ToString('o')
-            ttlSeconds = $TtlSeconds
-        } | ConvertTo-Json -Compress
-
         foreach ($subscriberDid in $subs) {
             $endpoint = Resolve-SocietySenderEndpoint -Did $subscriberDid
             if (-not $endpoint) {
@@ -171,8 +164,13 @@ function Publish-Web7Presence {
                 type = 'did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/status'
                 from = $SVRN7.LocalDid
                 to   = @($subscriberDid)
-                body = $payload
-            } | ConvertTo-Json -Compress
+                body = [ordered]@{
+                    did        = $SVRN7.LocalDid
+                    status     = $Status
+                    since      = [datetimeoffset]::UtcNow.ToString('o')
+                    ttlSeconds = $TtlSeconds
+                }
+            } | ConvertTo-Json -Compress -Depth 3
 
             [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
         }

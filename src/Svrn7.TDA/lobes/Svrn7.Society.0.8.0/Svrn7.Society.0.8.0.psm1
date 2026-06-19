@@ -1463,13 +1463,6 @@ function Invoke-Web7SocietyQuery {
 
         $soc = $drv.GetOwnSocietyAsync().GetAwaiter().GetResult()
 
-        $payload = @{
-            societyDid    = $drv.SocietyDid
-            federationDid = if ($soc) { $soc.FederationDid } else { $null }
-            currentEpoch  = $SVRN7.CurrentEpoch
-            queriedAt     = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
         if (-not $endpoint) {
             Write-Warning "Invoke-Web7SocietyQuery: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
@@ -1482,8 +1475,13 @@ function Invoke-Web7SocietyQuery {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/society-query-result'
             from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                societyDid    = $drv.SocietyDid
+                federationDid = if ($soc) { $soc.FederationDid } else { $null }
+                currentEpoch  = $SVRN7.CurrentEpoch
+                queriedAt     = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         Write-Information "Invoke-Web7SocietyQuery: replying to $($msg.FromDid)"
 
@@ -1513,23 +1511,22 @@ function Invoke-Web7MemberQuery {
 
         $body = $msg.PackedPayload | ConvertFrom-Json
 
-        $result = if ($body.PSObject.Properties['did'] -and $body.did) {
+        $bodyPayload = if ($body.PSObject.Properties['did'] -and $body.did) {
             $isMember = $drv.IsMemberAsync($body.did).GetAwaiter().GetResult()
-            @{
+            [ordered]@{
                 societyDid = $drv.SocietyDid
                 did        = $body.did
                 isMember   = $isMember
             }
         } else {
             $dids = $drv.GetMemberCitizenDidsAsync().GetAwaiter().GetResult()
-            @{
+            [ordered]@{
                 societyDid  = $drv.SocietyDid
                 memberCount = $dids.Count
                 memberDids  = @($dids)
             }
         }
 
-        $payload  = $result | ConvertTo-Json -Compress
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
         if (-not $endpoint) {
             Write-Warning "Invoke-Web7MemberQuery: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
@@ -1542,8 +1539,8 @@ function Invoke-Web7MemberQuery {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/member-query-result'
             from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = $bodyPayload
+        } | ConvertTo-Json -Compress -Depth 5
 
         Write-Information "Invoke-Web7MemberQuery: replying to $($msg.FromDid)"
 
@@ -1572,18 +1569,6 @@ function Invoke-Web7OverdraftQuery {
 
         $rec = $drv.GetOverdraftRecordAsync().GetAwaiter().GetResult()
 
-        $payload = @{
-            societyDid            = $drv.SocietyDid
-            status                = if ($rec) { $rec.Status.ToString() } else { 'Clean' }
-            totalOverdrawnGrana   = if ($rec) { $rec.TotalOverdrawnGrana }   else { 0 }
-            overdraftCeilingGrana = if ($rec) { $rec.OverdraftCeilingGrana } else { 0 }
-            lifetimeDrawsGrana    = if ($rec) { $rec.LifetimeDrawsGrana }    else { 0 }
-            drawCount             = if ($rec) { $rec.DrawCount }             else { 0 }
-            drawAmountGrana       = if ($rec) { $rec.DrawAmountGrana }       else { 0 }
-            lastDrawAt            = if ($rec -and $rec.LastDrawAt -and $rec.LastDrawAt.HasValue) { $rec.LastDrawAt.Value.ToString('o') } else { $null }
-            queriedAt             = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
         if (-not $endpoint) {
             Write-Warning "Invoke-Web7OverdraftQuery: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
@@ -1596,8 +1581,18 @@ function Invoke-Web7OverdraftQuery {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-query-result'
             from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                societyDid            = $drv.SocietyDid
+                status                = if ($rec) { $rec.Status.ToString() } else { 'Clean' }
+                totalOverdrawnGrana   = if ($rec) { $rec.TotalOverdrawnGrana }   else { 0 }
+                overdraftCeilingGrana = if ($rec) { $rec.OverdraftCeilingGrana } else { 0 }
+                lifetimeDrawsGrana    = if ($rec) { $rec.LifetimeDrawsGrana }    else { 0 }
+                drawCount             = if ($rec) { $rec.DrawCount }             else { 0 }
+                drawAmountGrana       = if ($rec) { $rec.DrawAmountGrana }       else { 0 }
+                lastDrawAt            = if ($rec -and $rec.LastDrawAt -and $rec.LastDrawAt.HasValue) { $rec.LastDrawAt.Value.ToString('o') } else { $null }
+                queriedAt             = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         Write-Information "Invoke-Web7OverdraftQuery: replying to $($msg.FromDid)"
 
@@ -1635,12 +1630,6 @@ function Invoke-Web7DidMethodsQuery {
             }
         })
 
-        $payload = @{
-            societyDid = $drv.SocietyDid
-            methods    = $methods
-            queriedAt  = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Depth 4 -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
         if (-not $endpoint) {
             Write-Warning "Invoke-Web7DidMethodsQuery: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
@@ -1653,8 +1642,12 @@ function Invoke-Web7DidMethodsQuery {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-methods-query-result'
             from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                societyDid = $drv.SocietyDid
+                methods    = $methods
+                queriedAt  = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 5
 
         Write-Information "Invoke-Web7DidMethodsQuery: replying to $($msg.FromDid)"
 
@@ -1687,13 +1680,6 @@ function Invoke-Web7DidMethodRegister {
 
         $result = $drv.RegisterSocietyDidMethodAsync($body.methodName).GetAwaiter().GetResult()
 
-        $payload = @{
-            societyDid = $drv.SocietyDid
-            methodName = $body.methodName
-            status     = 'Active'
-            success    = $true
-        } | ConvertTo-Json -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
         if (-not $endpoint) {
             Write-Warning "Invoke-Web7DidMethodRegister: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
@@ -1706,8 +1692,13 @@ function Invoke-Web7DidMethodRegister {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-method-register-result'
             from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                societyDid = $drv.SocietyDid
+                methodName = $body.methodName
+                status     = 'Active'
+                success    = $true
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         Write-Information "Invoke-Web7DidMethodRegister: registered '$($body.methodName)', replying to $($msg.FromDid)"
 
@@ -1744,13 +1735,6 @@ function Invoke-Web7CitizenDidAdd {
         $identifier   = ($body.citizenPrimaryDid -split ':')[-1]
         $secondaryDid = "did:$($body.methodName):${identifier}"
 
-        $payload = @{
-            citizenPrimaryDid = $body.citizenPrimaryDid
-            secondaryDid      = $secondaryDid
-            methodName        = $body.methodName
-            success           = $true
-        } | ConvertTo-Json -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
         if (-not $endpoint) {
             Write-Warning "Invoke-Web7CitizenDidAdd: no DIDComm service endpoint for '$($msg.FromDid)' — reply skipped."
@@ -1763,8 +1747,13 @@ function Invoke-Web7CitizenDidAdd {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/citizen-did-add-result'
             from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                citizenPrimaryDid = $body.citizenPrimaryDid
+                secondaryDid      = $secondaryDid
+                methodName        = $body.methodName
+                success           = $true
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         Write-Information "Invoke-Web7CitizenDidAdd: issued '$secondaryDid', replying to $($msg.FromDid)"
 

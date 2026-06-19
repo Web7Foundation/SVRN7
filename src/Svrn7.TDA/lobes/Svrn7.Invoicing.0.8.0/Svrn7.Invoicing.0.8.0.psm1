@@ -147,19 +147,6 @@ function New-Web7InvoiceReceipt {
     )
 
     process {
-        $payload = @{
-            from           = $SVRN7.LocalDid
-            to             = $TransferResult.PayerDid
-            success        = $TransferResult.Success
-            invoiceId      = $TransferResult.InvoiceId
-            transferId     = $TransferResult.TransferId
-            payerDid       = $TransferResult.PayerDid
-            payeeDid       = $TransferResult.PayeeDid
-            amountGrana    = $TransferResult.AmountGrana
-            receiptVcId    = $TransferResult.ReceiptVcId
-            settledAt      = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $TransferResult.PayerDid
         if (-not $endpoint) {
             Write-Warning "New-Web7InvoiceReceipt: no DIDComm service endpoint for '$($TransferResult.PayerDid)' — reply skipped."
@@ -174,8 +161,19 @@ function New-Web7InvoiceReceipt {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/receipt'
             from = $SVRN7.LocalDid
             to   = @($TransferResult.PayerDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                from           = $SVRN7.LocalDid
+                to             = $TransferResult.PayerDid
+                success        = $TransferResult.Success
+                invoiceId      = $TransferResult.InvoiceId
+                transferId     = $TransferResult.TransferId
+                payerDid       = $TransferResult.PayerDid
+                payeeDid       = $TransferResult.PayeeDid
+                amountGrana    = $TransferResult.AmountGrana
+                receiptVcId    = $TransferResult.ReceiptVcId
+                settledAt      = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
@@ -208,15 +206,6 @@ function Send-Web7InvoiceError {
     )
 
     process {
-        $payload = @{
-            from       = $SVRN7.LocalDid
-            to         = $PayerDid
-            success    = $false
-            invoiceId  = $InvoiceId
-            error      = $ErrorMessage
-            failedAt   = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $PayerDid
         if (-not $endpoint) {
             Write-Warning "Send-Web7InvoiceError: no DIDComm service endpoint for '$PayerDid' — reply skipped."
@@ -229,8 +218,15 @@ function Send-Web7InvoiceError {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/receipt'
             from = $SVRN7.LocalDid
             to   = @($PayerDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                from       = $SVRN7.LocalDid
+                to         = $PayerDid
+                success    = $false
+                invoiceId  = $InvoiceId
+                error      = $ErrorMessage
+                failedAt   = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }

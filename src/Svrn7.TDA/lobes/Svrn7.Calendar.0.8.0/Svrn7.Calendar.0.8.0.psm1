@@ -165,12 +165,6 @@ END:VEVENT
 END:VCALENDAR
 "@
 
-        $payload = @{
-            from           = $SVRN7.LocalDid
-            to             = $Invite.OrganizerDid
-            icalendarBody  = $replyVcal
-        } | ConvertTo-Json -Compress
-
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $Invite.OrganizerDid
         if (-not $peerEndpoint) {
             Write-Warning "New-Web7CalendarResponse: no DIDComm service endpoint for '$($Invite.OrganizerDid)' — reply skipped."
@@ -183,8 +177,12 @@ END:VCALENDAR
             type = 'did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/response'
             from = $SVRN7.LocalDid
             to   = @($Invite.OrganizerDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                from           = $SVRN7.LocalDid
+                to             = $Invite.OrganizerDid
+                icalendarBody  = $replyVcal
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         [Svrn7.TDA.OutboundMessage]::new($peerEndpoint, $envelope)
     }

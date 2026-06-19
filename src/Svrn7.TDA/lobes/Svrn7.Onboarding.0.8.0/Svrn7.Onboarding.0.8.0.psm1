@@ -121,20 +121,6 @@ function New-Web7OnboardReceipt {
         $citizenDocJson = $SVRN7.GetDidDocumentJson($RegistrationResult.CitizenDid)
         $societyDocJson = $SVRN7.GetDidDocumentJson($SVRN7.LocalDid)
 
-        $payload = @{
-            from               = $SVRN7.LocalDid
-            to                 = $RegistrationResult.CitizenDid
-            success            = $true
-            citizenDid         = $RegistrationResult.CitizenDid
-            citizenDidDocument = if ($citizenDocJson) { $citizenDocJson | ConvertFrom-Json } else { $null }
-            societyDid         = $RegistrationResult.SocietyDid
-            societyDidDocument = if ($societyDocJson) { $societyDocJson | ConvertFrom-Json } else { $null }
-            societyEndpointUrl = $SVRN7.ServiceEndpointUrl
-            endowmentGrana     = $RegistrationResult.EndowmentGrana
-            endowmentVcId      = $RegistrationResult.EndowmentVcId
-            registeredAt       = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Depth 15 -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $RegistrationResult.CitizenDid
         if (-not $endpoint) {
             Write-Warning "New-Web7OnboardReceipt: no DIDComm service endpoint for '$($RegistrationResult.CitizenDid)' — reply skipped."
@@ -149,8 +135,20 @@ function New-Web7OnboardReceipt {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt'
             from = $SVRN7.LocalDid
             to   = @($RegistrationResult.CitizenDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                from               = $SVRN7.LocalDid
+                to                 = $RegistrationResult.CitizenDid
+                success            = $true
+                citizenDid         = $RegistrationResult.CitizenDid
+                citizenDidDocument = if ($citizenDocJson) { $citizenDocJson | ConvertFrom-Json } else { $null }
+                societyDid         = $RegistrationResult.SocietyDid
+                societyDidDocument = if ($societyDocJson) { $societyDocJson | ConvertFrom-Json } else { $null }
+                societyEndpointUrl = $SVRN7.ServiceEndpointUrl
+                endowmentGrana     = $RegistrationResult.EndowmentGrana
+                endowmentVcId      = $RegistrationResult.EndowmentVcId
+                registeredAt       = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 5
 
         [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
@@ -232,14 +230,6 @@ function Send-Web7OnboardError {
     )
 
     process {
-        $payload = @{
-            from          = $SVRN7.LocalDid
-            to            = $CitizenDid
-            success       = $false
-            error         = $ErrorMessage
-            registeredAt  = [datetimeoffset]::UtcNow.ToString('o')
-        } | ConvertTo-Json -Compress
-
         $endpoint = Resolve-SocietySenderEndpoint -Did $CitizenDid
         if (-not $endpoint) {
             Write-Warning "Send-Web7OnboardError: no DIDComm service endpoint for '$CitizenDid' — reply skipped."
@@ -252,8 +242,14 @@ function Send-Web7OnboardError {
             type = 'did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt'
             from = $SVRN7.LocalDid
             to   = @($CitizenDid)
-            body = $payload
-        } | ConvertTo-Json -Compress
+            body = [ordered]@{
+                from          = $SVRN7.LocalDid
+                to            = $CitizenDid
+                success       = $false
+                error         = $ErrorMessage
+                registeredAt  = [datetimeoffset]::UtcNow.ToString('o')
+            }
+        } | ConvertTo-Json -Compress -Depth 3
 
         [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
