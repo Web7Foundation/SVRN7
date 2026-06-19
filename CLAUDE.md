@@ -9,7 +9,7 @@ SVRN7/
 ├── src/
 │   ├── Svrn7.Core/          Models, interfaces, enums (DidDocument, Svrn7Role, DidStatus, etc.)
 │   ├── Svrn7.Crypto/        secp256k1 key generation, Base58, signing (CryptoService)
-│   ├── Svrn7.DIDComm/       DIDComm V2 pack/unpack (plaintext only — see Known Limitations)
+│   ├── Svrn7.DIDComm/       DIDComm V2 pack/unpack (all modes: plaintext, JWS, JWE, SignThenEncrypt)
 │   ├── Svrn7.Store/         LiteDB registries: LiteDidDocumentRegistry, LiteInboxStore, etc.
 │   ├── Svrn7.Federation/    ISvrn7Driver, Svrn7Driver — federation + DID management
 │   ├── Svrn7.Society/       ISvrn7SocietyDriver — adds citizen/VC/transfer layer
@@ -32,7 +32,7 @@ SVRN7/
 ```
 POST /didcomm (HTTP/2, Kestrel)
   └── KestrelListenerService
-        └── IDIDCommService.UnpackAsync       ← plaintext only today (see Known Limitations)
+        └── IDIDCommService.UnpackAsync       ← JWE decrypt + JWS verify at inbound boundary
               └── LiteInboxStore.EnqueueAsync
                     └── DIDCommMessageSwitchboard (drain loop)
                           └── LobeManager.TryResolveProtocol(@type)
@@ -74,6 +74,30 @@ The TDA's public inbound surface is HTTP/2-only (no HTTP/1.1 fallback). Reasons:
 **Why not gRPC directly?** gRPC framing (Protobuf + length-prefixed binary) adds schema complexity for third-party LOBE authors and clients that only need to POST a JSON envelope. Raw HTTP/2 POST keeps the wire format simple.
 
 **Local UI clients (PandoMail):** PandoMail is on .NET 8. `TdaMailClient.Send()` uses `HttpClient` with HTTP/2 + mTLS directly for `POST /didcomm`. The `/didcomm-notify` push channel uses RFC 8441 (WebSocket over HTTP/2 extended CONNECT) — a deliberate design choice for server-push, not a .NET limitation.
+
+---
+
+## Design Rationale: Decrypt-at-Boundary (KestrelListenerService)
+
+`KestrelListenerService` fully unpacks every inbound DIDComm message — JWE decryption and JWS signature verification — **before** anything is written to the inbox. The decrypted plaintext body is what gets stored in `InboxMessage.PackedPayload`. The original wire envelope is preserved separately in `InboxMessage.JweEnvelope` for audit. This is a deliberate architectural constraint, not an implementation convenience.
+
+Storing the raw JWE and decrypting later (in the Switchboard or in a LOBE) would break the system in five distinct ways:
+
+1. **Routing breaks entirely** — `DIDCommMessageSwitchboard` routes by `InboxMessage.MessageType`, which is extracted from the unpacked inner payload at enqueue time. A stored JWE has no accessible `@type`; the Switchboard would have to assign a synthetic type (`application/didcomm-encrypted+json`) that no LOBE handles, dead-lettering every encrypted message.
+
+2. **Every LOBE breaks** — LOBE handlers access message content as:
+   ```powershell
+   $body = $msg.PackedPayload | ConvertFrom-Json
+   ```
+   If `PackedPayload` is a JWE envelope, `ConvertFrom-Json` returns the JWE structure, not the application payload. All existing LOBEs would require a decrypt-first step, making LOBE authoring significantly more complex and error-prone.
+
+3. **Key material must enter the LOBE runspace** — Decrypting in a LOBE requires the X25519 private key (`AgentKeyAgreementPrivateKey`) to be available there. Currently it is held only by `KestrelListenerService` and never enters a runspace. Injecting it into `$SVRN7` expands the attack surface: a buggy or malicious LOBE would have access to the TDA's decryption key.
+
+4. **`FromDid` is unavailable for reply routing** — The sender DID is extracted from the JWS inner layer during `UnpackJwsAsync`. Without unpacking at the boundary, `InboxMessage.FromDid` is null. LOBE handlers that need to send a reply have no sender identity without repeating the full unpack.
+
+5. **Stuck-message recovery corrupts the retry cycle** — `LiteInboxStore.ResetStuckMessagesAsync` requeues `Processing` messages to `Pending` on startup after a crash. If stored payloads are JWE envelopes the Switchboard cannot route, each recovery attempt fails, re-enqueues, and fails again until `maxAttempts` is exhausted and the message is permanently dead-lettered. Every unclean shutdown would silently destroy messages.
+
+**The `JweEnvelope` field** satisfies the audit/forensics use case without any of the above costs: the original wire format is always available for inspection, replay, or legal hold, while the pipeline operates entirely on verified plaintext.
 
 ---
 
@@ -241,7 +265,7 @@ On startup with an empty DID registry the TDA auto-generates a Wanderer identity
 
 | Limitation | Detail | Backlog ref |
 |---|---|---|
-| `UnpackAsync` plaintext only | JWE decryption not implemented — `recipientPrivateKey` accepted but ignored. Encrypted inbound messages are dead-lettered immediately. Only plaintext (`"type"` at root) messages are routed end-to-end. | — |
+| `UnpackAsync` mode reported as `SignOnly` for `SignThenEncrypt` | `UnpackJwsAsync` always returns `Mode = SignOnly` even when the JWS was unwrapped from a JWE outer layer. The `Mode` field on `InboxMessage` cannot distinguish `SignOnly` from `SignThenEncrypt`. Decryption and verification both succeed; only the reported mode is wrong. | — |
 | JIT LOBE reimport on every dispatch | `Import-Module -Force` runs each time for hot-update support; ~30 ms overhead per message | TDA-001a |
 | No "who-are-you" DIDComm protocol | No identity-query protocol exists to retrieve a running TDA's own DID via DIDComm. Current workaround: read `agent-identity.json` (last resort) or note the DID from the startup banner. | — |
 | PS cannot receive DIDComm replies | A standalone PowerShell session has no HTTP/2 listener — `replyEndpoint` must point at a running TDA | — |
