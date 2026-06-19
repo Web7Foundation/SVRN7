@@ -533,6 +533,29 @@ safe — no duplication risk.
 current behaviour) for backwards compatibility during the transition, or rejected with a
 close frame if a strict handshake is preferred. Decision deferred.
 
+**Inbound flow is unchanged:** The subscription model only governs outbound push routing
+(TDA → clients). Every inbound frame from a local client — except the `LocalUI/1.0/subscribe`
+handshake itself — follows the existing path unchanged:
+
+```
+WebSocket frame received
+  └── ReceiveWebSocketLoopAsync assembles complete message
+        └── ProcessWebSocketMessageAsync
+              ├── UnpackAsync  (plaintext — extracts @type, From, Body)
+              └── EnqueueAsync → svrn7-inbox.db
+                    └── Switchboard drain loop
+                          └── LobeManager.TryResolveProtocol(@type)
+                                └── LOBE cmdlet invocation
+                                      └── OutboundMessage
+                                            └── Switchboard PackOutboundAsync
+                                                  └── PushAsync (PeerEndpoint == LocalEndpoint)
+                                                        └── routed to subscribed clients only
+```
+
+The `LocalUI/1.0/subscribe` frame is intercepted in `ReceiveWebSocketLoopAsync` before
+reaching `ProcessWebSocketMessageAsync` — it registers the client's subscriptions in the
+hub and is not enqueued. That is the only exception.
+
 **What needs to change:**
 - `WebSocketNotifyHub`: add `Dictionary<Guid, List<string>> _subscriptions`; update
   `Attach`/`Detach` to manage subscriptions; update `PushAsync` to route by `@type`.
