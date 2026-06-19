@@ -39,7 +39,9 @@ POST /didcomm (HTTP/2, Kestrel)
                                 └── LobeManager.EnsureLoadedAsync(modulePath)
                                       └── Import-Module [-Force] in IsolatedRunspaceFactory
                                             └── Cmdlet invocation (PowerShell.Invoke())
-                                                  └── OutboundMessage → DeliverAsync (HTTP/2)
+                                                  └── OutboundMessage (plaintext envelope)
+                                                        └── PackOutboundAsync            ← SignThenEncrypt at outbound boundary (HTTP only)
+                                                              └── DeliverAsync (HTTP/2)
 ```
 
 **Key components:**
@@ -74,6 +76,34 @@ The TDA's public inbound surface is HTTP/2-only (no HTTP/1.1 fallback). Reasons:
 **Why not gRPC directly?** gRPC framing (Protobuf + length-prefixed binary) adds schema complexity for third-party LOBE authors and clients that only need to POST a JSON envelope. Raw HTTP/2 POST keeps the wire format simple.
 
 **Local UI clients (PandoMail):** PandoMail is on .NET 8. `TdaMailClient.Send()` uses `HttpClient` with HTTP/2 + mTLS directly for `POST /didcomm`. The `/didcomm-notify` push channel uses RFC 8441 (WebSocket over HTTP/2 extended CONNECT) — a deliberate design choice for server-push, not a .NET limitation.
+
+---
+
+## Design Rationale: SignThenEncrypt at Outbound Boundary (DIDCommMessageSwitchboard)
+
+`DIDCommMessageSwitchboard.PackOutboundAsync` applies SignThenEncrypt (secp256k1 ES256K JWS inside X25519 JWE) to every outbound message before HTTP delivery. LOBEs always return plaintext `OutboundMessage` objects — they have no access to key material and no knowledge of which pack mode to use. The Switchboard is the sole place where packing decisions are made.
+
+**Transport rule (P-008):**
+
+| Transport | Pack mode |
+|---|---|
+| HTTP (`POST /didcomm`) — TDA-to-TDA | SignThenEncrypt (secp256k1 ES256K JWS inside X25519 JWE) |
+| WebSocket (`/didcomm-notify`) — TDA-to-local-UI | Plaintext (`application/didcomm-plain+json`) |
+
+**Why plaintext for WebSocket?** The `/didcomm-notify` channel is localhost-only. PandoMail holds no key material and shares the Citizen TDA's DID. Encryption would require giving PandoMail long-lived private keys — that contradicts the shared-identity design and would expand the attack surface unnecessarily.
+
+**Symmetric design:** This is the outbound counterpart of the decrypt-at-boundary pattern on the inbound side. `KestrelListenerService` unpacks every inbound message at the HTTP boundary before anything enters the inbox; `DIDCommMessageSwitchboard.PackOutboundAsync` packs every outbound HTTP message at the delivery boundary before anything leaves the process.
+
+**Fallback behaviour:** If the recipient's DID Document does not contain an `X25519KeyAgreementKey2020` entry — for example, a TDA bootstrapped before X25519 keys were added — `PackOutboundAsync` logs a warning and sends plaintext. This is a degraded mode. All TDAs bootstrapped with the current codebase include an X25519 key by default.
+
+**Key material in `TdaOptions`:**
+
+| Field | Key type | Use |
+|---|---|---|
+| `AgentKeyAgreementPrivateKey` | X25519 (32 bytes) | Inbound JWE decryption (`KestrelListenerService.UnpackAsync`) |
+| `AgentSigningPrivateKey` | secp256k1 (32 bytes) | Outbound JWS signing (`DIDCommMessageSwitchboard.PackOutboundAsync`) |
+
+Both are loaded from `agent-identity.json` at startup and held for the process lifetime. Neither is passed into LOBE runspaces.
 
 ---
 
@@ -137,6 +167,7 @@ lobes/
 - `$ErrorActionPreference = 'Stop'`
 - Use `Assert-BodyFields` / `Get-BodyField` (from `Svrn7.Common`) for all body field access — `Set-StrictMode` throws on absent `PSCustomObject` properties before guards can fire.
 - Every handler returns either `[Svrn7.TDA.OutboundMessage]` (to trigger outbound delivery) or `$null` (no reply).
+- **LOBEs always construct plaintext envelopes** (`typ = 'application/didcomm-plain+json'`). The Switchboard applies SignThenEncrypt for HTTP delivery and plaintext for WebSocket delivery — LOBEs do not call `DIDCommPackingService` directly.
 - `Export-ModuleMember -Function @(...)` must be explicit.
 
 ### Handler signature
@@ -241,8 +272,19 @@ All DIDs use the `did:drn:` method. `<genesis-hash>` = `Blake3(genesis_secp256k1
 On startup with an empty DID registry the TDA auto-generates a Wanderer identity and writes it to `{port}/mem/agent-identity.json`:
 
 ```json
-{ "did": "did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>", "publicKeyHex": "...", "privateKeyHex": "...", "role": "Wanderer" }
+{
+  "did":                "did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>",
+  "publicKeyHex":       "<secp256k1 compressed public key, 66 hex chars>",
+  "privateKeyHex":      "<secp256k1 private key, 64 hex chars>",
+  "x25519PublicKeyHex": "<X25519 public key, 64 hex chars>",
+  "x25519PrivateKeyHex":"<X25519 private key, 64 hex chars>",
+  "role":               "Wanderer",
+  "createdAt":          "2026-01-01T00:00:00.000+00:00"
+}
 ```
+
+- `publicKeyHex` / `privateKeyHex` — secp256k1 identity key. Used for DID genesis hash derivation, DIDComm JWS signing (`AgentSigningPrivateKey`), and transaction signing.
+- `x25519PublicKeyHex` / `x25519PrivateKeyHex` — X25519 key agreement key. Used for JWE encryption/decryption (`AgentKeyAgreementPrivateKey`). Published in the DID Document as `X25519KeyAgreementKey2020`; required for receiving SignThenEncrypt messages.
 
 ---
 
@@ -321,9 +363,10 @@ is needed and no HTTP/1.1 attack surface is introduced.
 This endpoint is **not published in the Citizen TDA's DID Document** — it is a
 private local UI attachment point, not a peer-to-peer TDA interface.
 
-Messages on this channel are **DIDComm V2 SignThenEncrypt envelopes**, identical
-in format to TDA-to-TDA envelopes. The `@type` field determines dispatch on the
-PandoMail side.
+Messages on this channel are **DIDComm V2 plaintext envelopes**
+(`application/didcomm-plain+json`). The channel is localhost-only; PandoMail
+holds no key material and shares the Citizen TDA's DID. The `@type` field
+determines dispatch on the PandoMail side. See `Principles.md` P-008.
 
 ---
 
@@ -331,16 +374,16 @@ PandoMail side.
 
 ```
 Sender TDA (remote)
-  └── DIDComm V2 SignThenEncrypt
+  └── DIDComm V2 SignThenEncrypt (secp256k1 JWS + X25519 JWE)
         └── POST /didcomm → Local Citizen TDA (Kestrel, HTTP/2, mTLS)
-              └── Switchboard (routes by @type)
-                    └── Svrn7.Email LOBE (.psm1)
-                          ├── Persist to LiteDB (Long-Term Message Memory)
-                          ├── Decode SMTP-over-DIDComm payload
-                          └── Send DIDComm Email-Notify envelope
-                                └── ws://localhost:{port}/didcomm-notify
+              └── KestrelListenerService.UnpackAsync  ← decrypt + verify at inbound boundary
+                    └── Switchboard (routes by @type)
+                          └── Svrn7.Email LOBE (.psm1)
+                                ├── Persist to LiteDB (Long-Term Message Memory)
+                                ├── Decode SMTP-over-DIDComm payload
+                                └── OutboundMessage (plaintext) → ws://localhost:{port}/didcomm-notify
                                       └── TdaMailClient (PandoMail background thread)
-                                            ├── DIDComm unpack (verify + decrypt)
+                                            ├── DIDComm unpack (plaintext — no decrypt/verify)
                                             ├── Dispatch on @type
                                             └── BeginInvoke → MessageStore.Append()
                                                   └── SortableBindingList<MailMessage>
