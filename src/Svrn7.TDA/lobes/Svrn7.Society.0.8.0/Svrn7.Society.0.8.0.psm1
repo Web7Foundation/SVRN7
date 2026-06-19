@@ -2006,5 +2006,5 @@ Export-ModuleMember -Function @(
     'Invoke-Web7DidMethodsQueryResult'
     'Invoke-Web7DidMethodRegisterResult'
     'Invoke-Web7CitizenDidAddResult'
-    'Send-DIDCommMessage'
+    'Send-LocalDIDCommMessage'
 )

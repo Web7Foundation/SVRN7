@@ -88,7 +88,7 @@ Open a second PowerShell 7 terminal and set the working directory:
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 ```
 
-Import the LOBE that provides `Send-DIDCommMessage`:
+Import the LOBE that provides `Send-LocalDIDCommMessage`:
 
 ```powershell
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
@@ -96,7 +96,7 @@ Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
 > `Invoke-RestMethod -HttpVersion 2.0` does not work with cleartext HTTP/2 (h2c):
 > PowerShell uses `HttpVersionPolicy.RequestVersionOrLower`, which falls back to
-> HTTP/1.1 — rejected by the server.  `Send-DIDCommMessage` enforces HTTP/2 via
+> HTTP/1.1 — rejected by the server.  `Send-LocalDIDCommMessage` enforces HTTP/2 via
 > `RequestVersionExact`.
 
 ---
@@ -144,7 +144,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Uri 'http://localhost:8441/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8441 -Body $msg
 ```
 
 Expected TDA log:
@@ -187,7 +187,7 @@ $msg = @{
     body = "{}"
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Uri 'http://localhost:8441/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8441 -Body $msg
 ```
 
 Expected TDA log:
@@ -245,7 +245,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Uri 'http://localhost:8441/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8441 -Body $msg
 ```
 
 Expected TDA log (Federation TDA):

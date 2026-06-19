@@ -232,7 +232,7 @@ $msg = @{
     body = "{}"
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log (LogLevel.Information):

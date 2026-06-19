@@ -85,10 +85,12 @@ The TDA's public inbound surface is HTTP/2-only (no HTTP/1.1 fallback). Reasons:
 
 **Transport rule (P-008):**
 
-| Transport | Pack mode |
-|---|---|
-| HTTP (`POST /didcomm`) — TDA-to-TDA | SignThenEncrypt (secp256k1 ES256K JWS inside X25519 JWE) |
-| WebSocket (`/didcomm-notify`) — TDA-to-local-UI | Plaintext (`application/didcomm-plain+json`) |
+| Transport | Direction | Pack mode | Enforcement |
+|---|---|---|---|
+| HTTP (`POST /didcomm`) — TDA-to-TDA | outbound | SignThenEncrypt (secp256k1 ES256K JWS inside X25519 JWE) | outbound: Switchboard |
+| HTTP (`POST /didcomm`) — TDA-to-TDA | inbound | SignThenEncrypt required | `KestrelListenerService` rejects non-`application/didcomm-encrypted+json` with 415 |
+| WebSocket (`/didcomm-notify`) — TDA-to-local-UI | outbound | Plaintext (`application/didcomm-plain+json`) | Switchboard (PeerEndpoint == `ws://local/didcomm-notify`) |
+| WebSocket (`/didcomm-notify`) — local-UI/tool-to-TDA | inbound | Plaintext accepted | localhost-only; no content-type gate |
 
 **Why plaintext for WebSocket?** The `/didcomm-notify` channel is localhost-only. PandoMail holds no key material and shares the Citizen TDA's DID. Encryption would require giving PandoMail long-lived private keys — that contradicts the shared-identity design and would expand the attack surface unnecessarily.
 
@@ -301,7 +303,7 @@ On startup with an empty DID registry the TDA auto-generates a Wanderer identity
 - `Set-StrictMode -Version Latest` is active in all LOBEs — never access `PSCustomObject` properties without guards (`Assert-BodyFields` / `Get-BodyField`).
 - Dot-sourcing `.psm1` files in PS 7 applies module-context scoping. Use `[scriptblock]::Create([System.IO.File]::ReadAllText($path)).Invoke()` for dynamic loading outside the LOBE runtime.
 - `Initialize-Svrn7Assemblies -ModuleRoot $PSScriptRoot` must be called before accessing any `Svrn7.*` .NET types in a standalone PS session (outside a TDA runspace). It is called automatically by `New-Svrn7KeyPair`, `New-Svrn7Did`, etc. if the driver is not already initialised.
-- `Send-DIDCommMessage` (in `Svrn7.Common`) is send-only from PS — there is no inbound listener in a PS session. A running TDA is required to receive DIDComm replies.
+- `Send-LocalDIDCommMessage` (in `Svrn7.Common`) connects to a local TDA's `/didcomm-notify` WebSocket and sends a plaintext DIDComm message. `POST /didcomm` enforces `application/didcomm-encrypted+json` (SignThenEncrypt) and rejects plaintext. A running TDA is required to receive DIDComm replies.
 
 ---
 

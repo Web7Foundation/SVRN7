@@ -89,7 +89,7 @@ into the runspace the first time a `diagnostics/1.0/date-query` message arrives.
 > already imported, skip this step and go straight to Step 5.
 
 In a separate PowerShell 7 terminal, navigate to the TDA output folder and import the
-Federation module to get `Send-DIDCommMessage`:
+Federation module to get `Send-LocalDIDCommMessage`:
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
@@ -143,7 +143,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log: `Federation initialised: did:drn:solo.svrn7.net`
@@ -163,7 +163,7 @@ $msg = @{
     body = "{}"
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log:
@@ -210,7 +210,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log: `Society registered: did:drn:bindloss.svrn7.net (Bindloss Alberta)`
@@ -238,7 +238,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log:
@@ -285,7 +285,7 @@ $msg = @{
     body = "{}"
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected response: `Status: Accepted`
@@ -324,7 +324,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log additions:

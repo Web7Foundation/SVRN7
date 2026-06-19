@@ -96,7 +96,7 @@ $msg = @{
     body = '{}'
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Uri 'http://localhost:8441/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8441 -Body $msg
 ```
 
 Expected log — Federation TDA (port 8441):
@@ -177,7 +177,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8442 -Body $msg
 ```
 
 Expected log — Society TDA (port 8442):

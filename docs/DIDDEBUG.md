@@ -219,7 +219,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log:
@@ -253,7 +253,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log:
@@ -284,7 +284,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log:
@@ -463,7 +463,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log:

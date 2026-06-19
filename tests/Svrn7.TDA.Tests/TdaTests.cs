@@ -510,8 +510,8 @@ public class LobeDescriptorTests
         if (!File.Exists(path)) return;
 
         var d = LobeDescriptor.LoadFromFile(path)!;
-        d.Cmdlets.Should().Contain(c => c.Name == "Send-DIDCommMessage",
-            because: "Send-DIDCommMessage was added to Common and must appear in the LOBE descriptor");
+        d.Cmdlets.Should().Contain(c => c.Name == "Send-LocalDIDCommMessage",
+            because: "Send-LocalDIDCommMessage must appear in the Common LOBE descriptor");
     }
 
     [Theory]
@@ -968,13 +968,37 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
         };
 
         var content  = new StringContent("packed-didcomm-body",
-            System.Text.Encoding.UTF8, "application/didcomm+json");
+            System.Text.Encoding.UTF8, "application/didcomm-encrypted+json");
         var response = await client.PostAsync("/didcomm", content);
 
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);
         _inbox.Messages.Should().ContainSingle(
             because: "a valid unpacked message must be enqueued");
         _inbox.Messages[0].Type.Should().Be("test/1.0/msg");
+    }
+
+    // ── 415 Unsupported Media Type: non-encrypted content type ───────────────
+
+    [Fact]
+    public async Task Post_PlaintextContentType_Returns415_DoesNotEnqueue()
+    {
+        AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+        using var handler = new SocketsHttpHandler();
+        using var client  = new HttpClient(handler)
+        {
+            BaseAddress           = new Uri($"http://localhost:{_port}"),
+            DefaultRequestVersion = new Version(2, 0),
+            DefaultVersionPolicy  = HttpVersionPolicy.RequestVersionOrHigher,
+        };
+
+        var response = await client.PostAsync("/didcomm",
+            new StringContent("plaintext-body",
+                System.Text.Encoding.UTF8, "application/didcomm-plain+json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.UnsupportedMediaType,
+            because: "POST /didcomm must reject non-encrypted content types");
+        _inbox.Messages.Should().BeEmpty(
+            because: "a rejected message must not be enqueued");
     }
 
     // ── 400 Bad Request: empty body ───────────────────────────────────────────
@@ -991,7 +1015,8 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
             DefaultVersionPolicy  = HttpVersionPolicy.RequestVersionOrHigher,
         };
 
-        var response = await client.PostAsync("/didcomm", new StringContent(""));
+        var response = await client.PostAsync("/didcomm",
+            new StringContent("", System.Text.Encoding.UTF8, "application/didcomm-encrypted+json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         _inbox.Messages.Should().BeEmpty();
@@ -1033,7 +1058,7 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
 
             var response = await client.PostAsync("/didcomm",
                 new StringContent("invalid-packed-body",
-                    System.Text.Encoding.UTF8, "application/didcomm+json"));
+                    System.Text.Encoding.UTF8, "application/didcomm-encrypted+json"));
 
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
             inbox.Messages.Should().BeEmpty(
@@ -1446,13 +1471,13 @@ public sealed class KestrelListenerRateLimitTests : IAsyncLifetime
 
         // First request — within the 1-req/sec permit limit.
         var first = await client.PostAsync("/didcomm",
-            new StringContent("packed-body", System.Text.Encoding.UTF8, "application/didcomm+json"));
+            new StringContent("packed-body", System.Text.Encoding.UTF8, "application/didcomm-encrypted+json"));
         first.StatusCode.Should().Be(HttpStatusCode.Accepted,
             because: "the first request in the rate-limit window should be accepted");
 
         // Second request — immediately after, same window, limit exceeded.
         var second = await client.PostAsync("/didcomm",
-            new StringContent("packed-body", System.Text.Encoding.UTF8, "application/didcomm+json"));
+            new StringContent("packed-body", System.Text.Encoding.UTF8, "application/didcomm-encrypted+json"));
         second.StatusCode.Should().Be(HttpStatusCode.TooManyRequests,
             because: "a second request within the same 1-second window should be rejected");
     }
@@ -1494,7 +1519,7 @@ public sealed class KestrelListenerRateLimitTests : IAsyncLifetime
             {
                 var resp = await client.PostAsync("/didcomm",
                     new StringContent("packed-body",
-                        System.Text.Encoding.UTF8, "application/didcomm+json"));
+                        System.Text.Encoding.UTF8, "application/didcomm-encrypted+json"));
                 resp.StatusCode.Should().Be(HttpStatusCode.Accepted,
                     because: $"request {i + 1} should succeed when rate limiting is disabled");
             }

@@ -183,7 +183,7 @@ $msg = @{
     body = '{}'
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log (Terminal A):
@@ -269,7 +269,7 @@ $msg = @{
     body = '{}'
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log (Terminal A):
@@ -321,7 +321,7 @@ $msg = @{
     body = '{}'
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 **11.3 — Verify (Terminal A)**

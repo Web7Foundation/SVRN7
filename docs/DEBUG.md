@@ -33,7 +33,7 @@ Each TDA role has a dedicated guide.  Run them in order:
 
 ## PowerShell Requirement — VS 2022 / VS 2026
 
-The send helpers in this guide use `Send-DIDCommMessage` and require **PowerShell 7 (`pwsh.exe`)**.
+The send helpers in this guide use `Send-LocalDIDCommMessage` and require **PowerShell 7 (`pwsh.exe`)**.
 The VS Developer PowerShell defaults to Windows PowerShell 5.1 (.NET Framework), which is missing
 required .NET 5+ types. Configure VS to use PowerShell 7 once:
 
@@ -74,7 +74,7 @@ dotnet test .\tests\Svrn7.Society.Tests\Svrn7.Society.Tests.csproj
 ### PowerShell LOBE tests (Pester)
 
 Tests the LOBE PowerShell layer — function availability after module import,
-`Build-CanonicalTransferJson` field ordering, `Send-DIDCommMessage` parameter contract,
+`Build-CanonicalTransferJson` field ordering, `Send-LocalDIDCommMessage` parameter contract,
 and `Initialize-Svrn7Assemblies` path resolution.  No TDA or compiled assemblies required.
 
 Install Pester 5 once if needed:

@@ -125,7 +125,7 @@ W6 DID: did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash-W6>
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 ```
 
-This gives you `Send-DIDCommMessage` for the steps below.
+This gives you `Send-LocalDIDCommMessage` for the steps below.
 
 ---
 
@@ -145,7 +145,7 @@ $msg = @{
     body = '{}'
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Uri 'http://localhost:8446/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8446 -Body $msg
 ```
 
 Expected response from Terminal C:
@@ -285,7 +285,7 @@ $msg = @{
     body = '{}'
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Uri 'http://localhost:8441/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8441 -Body $msg
 ```
 
 Expected log — Terminal D (Federation TDA):
@@ -362,7 +362,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8442 -Body $msg
 ```
 
 Expected log — Terminal E (Society TDA):

@@ -164,16 +164,34 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
 
     /// <summary>
     /// Inbound DIDComm processing pipeline:
-    ///   1. Read packed JWE body.
-    ///   2. UnpackAsync (JWE decrypt + JWS verify) — security boundary.
-    ///   3. EnqueueAsync → svrn7-inbox.db (write-ahead log).
-    ///   4. Return 202 Accepted.
+    ///   1. Enforce application/didcomm-encrypted+json content type (SignThenEncrypt only).
+    ///   2. Read packed JWE body.
+    ///   3. UnpackAsync (JWE decrypt + JWS verify) — security boundary.
+    ///   4. EnqueueAsync → svrn7-inbox.db (write-ahead log).
+    ///   5. Return 202 Accepted.
     ///
-    /// If UnpackAsync fails: return 400, do not enqueue.
+    /// If content type is wrong: return 415. If UnpackAsync fails: return 400.
     /// All subsequent processing is asynchronous via DIDCommMessageSwitchboard.
     /// </summary>
     private async Task HandleInboundAsync(HttpContext http)
     {
+        // Enforce SignThenEncrypt: only JWE envelopes are accepted on POST /didcomm.
+        // Plaintext and signed-only messages must use ws://…/didcomm-notify (localhost only).
+        var contentType = http.Request.ContentType;
+        if (contentType is null ||
+            !contentType.StartsWith("application/didcomm-encrypted+json", StringComparison.OrdinalIgnoreCase))
+        {
+            _log.LogWarning(
+                "KestrelListenerService: rejected non-encrypted inbound message (Content-Type: '{Ct}').",
+                contentType);
+            http.Response.StatusCode = StatusCodes.Status415UnsupportedMediaType;
+            await http.Response.WriteAsync(
+                "POST /didcomm requires Content-Type: application/didcomm-encrypted+json. " +
+                "Use ws://…/didcomm-notify for localhost plaintext messages.",
+                http.RequestAborted);
+            return;
+        }
+
         using var reader = new StreamReader(http.Request.Body);
         var packedBody = await reader.ReadToEndAsync(http.RequestAborted);
 
@@ -255,8 +273,9 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         }
 
         using var ws = await http.WebSockets.AcceptWebSocketAsync();
-        _hub.Attach(ws);
-        _log.LogInformation("KestrelListenerService: PandoMail WebSocket attached on /didcomm-notify.");
+        var clientId = _hub.Attach(ws);
+        _log.LogInformation(
+            "KestrelListenerService: local-UI WebSocket attached on /didcomm-notify (id={Id}).", clientId);
 
         try
         {
@@ -264,8 +283,9 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         }
         finally
         {
-            _hub.Detach(ws);
-            _log.LogInformation("KestrelListenerService: PandoMail WebSocket detached.");
+            _hub.Detach(clientId);
+            _log.LogInformation(
+                "KestrelListenerService: local-UI WebSocket detached (id={Id}).", clientId);
         }
     }
 

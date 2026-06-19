@@ -188,7 +188,7 @@ $msg = @{
     body = $body
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8442 -Body $msg
 ```
 
 Expected: `Status: Accepted`
@@ -222,7 +222,7 @@ $msg = @{
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
 } | ConvertTo-Json
-Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8442 -Body $msg
 ```
 
 Expected reply body:
@@ -283,7 +283,7 @@ $msg = @{
     to   = @("did:drn:bindloss.svrn7.net")
     body = "{}"
 } | ConvertTo-Json
-Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8442 -Body $msg
 ```
 
 Reply body:
@@ -311,7 +311,7 @@ $msg = @{
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
 } | ConvertTo-Json
-Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8442 -Body $msg
 ```
 
 Reply: `{ "societyDid": "did:drn:bindloss.svrn7.net", "did": "did:bindloss:3J98...", "isMember": true }`
@@ -331,7 +331,7 @@ $msg = @{
     to   = @("did:drn:bindloss.svrn7.net")
     body = "{}"
 } | ConvertTo-Json
-Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8442 -Body $msg
 ```
 
 Reply: `{ "societyDid": "did:drn:bindloss.svrn7.net", "memberCount": 1, "memberDids": ["did:bindloss:3J98..."] }`
@@ -349,7 +349,7 @@ $msg = @{
     to   = @("did:drn:bindloss.svrn7.net")
     body = "{}"
 } | ConvertTo-Json
-Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8442 -Body $msg
 ```
 
 Reply body (after first citizen registration, overdraft drawn):
@@ -379,7 +379,7 @@ $msg = @{
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
 } | ConvertTo-Json
-Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8442 -Body $msg
 ```
 
 Reply: `{ "societyDid": "did:drn:bindloss.svrn7.net", "methodName": "bindlossgov", "status": "Active", "success": true }`
@@ -397,7 +397,7 @@ $msg = @{
     to   = @("did:drn:bindloss.svrn7.net")
     body = "{}"
 } | ConvertTo-Json
-Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8442 -Body $msg
 ```
 
 Reply body:
@@ -429,7 +429,7 @@ $msg = @{
     to   = @("did:drn:bindloss.svrn7.net")
     body = $body
 } | ConvertTo-Json
-Send-DIDCommMessage -Uri 'http://localhost:8442/didcomm' -Body $msg
+Send-LocalDIDCommMessage -Port 8442 -Body $msg
 ```
 
 Reply: `{ "citizenPrimaryDid": "did:bindloss:3J98...", "secondaryDid": "did:bindlossgov:3J98...", "methodName": "bindlossgov", "success": true }`

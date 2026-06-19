@@ -489,7 +489,7 @@ if (-not $endpoint) {
 
 | Cmdlet | Description |
 |---|---|
-| `Send-DIDCommMessage [-Uri <url>] -Body <json> [-ContentType <mime>]` | Posts a plaintext DIDComm message to a TDA endpoint over h2c (HTTP/2 cleartext). Enforces `HttpVersionPolicy.RequestVersionExact` — `Invoke-RestMethod` cannot be used for h2c. Default URI: `http://localhost:8443/didcomm`. |
+| `Send-LocalDIDCommMessage [-Uri <url>] -Body <json> [-ContentType <mime>]` | Posts a plaintext DIDComm message to a TDA endpoint over h2c (HTTP/2 cleartext). Enforces `HttpVersionPolicy.RequestVersionExact` — `Invoke-RestMethod` cannot be used for h2c. Default URI: `http://localhost:8443/didcomm`. |
 
 ### Inbox accessor
 
@@ -770,7 +770,7 @@ The fastest way to exercise a new LOBE end-to-end:
        to   = @("did:drn:bindloss.svrn7.net")
        body = $body
    } | ConvertTo-Json
-   Send-DIDCommMessage -Body $msg
+   Send-LocalDIDCommMessage -Body $msg
    ```
 4. Expected response: `Status: Accepted`
 5. Watch the TDA log for the routing line and any `[PS *]` output from your handler.

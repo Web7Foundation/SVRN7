@@ -116,7 +116,7 @@ $msg = [ordered]@{
     body = @{}
 } | ConvertTo-Json -Depth 5
 
-Send-DIDCommMessage -Uri $endpoint -Body $msg
+Send-LocalDIDCommMessage -Uri $endpoint -Body $msg
 ```
 
 ---

@@ -1802,5 +1802,5 @@ Export-ModuleMember -Function @(
     'Test-Svrn7SignatureSecp256k1'
     'Test-Svrn7SocietyActive'
     'Update-Svrn7FederationSupply'
-    'Send-DIDCommMessage'
+    'Send-LocalDIDCommMessage'
 )

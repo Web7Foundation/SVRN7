@@ -27,9 +27,9 @@ BeforeAll {
     . ([scriptblock]::Create([System.IO.File]::ReadAllText($CommonPsm1)))
 }
 
-# ── Send-DIDCommMessage: exported by Federation ───────────────────────────────
+# ── Send-LocalDIDCommMessage: exported by Federation ─────────────────────────
 
-Describe 'Send-DIDCommMessage exported by Svrn7.Federation' {
+Describe 'Send-LocalDIDCommMessage exported by Svrn7.Federation' {
     BeforeAll {
         # Import without $SVRN7_LOBES_DIR so Common is loaded into Federation's scope.
         $LobesDir = Join-Path $PSScriptRoot '..\src\Svrn7.TDA\lobes'
@@ -40,37 +40,28 @@ Describe 'Send-DIDCommMessage exported by Svrn7.Federation' {
         Remove-Module Svrn7.Federation -ErrorAction SilentlyContinue
     }
 
-    It 'Send-DIDCommMessage is callable after importing Svrn7.Federation' {
-        Get-Command Send-DIDCommMessage -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
+    It 'Send-LocalDIDCommMessage is callable after importing Svrn7.Federation' {
+        Get-Command Send-LocalDIDCommMessage -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
     }
 
-    It 'Send-DIDCommMessage -Body is mandatory' {
-        $cmd = Get-Command Send-DIDCommMessage
+    It 'Send-LocalDIDCommMessage -Body is mandatory' {
+        $cmd = Get-Command Send-LocalDIDCommMessage
         $bodyAttr = $cmd.Parameters['Body'].Attributes |
             Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
             Select-Object -First 1
         $bodyAttr.Mandatory | Should -BeTrue
     }
 
-    It 'Send-DIDCommMessage -Uri has default http://localhost:8443/didcomm' {
-        # Inspect default via script text — parameter defaults live in the AST.
-        # Note: [regex]::Escape(...) must be wrapped in parens; Pester treats a bare
-        # method-call argument as a positional -Because string.
-        $cmd = Get-Command Send-DIDCommMessage
+    It 'Send-LocalDIDCommMessage -Port has default 8443' {
+        $cmd = Get-Command Send-LocalDIDCommMessage
         $scriptText = $cmd.ScriptBlock.ToString()
-        $scriptText | Should -Match ([regex]::Escape('http://localhost:8443/didcomm'))
-    }
-
-    It 'Send-DIDCommMessage -ContentType has default application/didcomm-plain+json' {
-        $cmd = Get-Command Send-DIDCommMessage
-        $scriptText = $cmd.ScriptBlock.ToString()
-        $scriptText | Should -Match ([regex]::Escape('application/didcomm-plain+json'))
+        $scriptText | Should -Match '8443'
     }
 }
 
-# ── Send-DIDCommMessage: exported by Svrn7.Society ────────────────────────────
+# ── Send-LocalDIDCommMessage: exported by Svrn7.Society ──────────────────────
 
-Describe 'Send-DIDCommMessage exported by Svrn7.Society' {
+Describe 'Send-LocalDIDCommMessage exported by Svrn7.Society' {
     BeforeAll {
         $LobesDir = Join-Path $PSScriptRoot '..\src\Svrn7.TDA\lobes'
         # Society loads Common in standalone mode too — import without TDA context.
@@ -81,8 +72,8 @@ Describe 'Send-DIDCommMessage exported by Svrn7.Society' {
         Remove-Module Svrn7.Society -ErrorAction SilentlyContinue
     }
 
-    It 'Send-DIDCommMessage is callable after importing Svrn7.Society' {
-        Get-Command Send-DIDCommMessage -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
+    It 'Send-LocalDIDCommMessage is callable after importing Svrn7.Society' {
+        Get-Command Send-LocalDIDCommMessage -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
     }
 }
 

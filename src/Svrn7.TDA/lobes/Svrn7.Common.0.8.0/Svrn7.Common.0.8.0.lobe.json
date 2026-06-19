@@ -24,12 +24,11 @@
       "outputType": "string"
     },
     {
-      "name": "Send-DIDCommMessage",
-      "synopsis": "Posts a DIDComm message to a TDA endpoint over cleartext HTTP/2 (h2c).",
+      "name": "Send-LocalDIDCommMessage",
+      "synopsis": "Sends a DIDComm plaintext envelope to a local TDA via WebSocket (/didcomm-notify).",
       "parameters": [
-        { "name": "Uri",         "type": "string",  "mandatory": false, "description": "Target DIDComm endpoint. Defaults to http://localhost:8443/didcomm." },
-        { "name": "Body",        "type": "string",  "mandatory": true,  "description": "Raw JSON DIDComm message envelope to POST." },
-        { "name": "ContentType", "type": "string",  "mandatory": false, "description": "MIME content-type. Defaults to application/didcomm-plain+json." }
+        { "name": "Port", "type": "int",    "mandatory": false, "description": "TDA listen port. Defaults to 8443." },
+        { "name": "Body", "type": "string", "mandatory": true,  "description": "DIDComm plaintext JSON envelope to send." }
       ],
       "outputType": "string"
     }

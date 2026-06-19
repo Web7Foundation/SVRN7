@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using Microsoft.Extensions.Logging;
@@ -5,8 +6,8 @@ using Microsoft.Extensions.Logging;
 namespace Svrn7.TDA;
 
 /// <summary>
-/// Singleton hub for the PandoMail local-UI WebSocket connection.
-/// Holds at most one active connection (1:1 PandoMail per Citizen TDA).
+/// Hub for local-UI WebSocket connections on /didcomm-notify.
+/// Supports multiple simultaneous clients (PandoMail, PS tooling, etc.).
 ///
 /// When a LOBE returns an OutboundMessage whose PeerEndpoint matches
 /// <see cref="LocalEndpoint"/>, the Switchboard calls <see cref="PushAsync"/>
@@ -22,7 +23,7 @@ public sealed class WebSocketNotifyHub
     public const string LocalEndpoint = "ws://local/didcomm-notify";
 
     private readonly ILogger<WebSocketNotifyHub> _log;
-    private WebSocket?            _socket;
+    private readonly ConcurrentDictionary<Guid, WebSocket> _sockets = new();
     private readonly SemaphoreSlim _sendLock = new(1, 1);
 
     public WebSocketNotifyHub(ILogger<WebSocketNotifyHub> log)
@@ -30,38 +31,29 @@ public sealed class WebSocketNotifyHub
         _log = log;
     }
 
-    public bool IsConnected
+    public bool IsConnected =>
+        _sockets.Values.Any(ws => ws.State == WebSocketState.Open);
+
+    internal Guid Attach(WebSocket ws)
     {
-        get
-        {
-            var ws = Volatile.Read(ref _socket);
-            return ws is not null && ws.State == WebSocketState.Open;
-        }
+        var id = Guid.NewGuid();
+        _sockets[id] = ws;
+        return id;
     }
 
-    internal void Attach(WebSocket ws) =>
-        Interlocked.Exchange(ref _socket, ws);
-
-    internal void Detach(WebSocket ws) =>
-        Interlocked.CompareExchange(ref _socket, null, ws);
+    internal void Detach(Guid id) => _sockets.TryRemove(id, out _);
 
     /// <summary>
-    /// Pushes a DIDComm JSON envelope to the connected PandoMail client.
-    /// No-op if no client is connected or the socket is not open.
+    /// Pushes a DIDComm JSON envelope to all connected local-UI clients.
+    /// No-op if no clients are connected. Closed sockets are pruned on send.
     /// </summary>
     public async Task PushAsync(string json, CancellationToken ct = default)
     {
-        var ws = Volatile.Read(ref _socket);
-        if (ws is null || ws.State != WebSocketState.Open)
-        {
-            _log.LogDebug("WebSocketNotifyHub: PushAsync — no connected client (skipping).");
-            return;
-        }
+        if (_sockets.IsEmpty) return;
 
         await _sendLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (ws.State != WebSocketState.Open) return;
             var bytes = Encoding.UTF8.GetBytes(json);
 
             string msgType = "(unknown)";
@@ -72,19 +64,34 @@ public sealed class WebSocketNotifyHub
                     msgType = t.GetString() ?? msgType;
             }
             catch { }
-            _log.LogDebug("WebSocketNotifyHub: → PandoMail type={Type} bytes={Bytes} preview='{Preview}'",
-                msgType, bytes.Length, json.Length > 120 ? json[..120] : json);
 
-            await ws.SendAsync(
-                new ReadOnlyMemory<byte>(bytes),
-                WebSocketMessageType.Text,
-                endOfMessage: true,
-                ct).ConfigureAwait(false);
-            _log.LogDebug("WebSocketNotifyHub: send complete type={Type}.", msgType);
-        }
-        catch (WebSocketException ex)
-        {
-            _log.LogDebug(ex, "WebSocketNotifyHub: send failed (WebSocketException).");
+            foreach (var (id, ws) in _sockets.ToArray())
+            {
+                if (ws.State != WebSocketState.Open)
+                {
+                    _sockets.TryRemove(id, out _);
+                    continue;
+                }
+
+                _log.LogDebug(
+                    "WebSocketNotifyHub: → client {Id} type={Type} bytes={Bytes}",
+                    id, msgType, bytes.Length);
+                try
+                {
+                    await ws.SendAsync(
+                        new ReadOnlyMemory<byte>(bytes),
+                        WebSocketMessageType.Text,
+                        endOfMessage: true,
+                        ct).ConfigureAwait(false);
+                }
+                catch (WebSocketException ex)
+                {
+                    _log.LogDebug(ex, "WebSocketNotifyHub: send failed for client {Id} — removing.", id);
+                    _sockets.TryRemove(id, out _);
+                }
+            }
+
+            _log.LogDebug("WebSocketNotifyHub: push complete type={Type}.", msgType);
         }
         catch (OperationCanceledException) { }
         finally

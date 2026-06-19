@@ -355,47 +355,65 @@ function Resolve-FederationEndpoint {
     }
 }
 
-# ── DIDComm HTTP/2 sender ─────────────────────────────────────────────────────
+# ── DIDComm local WebSocket sender ───────────────────────────────────────────
 
-function Send-DIDCommMessage {
+function Send-LocalDIDCommMessage {
     <#
     .SYNOPSIS
-        Posts a DIDComm message to a TDA endpoint over cleartext HTTP/2 (h2c).
+        Sends a DIDComm plaintext envelope to a local TDA via WebSocket (/didcomm-notify).
     .DESCRIPTION
-        Invoke-RestMethod cannot be used for h2c: PowerShell sets HttpVersionPolicy.RequestVersionOrLower
-        which falls back to HTTP/1.1 framing — rejected by the TDA server. This function uses
-        HttpClient with RequestVersionExact so HTTP/2 is enforced end-to-end.
-    .PARAMETER Uri
-        Target DIDComm endpoint. Defaults to http://localhost:8443/didcomm.
+        Connects to ws://localhost:{Port}/didcomm-notify using RFC 8441 (WebSocket over HTTP/2),
+        sends a single DIDComm plaintext JSON frame, then closes the connection gracefully.
+        The TDA's receive loop unpacks and enqueues the message through the same pipeline as
+        POST /didcomm, routing it to the appropriate LOBE via the Switchboard.
+
+        Use for localhost-only communication: PS debug scripts, local tooling, automated tests.
+        For TDA-to-TDA traffic, the Switchboard handles packing and delivery automatically.
+
+        POST /didcomm enforces application/didcomm-encrypted+json (SignThenEncrypt) and will
+        reject plaintext messages. This cmdlet targets the WebSocket path, which accepts
+        plaintext from localhost-only connections.
+    .PARAMETER Port
+        TDA listen port. Defaults to 8443.
     .PARAMETER Body
-        The raw JSON string to POST. Must be a valid DIDComm message envelope.
-    .PARAMETER ContentType
-        MIME content-type header. Defaults to application/didcomm-plain+json.
+        DIDComm plaintext JSON envelope to send.
     .OUTPUTS
-        [string] — status line followed by response body, both as plain strings.
+        [string] — confirmation line with byte count sent.
     .EXAMPLE
-        Send-DIDCommMessage -Body ($msg | ConvertTo-Json)
+        Send-LocalDIDCommMessage -Body ($msg | ConvertTo-Json)
+    .EXAMPLE
+        Send-LocalDIDCommMessage -Port 8441 -Body ($msg | ConvertTo-Json)
     #>
     [CmdletBinding()]
     [OutputType([string])]
     param(
-        [string] $Uri         = 'http://localhost:8443/didcomm',
+        [int]    $Port = 8443,
         [Parameter(Mandatory)]
-        [string] $Body,
-        [string] $ContentType = 'application/didcomm-plain+json'
+        [string] $Body
     )
     process {
-        $client = [System.Net.Http.HttpClient]::new()
+        # h2c (cleartext HTTP/2) support required for ws:// URIs in dev/test environments.
+        [System.AppContext]::SetSwitch('System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport', $true)
+
+        $uri = "ws://localhost:$Port/didcomm-notify"
+        $ws  = [System.Net.WebSockets.ClientWebSocket]::new()
         try {
-            $client.DefaultRequestVersion = [System.Version]::new(2, 0)
-            $client.DefaultVersionPolicy  = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
-            $content  = [System.Net.Http.StringContent]::new(
-                $Body, [System.Text.Encoding]::UTF8, $ContentType)
-            $response = $client.PostAsync($Uri, $content).GetAwaiter().GetResult()
-            "Status: $($response.StatusCode)"
-            $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+            $ws.Options.HttpVersion       = [System.Version]::new(2, 0)
+            $ws.Options.HttpVersionPolicy = [System.Net.Http.HttpVersionPolicy]::RequestVersionOrHigher
+            $ws.ConnectAsync([Uri]::new($uri), [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($Body)
+            $ws.SendAsync(
+                [System.ArraySegment[byte]]::new($bytes),
+                [System.Net.WebSockets.WebSocketMessageType]::Text,
+                $true,
+                [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
+            $ws.CloseAsync(
+                [System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure,
+                '',
+                [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
+            "Sent to $uri ($($bytes.Length) bytes)"
         } finally {
-            $client.Dispose()
+            $ws.Dispose()
         }
     }
 }
