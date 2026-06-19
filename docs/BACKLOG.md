@@ -486,3 +486,61 @@ Changes made:
   (first-run and subsequent runs).
 - `DIDCommMessageSwitchboard.PackOutboundAsync` applies `PackSignedAndEncryptedAsync`
   with `secp256k1: true` to all HTTP outbound messages (per the outbound pack policy).
+
+---
+
+## TDA-011 — WebSocketNotifyHub subscription routing for multiple local-UI clients
+
+**Area:** `WebSocketNotifyHub`, `KestrelListenerService`
+
+**Summary:** `WebSocketNotifyHub` currently broadcasts every push notification to all
+connected clients. This is correct when only one app is connected, but breaks with
+multiple simultaneous local-UI apps (e.g. PandoMail + PandoCRM, or two PandoMail
+instances). PandoCRM would receive Email-Notify messages it cannot handle; two
+PandoMail instances would both update their UI on the same notification.
+
+**Proposed design — subscription-based routing:**
+
+Each client declares its `@type` subscriptions on connect by sending a plaintext
+DIDComm message through the WebSocket before any other traffic:
+
+```json
+{
+  "type": "did:drn:svrn7.net/protocols/LocalUI/1.0/subscribe",
+  "body": {
+    "protocols": [
+      "did:drn:svrn7.net/protocols/Email-Notify/1.0/"
+    ]
+  }
+}
+```
+
+The Hub's receive loop intercepts `LocalUI/1.0/subscribe` before passing the frame to
+`ProcessWebSocketMessageAsync` — it registers the declared prefixes against the client's
+`Guid` and does not enqueue. All subsequent messages from that client flow through the
+normal `UnpackAsync + EnqueueAsync` pipeline as today.
+
+`PushAsync` resolves delivery by matching the outgoing message's `@type` against each
+registered client's subscription list using the same exact/prefix logic as
+`LobeManager.TryResolveProtocol`. Only matching clients receive each push.
+
+**Multiple instances of the same app:** Two PandoMail instances both subscribe to
+`Email-Notify`. Both receive the push (fan-out). Because the payload is a LiteDB
+ObjectId reference, not a copy of the message body, reading the same record twice is
+safe — no duplication risk.
+
+**Clients with no subscription declared:** Treated as "unfiltered" (receive all pushes,
+current behaviour) for backwards compatibility during the transition, or rejected with a
+close frame if a strict handshake is preferred. Decision deferred.
+
+**What needs to change:**
+- `WebSocketNotifyHub`: add `Dictionary<Guid, List<string>> _subscriptions`; update
+  `Attach`/`Detach` to manage subscriptions; update `PushAsync` to route by `@type`.
+- `KestrelListenerService.ReceiveWebSocketLoopAsync`: intercept `LocalUI/1.0/subscribe`
+  frames before forwarding to `ProcessWebSocketMessageAsync`.
+- LOBEs: **no change** — they return `OutboundMessage` with
+  `PeerEndpoint = WebSocketNotifyHub.LocalEndpoint` as before.
+- `Send-LocalDIDCommMessage`: **no change** — the subscription handshake is optional for
+  tool/PS use; tools receive no pushes anyway (they connect, send, and disconnect).
+
+**No code change required now** — tracked here for design continuity.
