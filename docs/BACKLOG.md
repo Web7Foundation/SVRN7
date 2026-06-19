@@ -450,73 +450,39 @@ multiple versions installed.
 
 ---
 
-## TDA-009 — WebSocket /didcomm-notify channel encryption (PandoMail ↔ Citizen TDA)
+## TDA-009 — WebSocket /didcomm-notify channel encryption (PandoMail ↔ Citizen TDA) ✓ RESOLVED BY POLICY
 
 **Area:** `WebSocketNotifyHub`, `KestrelListenerService`, `TdaMailClient`, `DIDCommPackingService`
 
-**Summary:** The `/didcomm-notify` WebSocket channel currently uses plaintext DIDComm
-(`application/didcomm-plain+json`) in both directions.  This is acceptable today because:
+**Policy decision (2026-06-19):** All WebSocket messages, inbound or outbound, use
+plaintext DIDComm (`application/didcomm-plain+json`).  The `/didcomm-notify` channel
+is localhost-only, PandoMail holds no key material, and PandoMail shares the Citizen
+TDA's DID — it is a local UI attachment, not a DIDComm peer.  This is the permanent
+design, not a temporary gap.
 
-1. PandoMail holds no key material of its own and has no access to the Citizen TDA's keys.
-2. The channel is localhost-only — not published in the TDA's DID Document, not reachable
-   from the network.
-3. PandoMail shares the Citizen TDA's DID; it is a local UI attachment, not a DIDComm peer.
+**Companion policy:** All outbound messages over HTTP (TDA-to-TDA) use SignThenEncrypt.
+The WebSocket channel is explicitly excluded from that policy.
 
-**When this becomes a requirement:** If PandoMail runs on a separate host, or if the
-localhost isolation assumption is relaxed, the channel will need encryption.
-
-**Preferred approach:** The TDA generates an ephemeral session key at WebSocket connect
-time and returns it to PandoMail in the handshake response.  PandoMail uses the session
-key for the lifetime of the connection — no long-lived key material is stored in PandoMail.
-All private key operations remain inside the TDA process.
-
-This avoids giving PandoMail any long-lived secrets while still providing per-session
-channel confidentiality.
-
-**No code change required now** — tracked here for design continuity.
+If PandoMail ever runs on a separate host the channel design must be reconsidered.
+The preferred approach at that point is an ephemeral per-connection session key
+returned in the WebSocket handshake response — no long-lived secret stored in PandoMail.
 
 ---
 
-## TDA-010 — `PackSignedAsync` secp256k1 signing path (SignThenEncrypt from PowerShell)
+## TDA-010 — `PackSignedAsync` secp256k1 signing path ✓ DONE
 
-**Area:** `DIDCommPackingService`, `Program.cs` (Wanderer bootstrap), `agent-identity.json`
+**Area:** `DIDCommPackingService`, `DIDCommMessageSwitchboard`, `Program.cs`, `TdaOptions`
 
-**Summary:** `DIDCommPackingService.PackSignedAsync` (and by extension
-`PackSignedAndEncryptedAsync`) signs using Ed25519 (`SignEd25519`, `NSec`
-`KeyBlobFormat.RawPrivateKey`).  The Wanderer bootstrap generates only a
-secp256k1 key pair for signing and an X25519 key pair for key agreement —
-no Ed25519 key is ever created or stored in `agent-identity.json`.
+**Implemented (2026-06-19):** Option 1 (secp256k1 path, no identity changes).
 
-Calling `PackSignedAndEncryptedAsync` from PowerShell with the secp256k1
-private key bytes will not throw (both key types are 32 bytes and NSec
-accepts any 32-byte seed), but the resulting JWS signature is an Ed25519
-signature over secp256k1 key material.  Verification will fail because the
-DID Document's `verificationMethod` carries the secp256k1 public key, not an
-Ed25519 public key.
-
-**Impact:** SignThenEncrypt (and SignOnly) DIDComm messages cannot be correctly
-produced or verified in a standalone PowerShell session using the current
-Wanderer identity.  The plaintext pack path (`PackPlaintextAsync`) and
-Anoncrypt (`PackEncryptedAsync`) are unaffected.
-
-**Two fix options — pick one:**
-
-1. **Add a secp256k1 signing path to `PackSignedAsync`** — detect key length
-   or add an `alg` parameter; use `NBitcoin` secp256k1 signing (already a
-   dependency) with `alg = "ES256K"` in the JWS header.  DID Document
-   `verificationMethod` already carries the secp256k1 public key, so unpack
-   verification would work end-to-end with no identity changes.
-
-2. **Add an Ed25519 key to the Wanderer bootstrap** — generate an Ed25519 key
-   pair alongside the secp256k1 and X25519 pairs; store `ed25519PublicKeyHex` /
-   `ed25519PrivateKeyHex` in `agent-identity.json`; add a second
-   `verificationMethod` entry (`Ed25519VerificationKey2020`) to the DID Document.
-   `PackSignedAsync` already works correctly for Ed25519 — callers just need to
-   supply the right key bytes.
-
-**Recommended option:** Option 1 (secp256k1 path) — no identity format change,
-no DID Document schema change, no re-bootstrap of existing TDAs.  The `alg =
-"ES256K"` JWS header is already handled in `UnpackJwsAsync` (secp256k1 verify
-branch).  The signing side is the only missing piece.
-
-**No code change required now** — tracked here for design continuity.
+Changes made:
+- `PackSignedAsync` and `PackSignedAndEncryptedAsync` now accept `bool secp256k1 = false`.
+  When `true`, the JWS header uses `alg = "ES256K"` and signing uses `NBitcoin.Key.Sign`
+  (SHA-256 hash of input, DER-encoded signature).  The `alg = "ES256K"` verify branch in
+  `UnpackJwsAsync` was already present — this completes the round trip.
+- `TdaOptions.AgentSigningPrivateKey` (byte[]) added — holds the secp256k1 private key
+  for the lifetime of the TDA process.
+- `Program.cs` now loads `AgentSigningPrivateKey` from `agent-identity.json` at startup
+  (first-run and subsequent runs).
+- `DIDCommMessageSwitchboard.PackOutboundAsync` applies `PackSignedAndEncryptedAsync`
+  with `secp256k1: true` to all HTTP outbound messages (per the outbound pack policy).

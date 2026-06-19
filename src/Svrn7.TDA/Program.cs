@@ -241,6 +241,7 @@ if (await driver.DidRegistry.CountAsync() == 0)
         }, new JsonSerializerOptions { WriteIndented = true }));
 
     tdaOpts.AgentKeyAgreementPrivateKey = kaKp.PrivateKeyBytes;
+    tdaOpts.AgentSigningPrivateKey      = kp.PrivateKeyBytes.ToArray();
     kp.ZeroPrivateKey();
     kaKp.ZeroPrivateKey();
 }
@@ -258,6 +259,10 @@ else
         // Restore X25519 key agreement private key for JWE decryption.
         if (elem.TryGetProperty("x25519PrivateKeyHex", out var kaHex) && kaHex.GetString() is { Length: > 0 } kaHexStr)
             tdaOpts.AgentKeyAgreementPrivateKey = Convert.FromHexString(kaHexStr);
+
+        // Restore secp256k1 signing private key for outbound SignThenEncrypt.
+        if (elem.TryGetProperty("privateKeyHex", out var skHex) && skHex.GetString() is { Length: > 0 } skHexStr)
+            tdaOpts.AgentSigningPrivateKey = Convert.FromHexString(skHexStr);
 
         // Restore parent TDA wiring from identity file if not already set via config/env.
         if (string.IsNullOrEmpty(tdaOpts.ParentTdaDid)

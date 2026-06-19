@@ -49,6 +49,9 @@ public sealed class TdaOptions
     /// <summary>X25519 key agreement private key (raw 32 bytes). Used by KestrelListenerService for JWE decryption in UnpackAsync.</summary>
     public byte[] AgentKeyAgreementPrivateKey { get; set; } = [];
 
+    /// <summary>secp256k1 signing private key (raw 32 bytes). Used by DIDCommMessageSwitchboard for SignThenEncrypt on outbound HTTP messages.</summary>
+    public byte[] AgentSigningPrivateKey { get; set; } = [];
+
     // ── Network ───────────────────────────────────────────────────────────────
 
     /// <summary>Port for Kestrel HTTP/2 + mTLS inbound listener (default 8443).</summary>
@@ -323,6 +326,7 @@ public static class TdaServiceCollectionExtensions
                 sp.GetRequiredService<LobeManager>(),
                 sp.GetRequiredService<IHttpClientFactory>(),
                 sp.GetRequiredService<WebSocketNotifyHub>(),
+                sp.GetRequiredService<Svrn7.DIDComm.IDIDCommService>(),
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TdaOptions>>(),
                 sp.GetRequiredService<ILogger<DIDCommMessageSwitchboard>>()));
 

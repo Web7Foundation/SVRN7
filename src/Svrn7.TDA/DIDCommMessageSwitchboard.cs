@@ -2,10 +2,12 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Management.Automation;
 using System.Net.Http;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Svrn7.Core;
 using Svrn7.Core.Interfaces;
 using Svrn7.Core.Models;
+using Svrn7.DIDComm;
 
 namespace Svrn7.TDA;
 
@@ -47,6 +49,7 @@ public sealed class DIDCommMessageSwitchboard
     private readonly LobeManager                        _lobes;
     private readonly IHttpClientFactory     _httpFactory;
     private readonly WebSocketNotifyHub     _hub;
+    private readonly IDIDCommService        _didComm;
     private readonly TdaOptions             _opts;
     private readonly ILogger<DIDCommMessageSwitchboard> _log;
 
@@ -72,6 +75,7 @@ public sealed class DIDCommMessageSwitchboard
         LobeManager                         lobes,
         IHttpClientFactory                  httpFactory,
         WebSocketNotifyHub                  hub,
+        IDIDCommService                     didComm,
         Microsoft.Extensions.Options.IOptions<TdaOptions> opts,
         ILogger<DIDCommMessageSwitchboard>  log)
     {
@@ -82,6 +86,7 @@ public sealed class DIDCommMessageSwitchboard
         _lobes       = lobes;
         _httpFactory = httpFactory;
         _hub         = hub;
+        _didComm     = didComm;
         _opts        = opts.Value;
         _log         = log;
     }
@@ -450,6 +455,97 @@ public sealed class DIDCommMessageSwitchboard
         return true; // unknown type — epoch check deferred to routing failure
     }
 
+    // ── SignThenEncrypt packing ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Applies SignThenEncrypt (secp256k1 JWS inside JWE) to a plaintext DIDComm
+    /// envelope before HTTP delivery. Resolves the recipient's X25519 key from their
+    /// DID Document. Falls back to plaintext with a warning if key material is
+    /// unavailable (e.g., missing X25519 key in recipient DID Document).
+    /// </summary>
+    private async Task<string> PackOutboundAsync(string plaintextEnvelope, CancellationToken ct)
+    {
+        if (_opts.AgentSigningPrivateKey.Length == 0 || _opts.AgentKeyAgreementPrivateKey.Length == 0)
+        {
+            _log.LogWarning("Switchboard: SignThenEncrypt skipped — AgentSigningPrivateKey or AgentKeyAgreementPrivateKey not loaded. Sending plaintext.");
+            return plaintextEnvelope;
+        }
+
+        using var doc = JsonDocument.Parse(plaintextEnvelope);
+        var root = doc.RootElement;
+
+        // Extract recipient DID from the 'to' array.
+        string? recipientDid = null;
+        if (root.TryGetProperty("to", out var toEl))
+        {
+            if (toEl.ValueKind == JsonValueKind.Array && toEl.GetArrayLength() > 0)
+                recipientDid = toEl[0].GetString();
+            else if (toEl.ValueKind == JsonValueKind.String)
+                recipientDid = toEl.GetString();
+        }
+
+        if (string.IsNullOrEmpty(recipientDid))
+        {
+            _log.LogWarning("Switchboard: SignThenEncrypt skipped — no 'to' DID in envelope. Sending plaintext.");
+            return plaintextEnvelope;
+        }
+
+        // Resolve recipient DID Document to obtain their X25519 public key.
+        DidResolutionResult resolution;
+        try { resolution = await _ctx.Driver.DidRegistry.ResolveAsync(recipientDid, ct); }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Switchboard: SignThenEncrypt — DID resolution failed for '{Did}'. Sending plaintext.", recipientDid);
+            return plaintextEnvelope;
+        }
+
+        if (!resolution.Found || resolution.Document is null)
+        {
+            _log.LogWarning("Switchboard: SignThenEncrypt — DID Document not found for '{Did}'. Sending plaintext.", recipientDid);
+            return plaintextEnvelope;
+        }
+
+        var x25519Vm = resolution.Document.VerificationMethod
+            .FirstOrDefault(v => v.Type.Contains("X25519", StringComparison.OrdinalIgnoreCase));
+        if (x25519Vm?.PublicKeyHex is null)
+        {
+            _log.LogWarning("Switchboard: SignThenEncrypt — no X25519KeyAgreementKey in DID Document for '{Did}'. Sending plaintext.", recipientDid);
+            return plaintextEnvelope;
+        }
+
+        var recipientPublicKey = Convert.FromHexString(x25519Vm.PublicKeyHex);
+
+        // Rebuild as DIDCommMessage so the packing service can sign and encrypt.
+        var msgId   = root.TryGetProperty("id",   out var idEl)   ? idEl.GetString()    : null;
+        var msgType = root.TryGetProperty("type", out var typeEl) ? typeEl.GetString() ?? "" : "";
+        var msgFrom = root.TryGetProperty("from", out var fromEl) ? fromEl.GetString()   : _opts.LocalDid;
+        string msgBody;
+        if (root.TryGetProperty("body", out var bodyEl))
+            msgBody = bodyEl.ValueKind == JsonValueKind.String ? bodyEl.GetString() ?? "{}" : bodyEl.GetRawText();
+        else
+            msgBody = "{}";
+
+        var message = new DIDCommMessage
+        {
+            Id   = msgId ?? Svrn7.Core.TdaResourceId.DIDCommMessage(Guid.NewGuid().ToString("N")),
+            Type = msgType,
+            From = msgFrom,
+            To   = recipientDid,
+            Body = msgBody,
+        };
+
+        try
+        {
+            return await _didComm.PackSignedAndEncryptedAsync(
+                message, recipientPublicKey, _opts.AgentSigningPrivateKey, secp256k1: true, ct);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Switchboard: SignThenEncrypt failed for '{Did}' — dead-lettering message.", recipientDid);
+            throw;
+        }
+    }
+
     // ── Outbound delivery ─────────────────────────────────────────────────────
 
     /// <summary>
@@ -484,7 +580,7 @@ public sealed class DIDCommMessageSwitchboard
             ActivityKind.Producer);
         deliverActivity?.SetTag(Svrn7Telemetry.TagPeerEndpoint, msg.PeerEndpoint);
 
-        // WebSocket delivery: LOBEs targeting the local UI use the sentinel endpoint.
+        // WebSocket: send plaintext — channel is localhost-only.
         if (msg.PeerEndpoint.StartsWith("ws://", StringComparison.OrdinalIgnoreCase))
         {
             await _hub.PushAsync(msg.PackedMessage, ct);
@@ -494,6 +590,9 @@ public sealed class DIDCommMessageSwitchboard
                 _hub.IsConnected ? "connected" : "not connected");
             return;
         }
+
+        // HTTP: apply SignThenEncrypt before delivery (policy: all outbound HTTP messages).
+        var wireMessage = await PackOutboundAsync(msg.PackedMessage, ct);
 
         var client   = _httpFactory.CreateClient("didcomm");
         var endpoint = msg.PeerEndpoint.TrimEnd('/');
@@ -505,7 +604,7 @@ public sealed class DIDCommMessageSwitchboard
             try
             {
                 using var content = new System.Net.Http.StringContent(
-                    msg.PackedMessage,
+                    wireMessage,
                     System.Text.Encoding.UTF8,
                     "application/didcomm-encrypted+json");
 

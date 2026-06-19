@@ -65,12 +65,12 @@ public interface IDIDCommService
     DIDCommMessageBuilder NewMessage();
     Task<string> PackPlaintextAsync(DIDCommMessage message, CancellationToken ct = default);
     Task<string> PackSignedAsync(DIDCommMessage message,
-        byte[] senderPrivateKey, CancellationToken ct = default);
+        byte[] senderPrivateKey, bool secp256k1 = false, CancellationToken ct = default);
     Task<string> PackEncryptedAsync(DIDCommMessage message,
         byte[] recipientPublicKey, byte[] senderPrivateKey,
         DIDCommPackMode mode = DIDCommPackMode.SignThenEncrypt, CancellationToken ct = default);
     Task<string> PackSignedAndEncryptedAsync(DIDCommMessage message,
-        byte[] recipientPublicKey, byte[] senderPrivateKey, CancellationToken ct = default);
+        byte[] recipientPublicKey, byte[] senderPrivateKey, bool secp256k1 = false, CancellationToken ct = default);
     Task<DIDCommUnpackedMessage> UnpackAsync(string packed,
         byte[]? recipientPrivateKey = null, CancellationToken ct = default);
 }
@@ -147,10 +147,11 @@ public sealed class DIDCommPackingService : IDIDCommService
     // ── Signed (JWS) ─────────────────────────────────────────────────────────
 
     public Task<string> PackSignedAsync(DIDCommMessage message,
-        byte[] senderPrivateKey, CancellationToken ct = default)
+        byte[] senderPrivateKey, bool secp256k1 = false, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        var header  = B64(JsonSerializer.SerializeToUtf8Bytes(new { alg = "EdDSA", typ = "JWM" }));
+        var alg     = secp256k1 ? "ES256K" : "EdDSA";
+        var header  = B64(JsonSerializer.SerializeToUtf8Bytes(new { alg, typ = "JWM" }));
         var payload = B64(JsonSerializer.SerializeToUtf8Bytes(new
         {
             id   = message.Id,
@@ -160,7 +161,9 @@ public sealed class DIDCommPackingService : IDIDCommService
             body = message.Body,
         }));
         var sigInput = Encoding.ASCII.GetBytes($"{header}.{payload}");
-        var sig      = SignEd25519(sigInput, senderPrivateKey);
+        var sig      = secp256k1
+            ? SignSecp256k1(sigInput, senderPrivateKey)
+            : SignEd25519(sigInput, senderPrivateKey);
 
         return Task.FromResult(JsonSerializer.Serialize(new
         {
@@ -194,10 +197,9 @@ public sealed class DIDCommPackingService : IDIDCommService
     }
 
     public async Task<string> PackSignedAndEncryptedAsync(DIDCommMessage message,
-        byte[] recipientPublicKey, byte[] senderPrivateKey, CancellationToken ct = default)
+        byte[] recipientPublicKey, byte[] senderPrivateKey, bool secp256k1 = false, CancellationToken ct = default)
     {
-        // Sign first, then encrypt the JWS envelope
-        var signed    = await PackSignedAsync(message, senderPrivateKey, ct);
+        var signed    = await PackSignedAsync(message, senderPrivateKey, secp256k1, ct);
         var plaintext = Encoding.UTF8.GetBytes(signed);
         return EncryptJwe(plaintext, recipientPublicKey);
     }
@@ -552,6 +554,14 @@ public sealed class DIDCommPackingService : IDIDCommService
         var padded = b64.Replace('-', '+').Replace('_', '/');
         var padLen = (4 - padded.Length % 4) % 4;
         return Convert.FromBase64String(padded + new string('=', padLen));
+    }
+
+    private static string SignSecp256k1(byte[] data, byte[] privateKey)
+    {
+        var key  = new NBitcoin.Key(privateKey);
+        var hash = NBitcoin.Crypto.Hashes.SHA256(data);
+        var sig  = key.Sign(new NBitcoin.uint256(hash));
+        return B64(sig.ToDER());
     }
 
     private static string SignEd25519(byte[] data, byte[] privateKey)
