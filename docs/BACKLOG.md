@@ -474,3 +474,49 @@ This avoids giving PandoMail any long-lived secrets while still providing per-se
 channel confidentiality.
 
 **No code change required now** — tracked here for design continuity.
+
+---
+
+## TDA-010 — `PackSignedAsync` secp256k1 signing path (SignThenEncrypt from PowerShell)
+
+**Area:** `DIDCommPackingService`, `Program.cs` (Wanderer bootstrap), `agent-identity.json`
+
+**Summary:** `DIDCommPackingService.PackSignedAsync` (and by extension
+`PackSignedAndEncryptedAsync`) signs using Ed25519 (`SignEd25519`, `NSec`
+`KeyBlobFormat.RawPrivateKey`).  The Wanderer bootstrap generates only a
+secp256k1 key pair for signing and an X25519 key pair for key agreement —
+no Ed25519 key is ever created or stored in `agent-identity.json`.
+
+Calling `PackSignedAndEncryptedAsync` from PowerShell with the secp256k1
+private key bytes will not throw (both key types are 32 bytes and NSec
+accepts any 32-byte seed), but the resulting JWS signature is an Ed25519
+signature over secp256k1 key material.  Verification will fail because the
+DID Document's `verificationMethod` carries the secp256k1 public key, not an
+Ed25519 public key.
+
+**Impact:** SignThenEncrypt (and SignOnly) DIDComm messages cannot be correctly
+produced or verified in a standalone PowerShell session using the current
+Wanderer identity.  The plaintext pack path (`PackPlaintextAsync`) and
+Anoncrypt (`PackEncryptedAsync`) are unaffected.
+
+**Two fix options — pick one:**
+
+1. **Add a secp256k1 signing path to `PackSignedAsync`** — detect key length
+   or add an `alg` parameter; use `NBitcoin` secp256k1 signing (already a
+   dependency) with `alg = "ES256K"` in the JWS header.  DID Document
+   `verificationMethod` already carries the secp256k1 public key, so unpack
+   verification would work end-to-end with no identity changes.
+
+2. **Add an Ed25519 key to the Wanderer bootstrap** — generate an Ed25519 key
+   pair alongside the secp256k1 and X25519 pairs; store `ed25519PublicKeyHex` /
+   `ed25519PrivateKeyHex` in `agent-identity.json`; add a second
+   `verificationMethod` entry (`Ed25519VerificationKey2020`) to the DID Document.
+   `PackSignedAsync` already works correctly for Ed25519 — callers just need to
+   supply the right key bytes.
+
+**Recommended option:** Option 1 (secp256k1 path) — no identity format change,
+no DID Document schema change, no re-bootstrap of existing TDAs.  The `alg =
+"ES256K"` JWS header is already handled in `UnpackJwsAsync` (secp256k1 verify
+branch).  The signing side is the only missing piece.
+
+**No code change required now** — tracked here for design continuity.
