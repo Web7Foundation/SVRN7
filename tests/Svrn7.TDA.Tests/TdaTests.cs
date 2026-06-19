@@ -1089,13 +1089,13 @@ internal sealed class StubDIDCommService(string type, string body) : IDIDCommSer
     public DIDCommMessageBuilder NewMessage() => new();
     public Task<string> PackPlaintextAsync(DIDCommMessage m, CancellationToken ct = default) =>
         Task.FromResult("{}");
-    public Task<string> PackSignedAsync(DIDCommMessage m, byte[] key, CancellationToken ct = default) =>
+    public Task<string> PackSignedAsync(DIDCommMessage m, byte[] key, bool secp256k1 = false, CancellationToken ct = default) =>
         Task.FromResult("{}");
     public Task<string> PackEncryptedAsync(DIDCommMessage m, byte[] recipKey, byte[] sendKey,
         DIDCommPackMode mode = DIDCommPackMode.SignThenEncrypt, CancellationToken ct = default) =>
         Task.FromResult("{}");
     public Task<string> PackSignedAndEncryptedAsync(DIDCommMessage m, byte[] recipKey, byte[] sendKey,
-        CancellationToken ct = default) => Task.FromResult("{}");
+        bool secp256k1 = false, CancellationToken ct = default) => Task.FromResult("{}");
     public Task<DIDCommUnpackedMessage> UnpackAsync(string packed,
         byte[]? recipientPrivateKey = null, CancellationToken ct = default) =>
         Task.FromResult(new DIDCommUnpackedMessage
@@ -1108,13 +1108,13 @@ internal sealed class ThrowingDIDCommService : IDIDCommService
     public DIDCommMessageBuilder NewMessage() => new();
     public Task<string> PackPlaintextAsync(DIDCommMessage m, CancellationToken ct = default) =>
         Task.FromResult("{}");
-    public Task<string> PackSignedAsync(DIDCommMessage m, byte[] key, CancellationToken ct = default) =>
+    public Task<string> PackSignedAsync(DIDCommMessage m, byte[] key, bool secp256k1 = false, CancellationToken ct = default) =>
         Task.FromResult("{}");
     public Task<string> PackEncryptedAsync(DIDCommMessage m, byte[] recipKey, byte[] sendKey,
         DIDCommPackMode mode = DIDCommPackMode.SignThenEncrypt, CancellationToken ct = default) =>
         Task.FromResult("{}");
     public Task<string> PackSignedAndEncryptedAsync(DIDCommMessage m, byte[] recipKey, byte[] sendKey,
-        CancellationToken ct = default) => Task.FromResult("{}");
+        bool secp256k1 = false, CancellationToken ct = default) => Task.FromResult("{}");
     public Task<DIDCommUnpackedMessage> UnpackAsync(string packed,
         byte[]? recipientPrivateKey = null, CancellationToken ct = default) =>
         throw new InvalidOperationException("Simulated DIDComm unpack failure.");
@@ -1386,6 +1386,7 @@ public class SwitchboardStartupTests : IDisposable
             ctx, pool, inbox, outbox, lobes,
             new NullHttpClientFactory(),
             new WebSocketNotifyHub(NullLogger<WebSocketNotifyHub>.Instance),
+            new StubDIDCommService("test/1.0/msg", "{}"),
             Options.Create(tdaOpts),
             NullLogger<DIDCommMessageSwitchboard>.Instance);
     }
