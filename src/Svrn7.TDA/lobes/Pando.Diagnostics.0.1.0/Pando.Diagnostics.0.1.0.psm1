@@ -51,7 +51,7 @@ function Invoke-PandoDiagnosticsDateQuery {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/Issue-TOD'
-            from = $SVRN7.Driver.SocietyDid
+            from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
             body = $payload
         } | ConvertTo-Json -Compress

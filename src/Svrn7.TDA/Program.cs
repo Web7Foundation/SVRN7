@@ -271,7 +271,7 @@ else
 
 // Publish runtime values into TdaOptions so Svrn7RunspaceContext
 // (constructed lazily during host.StartAsync) picks them up via the factory.
-tdaOpts.AgentDid           = agentDid ?? tdaOpts.SocietyDid;
+tdaOpts.LocalDid           = agentDid ?? tdaOpts.SocietyDid;
 tdaOpts.ServiceEndpointUrl = $"{tdaUrl}:{port}/didcomm";
 tdaOpts.AgentIdentityPath  = identityPath;
 

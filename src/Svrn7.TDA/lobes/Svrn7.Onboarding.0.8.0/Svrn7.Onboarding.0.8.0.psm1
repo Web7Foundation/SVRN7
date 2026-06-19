@@ -118,13 +118,11 @@ function New-Web7OnboardReceipt {
     )
 
     process {
-        $mySocietyDid = $SVRN7.Driver.SocietyDid
-
         $citizenDocJson = $SVRN7.GetDidDocumentJson($RegistrationResult.CitizenDid)
-        $societyDocJson = $SVRN7.GetDidDocumentJson($mySocietyDid)
+        $societyDocJson = $SVRN7.GetDidDocumentJson($SVRN7.LocalDid)
 
         $payload = @{
-            from               = $mySocietyDid
+            from               = $SVRN7.LocalDid
             to                 = $RegistrationResult.CitizenDid
             success            = $true
             citizenDid         = $RegistrationResult.CitizenDid
@@ -149,7 +147,7 @@ function New-Web7OnboardReceipt {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt'
-            from = $mySocietyDid
+            from = $SVRN7.LocalDid
             to   = @($RegistrationResult.CitizenDid)
             body = $payload
         } | ConvertTo-Json -Compress
@@ -234,10 +232,8 @@ function Send-Web7OnboardError {
     )
 
     process {
-        $mySocietyDid = $SVRN7.Driver.SocietyDid
-
         $payload = @{
-            from          = $mySocietyDid
+            from          = $SVRN7.LocalDid
             to            = $CitizenDid
             success       = $false
             error         = $ErrorMessage
@@ -254,7 +250,7 @@ function Send-Web7OnboardError {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt'
-            from = $mySocietyDid
+            from = $SVRN7.LocalDid
             to   = @($CitizenDid)
             body = $payload
         } | ConvertTo-Json -Compress

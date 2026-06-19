@@ -1480,7 +1480,7 @@ function Invoke-Web7SocietyQuery {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/society-query-result'
-            from = $SVRN7.Driver.SocietyDid
+            from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
             body = $payload
         } | ConvertTo-Json -Compress
@@ -1540,7 +1540,7 @@ function Invoke-Web7MemberQuery {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/member-query-result'
-            from = $SVRN7.Driver.SocietyDid
+            from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
             body = $payload
         } | ConvertTo-Json -Compress
@@ -1594,7 +1594,7 @@ function Invoke-Web7OverdraftQuery {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-query-result'
-            from = $SVRN7.Driver.SocietyDid
+            from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
             body = $payload
         } | ConvertTo-Json -Compress
@@ -1651,7 +1651,7 @@ function Invoke-Web7DidMethodsQuery {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-methods-query-result'
-            from = $SVRN7.Driver.SocietyDid
+            from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
             body = $payload
         } | ConvertTo-Json -Compress
@@ -1704,7 +1704,7 @@ function Invoke-Web7DidMethodRegister {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-method-register-result'
-            from = $SVRN7.Driver.SocietyDid
+            from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
             body = $payload
         } | ConvertTo-Json -Compress
@@ -1761,7 +1761,7 @@ function Invoke-Web7CitizenDidAdd {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/citizen-did-add-result'
-            from = $SVRN7.Driver.SocietyDid
+            from = $SVRN7.LocalDid
             to   = @($msg.FromDid)
             body = $payload
         } | ConvertTo-Json -Compress

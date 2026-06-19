@@ -221,14 +221,14 @@ function Resolve-SocietySenderEndpoint {
     process {
         $drv = Get-ActiveSocietyDriver
         $res = $drv.ResolveDidAsync($Did).GetAwaiter().GetResult()
-        if (-not $res -or -not $res.Document -or -not $res.Document.Service) {
+        if (-not $res -or -not $res.Document -or -not $res.Document.ServiceEndpoints) {
             return $null
         }
-        $svc = $res.Document.Service |
-               Where-Object { $_.type -eq 'DIDComm' } |
+        $svc = $res.Document.ServiceEndpoints |
+               Where-Object { $_.Type -eq 'DIDCommMessaging' } |
                Select-Object -First 1
         if (-not $svc) { return $null }
-        return $svc.serviceEndpoint
+        return $svc.ServiceEndpoint
     }
 }
 

@@ -148,7 +148,7 @@ function New-Web7CalendarResponse {
 
     process {
         $partstat = if ($Accept) { 'ACCEPTED' } else { 'DECLINED' }
-        $mySocietyDid = $SVRN7.Driver.SocietyDid
+
 
         $replyVcal = @"
 BEGIN:VCALENDAR
@@ -158,7 +158,7 @@ METHOD:REPLY
 BEGIN:VEVENT
 UID:$($Invite.Uid)
 ORGANIZER:$($Invite.OrganizerDid)
-ATTENDEE;PARTSTAT=$partstat:$mySocietyDid
+ATTENDEE;PARTSTAT=$partstat:$($SVRN7.LocalDid)
 SUMMARY:$($Invite.Summary)
 DTSTART:$($Invite.DtStart)
 END:VEVENT
@@ -166,7 +166,7 @@ END:VCALENDAR
 "@
 
         $payload = @{
-            from           = $mySocietyDid
+            from           = $SVRN7.LocalDid
             to             = $Invite.OrganizerDid
             icalendarBody  = $replyVcal
         } | ConvertTo-Json -Compress
@@ -181,7 +181,7 @@ END:VCALENDAR
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/response'
-            from = $mySocietyDid
+            from = $SVRN7.LocalDid
             to   = @($Invite.OrganizerDid)
             body = $payload
         } | ConvertTo-Json -Compress

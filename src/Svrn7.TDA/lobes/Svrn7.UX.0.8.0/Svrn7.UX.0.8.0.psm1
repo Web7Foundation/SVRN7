@@ -272,7 +272,7 @@ function New-Svrn7TransferIntent {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request'
-            from = $PayerDid
+            from = $SVRN7.LocalDid
             to   = @($PayeeDid)
             body = $bodyJson
         } | ConvertTo-Json -Compress

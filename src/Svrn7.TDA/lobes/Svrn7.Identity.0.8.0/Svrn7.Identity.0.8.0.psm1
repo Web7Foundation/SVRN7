@@ -201,10 +201,8 @@ function Get-Svrn7VcById {
         # Find-Svrn7VcsBySubject is in Svrn7.Society.0.8.0.psm1 (eager)
         $vcs = Find-Svrn7VcsBySubject -SubjectDid $subjectDid
 
-        $mySocietyDid = $SVRN7.Driver.SocietyDid
-
         $responsePayload = @{
-            from        = $mySocietyDid
+            from        = $SVRN7.LocalDid
             to          = $body.from
             subjectDid  = $subjectDid
             found       = ($vcs.Count -gt 0)
@@ -222,7 +220,7 @@ function Get-Svrn7VcById {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/vc-resolve-by-subject-response'
-            from = $SVRN7.Driver.SocietyDid
+            from = $SVRN7.LocalDid
             to   = @($body.from)
             body = $responsePayload
         } | ConvertTo-Json -Compress

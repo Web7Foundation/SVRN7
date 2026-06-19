@@ -58,18 +58,10 @@ public sealed class Svrn7RunspaceContext
     public ISvrn7SocietyDriver Driver { get; }
 
     /// <summary>
-    /// The DID of this TDA instance — available regardless of role (Wanderer,
-    /// Citizen, Society, or Federation). LOBE cmdlets should use this instead of
-    /// Driver.SocietyDid to avoid implying Society-level initialization.
+    /// The local TDA's DID regardless of role (Wanderer, Citizen, Society, or Federation).
+    /// Sourced from agent-identity.json at startup. LOBE cmdlets use <c>$SVRN7.LocalDid</c>.
     /// </summary>
-    public string LocalDid => Driver.SocietyDid;
-
-    /// <summary>
-    /// The Wanderer/Agent DID shown at TDA startup — sourced from agent-identity.json.
-    /// This is the peer-to-peer identity of the TDA instance, distinct from the
-    /// Society DID. Use this when the local UI needs to display the TDA's own identity.
-    /// </summary>
-    public string AgentDid { get; }
+    public string LocalDid { get; }
 
     /// <summary>
     /// The functional role of this TDA instance. Exposed to LOBE cmdlets as
@@ -132,7 +124,7 @@ public sealed class Svrn7RunspaceContext
     {
         Driver                 = driver;
         Role                   = role;
-        AgentDid               = agentDid;
+        LocalDid               = agentDid;
         ServiceEndpointUrl     = serviceEndpointUrl;
         _parentTdaDid          = parentTdaDid;
         _parentTdaEndpointUrl  = parentTdaEndpointUrl;

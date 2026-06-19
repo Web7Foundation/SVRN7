@@ -120,10 +120,10 @@ function Send-Web7Alert {
     )
 
     process {
-        $mySocietyDid = $SVRN7.Driver.SocietyDid
+
 
         $payload = @{
-            from        = $mySocietyDid
+            from        = $SVRN7.LocalDid
             to          = $RecipientDid
             alertType   = $AlertType
             severity    = $Severity
@@ -142,7 +142,7 @@ function Send-Web7Alert {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/alert'
-            from = $mySocietyDid
+            from = $SVRN7.LocalDid
             to   = @($RecipientDid)
             body = $payload
         } | ConvertTo-Json -Compress

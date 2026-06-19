@@ -147,10 +147,8 @@ function New-Web7InvoiceReceipt {
     )
 
     process {
-        $mySocietyDid = $SVRN7.Driver.SocietyDid
-
         $payload = @{
-            from           = $mySocietyDid
+            from           = $SVRN7.LocalDid
             to             = $TransferResult.PayerDid
             success        = $TransferResult.Success
             invoiceId      = $TransferResult.InvoiceId
@@ -174,7 +172,7 @@ function New-Web7InvoiceReceipt {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/receipt'
-            from = $mySocietyDid
+            from = $SVRN7.LocalDid
             to   = @($TransferResult.PayerDid)
             body = $payload
         } | ConvertTo-Json -Compress
@@ -210,10 +208,8 @@ function Send-Web7InvoiceError {
     )
 
     process {
-        $mySocietyDid = $SVRN7.Driver.SocietyDid
-
         $payload = @{
-            from       = $mySocietyDid
+            from       = $SVRN7.LocalDid
             to         = $PayerDid
             success    = $false
             invoiceId  = $InvoiceId
@@ -231,7 +227,7 @@ function Send-Web7InvoiceError {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/receipt'
-            from = $mySocietyDid
+            from = $SVRN7.LocalDid
             to   = @($PayerDid)
             body = $payload
         } | ConvertTo-Json -Compress

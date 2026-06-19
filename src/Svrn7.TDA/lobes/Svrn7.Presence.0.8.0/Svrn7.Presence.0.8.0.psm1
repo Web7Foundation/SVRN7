@@ -143,7 +143,7 @@ function Publish-Web7Presence {
     )
 
     process {
-        $mySocietyDid = $SVRN7.Driver.SocietyDid
+
         $subs = Get-PresenceSubscriptions
 
         if ($subs.Count -eq 0) {
@@ -152,7 +152,7 @@ function Publish-Web7Presence {
         }
 
         $payload = @{
-            did        = $mySocietyDid
+            did        = $SVRN7.LocalDid
             status     = $Status
             since      = [datetimeoffset]::UtcNow.ToString('o')
             ttlSeconds = $TtlSeconds
@@ -169,7 +169,7 @@ function Publish-Web7Presence {
                 typ  = 'application/didcomm-plain+json'
                 id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
                 type = 'did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/status'
-                from = $mySocietyDid
+                from = $SVRN7.LocalDid
                 to   = @($subscriberDid)
                 body = $payload
             } | ConvertTo-Json -Compress
