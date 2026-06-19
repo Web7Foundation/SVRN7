@@ -98,23 +98,20 @@ Note the `Agent DID` line — this is W5's Wanderer identity.  It is also writte
 
 ## Step 3 — Read the Wanderer DIDs (Terminal C)
 
-W5 and W6 each generate a unique public-key-derived DID on first run.  Read both from their
-identity files:
+W5 and W6 each generate a unique public-key-derived DID on first run.  Read W6's DID
+(the self-send scenario uses W6 as both sender and recipient):
 
 ```powershell
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 
-$w5Did = (Get-Content 8445/mem/agent-identity.json | ConvertFrom-Json).did
 $w6Did = (Get-Content 8446/mem/agent-identity.json | ConvertFrom-Json).did
 
-Write-Host "W5 DID: $w5Did"
 Write-Host "W6 DID: $w6Did"
 ```
 
 Expected:
 
 ```
-W5 DID: did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash-W5>
 W6 DID: did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash-W6>
 ```
 
@@ -132,17 +129,18 @@ This gives you `Send-DIDCommMessage` for the steps below.
 
 ---
 
-## Step 5 — Send Query-TOD from W5 to W6 (Terminal C)
+## Step 5 — Send Query-TOD from W6 to itself (Terminal C)
 
-Post the message directly to W6's endpoint.  W6 resolves the reply endpoint from W5's
-DID Document and delivers the `Issue-TOD` reply automatically.
+W6 sends the message to its own endpoint.  W6's own DID Document is already in its local
+registry, so `Resolve-SocietySenderEndpoint` succeeds and the `Issue-TOD` reply is
+delivered back to W6 without requiring federation or cross-TDA DID Document exchange.
 
 ```powershell
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/Query-TOD'
-    from = $w5Did
+    from = $w6Did
     to   = @($w6Did)
     body = '{}'
 } | ConvertTo-Json
@@ -158,7 +156,7 @@ Status: Accepted
 
 ---
 
-## Step 6 — Verify W6 received and replied (Terminal B)
+## Step 6 — Verify W6 processed Query-TOD and replied (Terminal B)
 
 Watch Terminal B for W6's log.  `Pando.Diagnostics` is a JIT LOBE — `Import-Module -Force`
 runs on every dispatch (by design, for hot-update support).
@@ -177,16 +175,16 @@ info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
       [PS Info] Pando.Diagnostics: serverUtc=2026-06-15T... epoch=0
 
 info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
-      Switchboard: outbound delivered to http://localhost:8445/didcomm (202).
+      Switchboard: outbound delivered to http://localhost:8446/didcomm (202).
 ```
 
-The last line confirms W6 delivered the `Issue-TOD` reply to W5.
+The last line confirms W6 delivered the `Issue-TOD` reply back to its own endpoint.
 
 ---
 
-## Step 7 — Verify W5 received the reply (Terminal A)
+## Step 7 — Verify W6 received the Issue-TOD reply (Terminal B)
 
-Watch Terminal A for W5's log.  W5 receives the `Issue-TOD` and routes it to
+Still watching Terminal B.  W6 receives its own `Issue-TOD` and routes it to
 `Invoke-PandoDiagnosticsDateResult`:
 
 ```
@@ -200,8 +198,8 @@ info: Svrn7.TDA.DIDCommMessageSwitchboard[0]
           from='did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash-W6>'
 ```
 
-The `from` field shows W6's DID confirming the reply originated from W6.
-`Issue-TOD` is a terminal message — W5 logs the result and sends no further reply.
+The `from` field shows W6's own DID — the self-send round-trip is complete.
+`Issue-TOD` is a terminal message — W6 logs the result and sends no further reply.
 
 ---
 
@@ -447,4 +445,4 @@ Wanderer bootstrap with a fresh GUID-based DID.
 | No `Issue-TOD` delivered to W5 | W5's DID Document not yet registered on W6 | Ensure W5 has bootstrapped and published its DID Document before sending |
 | W5 log shows no `Issue-TOD` routing line | W5 Kestrel not yet listening | Ensure W5 started and shows `KestrelListenerService started on port 8445` |
 | `agent-identity.json not found` | W5/W6 not yet started, or `Set-Location` is wrong | Verify the TDA output dir is the CWD and the TDA ran at least once |
-| W6 logs `cannot resolve endpoint for sender` | W5's DID not in W6's registry | Confirm federation registration completed before sending the query |
+| W6 logs `cannot resolve endpoint for sender` | W6's own DID not in its registry (should not happen on a normal first run) | Stop W6, run with `--reset`, restart |
