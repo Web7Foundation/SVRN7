@@ -222,6 +222,56 @@ public class DIDCommTests
         var packed = await _svc.PackSignedAsync(msg, kp.PrivateKeyBytes);
         packed.Should().NotBeNullOrEmpty();
     }
+
+    [Fact] public async Task PackSigned_RoundTrip()
+    {
+        var crypto = new CryptoService();
+        var kp     = crypto.GenerateEd25519KeyPair();
+        var msg    = _svc.NewMessage()
+            .Type("https://example.com/signed-rt")
+            .Body(new { value = 42 })
+            .Build();
+        var packed   = await _svc.PackSignedAsync(msg, kp.PrivateKeyBytes);
+        var unpacked = await _svc.UnpackAsync(packed);
+        unpacked.Type.Should().Be("https://example.com/signed-rt");
+        unpacked.Body.Should().Contain("42");
+        unpacked.Mode.Should().Be(DIDCommPackMode.SignOnly);
+    }
+
+    [Fact] public async Task PackEncrypted_RoundTrip()
+    {
+        var crypto    = new CryptoService();
+        var recipKp   = crypto.GenerateX25519KeyPair();
+        var senderKp  = crypto.GenerateEd25519KeyPair();
+        var recipPub  = Convert.FromHexString(recipKp.PublicKeyHex);
+        var msg = _svc.NewMessage()
+            .Type("https://example.com/anoncrypt-rt")
+            .Body(new { secret = "hello" })
+            .Build();
+        var packed   = await _svc.PackEncryptedAsync(msg, recipPub, senderKp.PrivateKeyBytes,
+            DIDCommPackMode.Anoncrypt);
+        var unpacked = await _svc.UnpackAsync(packed, recipKp.PrivateKeyBytes);
+        unpacked.Type.Should().Be("https://example.com/anoncrypt-rt");
+        unpacked.Body.Should().Contain("hello");
+        unpacked.Mode.Should().Be(DIDCommPackMode.Anoncrypt);
+    }
+
+    [Fact] public async Task PackSignedAndEncrypted_RoundTrip()
+    {
+        var crypto   = new CryptoService();
+        var recipKp  = crypto.GenerateX25519KeyPair();
+        var senderKp = crypto.GenerateEd25519KeyPair();
+        var recipPub = Convert.FromHexString(recipKp.PublicKeyHex);
+        var msg = _svc.NewMessage()
+            .Type("https://example.com/sign-then-encrypt-rt")
+            .Body(new { amount = 100 })
+            .Build();
+        var packed   = await _svc.PackSignedAndEncryptedAsync(msg, recipPub, senderKp.PrivateKeyBytes);
+        var unpacked = await _svc.UnpackAsync(packed, recipKp.PrivateKeyBytes);
+        unpacked.Type.Should().Be("https://example.com/sign-then-encrypt-rt");
+        unpacked.Body.Should().Contain("100");
+        unpacked.Mode.Should().Be(DIDCommPackMode.SignThenEncrypt);
+    }
 }
 
 // ── Citizen registration tests ─────────────────────────────────────────────────
