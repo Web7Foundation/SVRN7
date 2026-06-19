@@ -99,6 +99,8 @@ function Dequeue-PandoMail {
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Email-Notify/1.0/new-message'
+            from = $SVRN7.LocalDid
+            to   = @($SVRN7.LocalDid)
             body = [ordered]@{
                 messageDid = $MessageDid
                 senderDid  = $record.SenderDid
@@ -359,6 +361,7 @@ function Get-TdaDid {
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
             type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Reply-TdaDid'
             from = $SVRN7.LocalDid
+            to   = @($SVRN7.LocalDid)
             body = [ordered]@{
                 did           = $SVRN7.LocalDid
                 correlationId = $correlationId
