@@ -83,20 +83,17 @@ Write-Host "Wanderer DID: $wandererDid"
 
 ## E.3a — Discover available Societies (society-list)
 
-The Citizen TDA sends `society-list` to the Federation.  The Federation replies with
-each Society's DID Document.  `replyEndpoint` is required because the Citizen TDA is
-not yet registered — the Federation cannot resolve its endpoint from the DID registry.
+The Citizen TDA sends `society-list` to the Federation.  The Federation resolves the
+reply endpoint from the sender's DID Document and replies with each Society's DID Document.
 
 ```powershell
-$body = @{ replyEndpoint = 'http://localhost:8443/didcomm' } | ConvertTo-Json -Compress
-
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list'
     from = $wandererDid
     to   = @('did:drn:foundation.svrn7.net')
-    body = $body
+    body = '{}'
 } | ConvertTo-Json
 
 Send-DIDCommMessage -Uri 'http://localhost:8441/didcomm' -Body $msg

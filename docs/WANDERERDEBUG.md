@@ -134,19 +134,17 @@ This gives you `Send-DIDCommMessage` for the steps below.
 
 ## Step 5 — Send Query-TOD from W5 to W6 (Terminal C)
 
-Post the message directly to W6's endpoint.  Include `replyEndpoint` pointing at W5 so
-W6 knows where to deliver the `Issue-TOD` reply.
+Post the message directly to W6's endpoint.  W6 resolves the reply endpoint from W5's
+DID Document and delivers the `Issue-TOD` reply automatically.
 
 ```powershell
-$body = @{ replyEndpoint = 'http://localhost:8445/didcomm' } | ConvertTo-Json -Compress
-
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/Query-TOD'
     from = $w5Did
     to   = @($w6Did)
-    body = $body
+    body = '{}'
 } | ConvertTo-Json
 
 Send-DIDCommMessage -Uri 'http://localhost:8446/didcomm' -Body $msg
@@ -270,9 +268,6 @@ W5 only knows the Federation's endpoint.  It sends a `society-list` request and 
 back each Society's DID Document — which W5 stores locally so Phase 2 needs no further
 network lookup.
 
-`replyEndpoint` is required because W5 is not yet registered anywhere; the Federation
-cannot resolve W5's endpoint from its DID registry.
-
 > **Production note:** When W5 is started with `--federationdomain svrn7.net`, the
 > Federation endpoint URL is discovered at startup and available inside any LOBE handler
 > as `$SVRN7.FederationEndpointUrl`.  In standalone PowerShell (Terminal C), use
@@ -283,15 +278,13 @@ cannot resolve W5's endpoint from its DID registry.
 # Ensure the send helper is loaded (if not already from Step 4)
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
-$body = @{ replyEndpoint = 'http://localhost:8445/didcomm' } | ConvertTo-Json -Compress
-
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
     type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list'
     from = $w5Did
     to   = @('did:drn:foundation.svrn7.net')
-    body = $body
+    body = '{}'
 } | ConvertTo-Json
 
 Send-DIDCommMessage -Uri 'http://localhost:8441/didcomm' -Body $msg
@@ -451,7 +444,7 @@ Wanderer bootstrap with a fresh GUID-based DID.
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `Status: ConnectionRefused` when posting to port 8446 | W6 not running or still starting | Wait for the `KestrelListenerService` started log line |
-| No `Issue-TOD` delivered to W5 | `replyEndpoint` missing or wrong port | Confirm body includes `"replyEndpoint":"http://localhost:8445/didcomm"` |
+| No `Issue-TOD` delivered to W5 | W5's DID Document not yet registered on W6 | Ensure W5 has bootstrapped and published its DID Document before sending |
 | W5 log shows no `Issue-TOD` routing line | W5 Kestrel not yet listening | Ensure W5 started and shows `KestrelListenerService started on port 8445` |
 | `agent-identity.json not found` | W5/W6 not yet started, or `Set-Location` is wrong | Verify the TDA output dir is the CWD and the TDA ran at least once |
-| W6 logs `no reply endpoint — result not delivered` | `replyEndpoint` key absent from body | Use `-Compress` on the inner `ConvertTo-Json` so the key is present |
+| W6 logs `cannot resolve endpoint for sender` | W5's DID not in W6's registry | Confirm federation registration completed before sending the query |

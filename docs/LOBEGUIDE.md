@@ -133,18 +133,7 @@ Not all LOBEs send a reply.  If this one does, specify:
 |---|---|
 | Outbound `@type` URI | e.g. `did:drn:svrn7.net/protocols/payments/1.0/receipt` |
 | Reply body fields | camelCase JSON field names and types |
-| Endpoint resolution | `replyEndpoint` in the body (TDA-to-TDA) **or** DID Document lookup via `Resolve-SocietySenderEndpoint` (peer DID already registered) |
-
-If the sender may be either a script tool or a TDA, support both:
-
-```powershell
-$replyEndpoint = if ($body.PSObject.Properties['replyEndpoint']) { $body.replyEndpoint }
-                 elseif ($msg.FromDid) { Resolve-SocietySenderEndpoint -Did $msg.FromDid }
-if (-not $replyEndpoint) {
-    Write-Warning "MyLobe: no reply endpoint — result not delivered."
-    return
-}
-```
+| Endpoint resolution | DID Document lookup via `Resolve-SocietySenderEndpoint -Did $msg.FromDid` |
 
 ---
 
@@ -309,10 +298,9 @@ function Invoke-PandoMyLobeRequest {
 
         # --- business logic ---
 
-        $endpoint = if ($body.PSObject.Properties['replyEndpoint']) { $body.replyEndpoint }
-                    elseif ($msg.FromDid) { Resolve-SocietySenderEndpoint -Did $msg.FromDid }
+        $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
         if (-not $endpoint) {
-            Write-Warning "Invoke-PandoMyLobeRequest: no reply endpoint — result not delivered."
+            Write-Warning "Invoke-PandoMyLobeRequest: cannot resolve endpoint for sender '$($msg.FromDid)' — result not delivered."
             return
         }
 
@@ -375,7 +363,7 @@ Minimum required structure:
 - [ ] Inbound body schema documented (required vs optional fields)
 - [ ] Business logic calls driver methods via `$SVRN7.Driver` or `Get-ActiveFederationDriver`
 - [ ] All body field access uses `Assert-BodyFields` / `Get-BodyField`
-- [ ] Reply endpoint resolved with `replyEndpoint` body field → DID Document fallback → warning
+- [ ] Reply endpoint resolved via `Resolve-SocietySenderEndpoint -Did $msg.FromDid` → warning if `$null`
 - [ ] `Export-ModuleMember` lists all public cmdlets
 - [ ] `.lobe.json` `protocols[].entrypoint` matches the PowerShell function name exactly
 - [ ] `lobes.config.json` updated (eager or jit array)
@@ -475,13 +463,12 @@ $success = $body.PSObject.Properties['success'] -and $body.success
 |---|---|
 | `Resolve-SocietySenderEndpoint -Did <string>` | Resolves the DIDComm `serviceEndpoint` from the sender's DID Document. Returns `$null` when no `DIDComm`-type service entry exists — **never throws**. Callers must handle `$null`. |
 
-Standard three-step reply endpoint pattern:
+Standard reply endpoint pattern:
 
 ```powershell
-$replyEndpoint = if ($body.PSObject.Properties['replyEndpoint']) { $body.replyEndpoint }
-                 else { Resolve-SocietySenderEndpoint -Did $msg.FromDid }
-if (-not $replyEndpoint) {
-    Write-Warning "Invoke-PandoMyLobeRequest: no reply endpoint — result not delivered."
+$endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
+if (-not $endpoint) {
+    Write-Warning "Invoke-PandoMyLobeRequest: cannot resolve endpoint for sender '$($msg.FromDid)' — result not delivered."
     return
 }
 ```
@@ -536,7 +523,7 @@ $envelope = [ordered]@{
 
 | Parameter | Type | Description |
 |---|---|---|
-| `PeerEndpoint` (1st arg) | `string` | HTTP/2 (h2c) URL of the recipient's TDA endpoint (e.g. `http://peer.svrn7.net:8443`). Resolved via `replyEndpoint` body field or `Resolve-SocietySenderEndpoint`. |
+| `PeerEndpoint` (1st arg) | `string` | HTTP/2 (h2c) URL of the recipient's TDA endpoint (e.g. `http://peer.svrn7.net:8443`). Resolved via `Resolve-SocietySenderEndpoint -Did $msg.FromDid`. |
 | `PackedMessage` (2nd arg) | `string` | Full DIDComm plaintext envelope (`typ`/`id`/`type`/`from`/`to`/`body`). The Switchboard POSTs this verbatim; the recipient's `KestrelListenerService` routes on the `type` field. |
 
 ### No reply
@@ -695,7 +682,7 @@ For protocols that send receipts, send a failure receipt rather than throwing:
 ```powershell
 if (-not $result.Success) {
     return @{
-        PeerEndpoint  = $replyEndpoint
+        PeerEndpoint  = $endpoint
         PackedMessage = (@{ success = $false; error = $result.ErrorMessage } | ConvertTo-Json -Compress)
         MessageType   = 'did:drn:svrn7.net/protocols/domain/1.0/receipt'
     }

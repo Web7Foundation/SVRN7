@@ -16,7 +16,7 @@ function Invoke-PandoDiagnosticsDateQuery {
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
     .OUTPUTS
-        [Svrn7.TDA.OutboundMessage] or $null if no reply endpoint.
+        [Svrn7.TDA.OutboundMessage] or $null if the sender's endpoint cannot be resolved.
     #>
     [CmdletBinding()]
     [OutputType([Svrn7.TDA.OutboundMessage])]
@@ -34,10 +34,9 @@ function Invoke-PandoDiagnosticsDateQuery {
 
         Write-Information "Pando.Diagnostics: serverUtc=$($now.ToString('o')) epoch=$($SVRN7.CurrentEpoch)"
 
-        $replyEndpoint = if ($body.PSObject.Properties['replyEndpoint']) { $body.replyEndpoint }
-                         else { Resolve-SocietySenderEndpoint -Did $msg.FromDid }
-        if (-not $replyEndpoint) {
-            Write-Warning "Invoke-PandoDiagnosticsDateQuery: no reply endpoint — result not delivered."
+        $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
+        if (-not $endpoint) {
+            Write-Warning "Invoke-PandoDiagnosticsDateQuery: cannot resolve endpoint for sender '$($msg.FromDid)' — result not delivered."
             return
         }
 
@@ -57,7 +56,7 @@ function Invoke-PandoDiagnosticsDateQuery {
             body = $payload
         } | ConvertTo-Json -Compress
 
-        [Svrn7.TDA.OutboundMessage]::new($replyEndpoint, $envelope)
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
 }
 

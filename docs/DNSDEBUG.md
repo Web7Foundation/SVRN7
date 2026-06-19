@@ -113,7 +113,7 @@ $msg = [ordered]@{
     type = "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list"
     from = "did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>"
     to   = @("<federation-did>")
-    body = @{ replyEndpoint = "http://localhost:8445/didcomm" }
+    body = @{}
 } | ConvertTo-Json -Depth 5
 
 Send-DIDCommMessage -Uri $endpoint -Body $msg

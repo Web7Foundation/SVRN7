@@ -16,7 +16,7 @@
     {
       "uri":           "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/Query-TOD",
       "title":         "Diagnostics Date Query",
-      "description":   "Requests the current server UTC date/time from the target TDA. Delegates to Get-TDADate from Pando.Diagnostics.Impl.0.1.0.psm1. Body: no required fields. Optional: { replyEndpoint }.",
+      "description":   "Requests the current server UTC date/time from the target TDA. Delegates to Get-TDADate from Pando.Diagnostics.Impl.0.1.0.psm1. Body: no required fields. Replies to the sender's DID Document endpoint.",
       "direction":     "inbound",
       "match":         "exact",
       "entrypoint":    "Invoke-PandoDiagnosticsDateQuery",

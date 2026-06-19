@@ -23,7 +23,7 @@
     {
       "uri": "did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/society-list",
       "title": "Society List",
-      "description": "Returns all societies registered in the federation. No body fields required. Include replyEndpoint in the body to override endpoint resolution.",
+      "description": "Returns all societies registered in the federation. No body fields required. Replies to the sender's DID Document endpoint.",
       "entrypoint": "Invoke-Web7SocietyList",
       "epochRequired": 0
     },

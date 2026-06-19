@@ -283,14 +283,12 @@ re-running these steps.
 ## Step 10 — List stored emails (List-Emails protocol)
 
 Send a `List-Emails` query to retrieve stored email messages from the TDA inbox.
-The TDA responds with an `Get-PandoMails` message to `replyEndpoint`.
+The TDA resolves the sender's DID Document to find the reply endpoint and responds
+with a `Get-PandoMails` message.
 
 ```powershell
-$replyEndpoint = "http://localhost:8442/didcomm"   # endpoint of a second TDA to receive the reply
-
 $body = @{
-    replyEndpoint = $replyEndpoint
-    limit         = 10
+    limit = 10
 } | ConvertTo-Json -Compress
 
 $msg = @{
@@ -312,7 +310,7 @@ info: Svrn7.TDA.DIDCommMessageSwitchboard[0] Switchboard: routing ... (type=.../
 dbug: ...   [PS Verbose] Email LOBE: List-Emails returning N messages to http://localhost:8442/didcomm
 ```
 
-The `Get-PandoMails` reply is delivered as a DIDComm message to `replyEndpoint`. Each email entry:
+The `Get-PandoMails` reply is delivered as a DIDComm message to the sender's DID Document endpoint. Each email entry:
 
 | Field | Value |
 |---|---|
@@ -323,8 +321,8 @@ The `Get-PandoMails` reply is delivered as a DIDComm message to `replyEndpoint`.
 | `toHeader` | Extracted `To:` header, or `$null` |
 | `receivedAt` | ISO 8601 UTC timestamp |
 
-**Note:** `replyEndpoint` must be the full URL (`http://localhost:{port}/didcomm`) of a running TDA.
-A standalone PowerShell session cannot receive the reply — route it to a second TDA.
+**Note:** The sender's DID must be registered and resolvable for the reply to be delivered.
+A standalone PowerShell session cannot receive the reply — send from a running TDA.
 
 ---
 

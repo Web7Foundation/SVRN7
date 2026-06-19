@@ -94,7 +94,7 @@ function Resolve-Svrn7Did {
             return New-DidResolveResponseMessage `
                 -Found $true -DidDocument $didDoc `
                 -RequestedDid $requestedDid -RecipientDid $msg.FromDid `
-                -OriginalRequestId $originalRequestId -ReplyEndpoint $immediateRequesterEndpoint
+                -OriginalRequestId $originalRequestId
         }
 
         # ── Step 2: Local miss — escalate by role ──────────────────────────────
@@ -104,7 +104,7 @@ function Resolve-Svrn7Did {
             Write-Information "Resolve-Svrn7Did: Wanderer LOCAL MISS '$requestedDid' → notFound"
             return New-DidResolveResponseMessage `
                 -Found $false -RequestedDid $requestedDid -RecipientDid $msg.FromDid `
-                -OriginalRequestId $originalRequestId -ReplyEndpoint $immediateRequesterEndpoint `
+                -OriginalRequestId $originalRequestId `
                 -ErrorCode 'notFound'
         }
 
@@ -119,7 +119,7 @@ function Resolve-Svrn7Did {
                 Write-Information "Resolve-Svrn7Did: Federation LOCAL MISS '$requestedDid' method '$methodName' not registered → notFound"
                 return New-DidResolveResponseMessage `
                     -Found $false -RequestedDid $requestedDid -RecipientDid $msg.FromDid `
-                    -OriginalRequestId $originalRequestId -ReplyEndpoint $immediateRequesterEndpoint `
+                    -OriginalRequestId $originalRequestId `
                     -ErrorCode 'methodNotSupported'
             }
 
@@ -129,7 +129,7 @@ function Resolve-Svrn7Did {
                 Write-Warning "Resolve-Svrn7Did: Federation LOCAL MISS '$requestedDid' — no endpoint for target Society '$parentDid'"
                 return New-DidResolveResponseMessage `
                     -Found $false -RequestedDid $requestedDid -RecipientDid $msg.FromDid `
-                    -OriginalRequestId $originalRequestId -ReplyEndpoint $immediateRequesterEndpoint `
+                    -OriginalRequestId $originalRequestId `
                     -ErrorCode 'notFound'
             }
 
@@ -148,7 +148,7 @@ function Resolve-Svrn7Did {
             Write-Warning "Resolve-Svrn7Did: $role LOCAL MISS '$requestedDid' — no parent endpoint configured → notFound"
             return New-DidResolveResponseMessage `
                 -Found $false -RequestedDid $requestedDid -RecipientDid $msg.FromDid `
-                -OriginalRequestId $originalRequestId -ReplyEndpoint $immediateRequesterEndpoint `
+                -OriginalRequestId $originalRequestId `
                 -ErrorCode 'notFound'
         }
 
@@ -392,11 +392,15 @@ function New-DidResolveResponseMessage {
         [Parameter(Mandatory)] [string]  $RequestedDid,
         [Parameter(Mandatory)] [string]  $RecipientDid,
         [Parameter(Mandatory)] [string]  $OriginalRequestId,
-        [Parameter(Mandatory)] [string]  $ReplyEndpoint,
         [bool]                           $Found        = $false,
         [object]                         $DidDocument  = $null,
         [string]                         $ErrorCode    = ''
     )
+    $replyEndpoint = Resolve-SocietySenderEndpoint -Did $RecipientDid
+    if (-not $replyEndpoint) {
+        Write-Warning "New-DidResolveResponseMessage: cannot resolve endpoint for '$RecipientDid' — response not delivered."
+        return $null
+    }
     $responseBody = [ordered]@{
         requestedDid      = $RequestedDid
         found             = $Found
@@ -415,7 +419,7 @@ function New-DidResolveResponseMessage {
         body = $responseBody | ConvertTo-Json -Depth 10 -Compress
     } | ConvertTo-Json -Compress
 
-    [Svrn7.TDA.OutboundMessage]::new($ReplyEndpoint, $envelope)
+    [Svrn7.TDA.OutboundMessage]::new($replyEndpoint, $envelope)
 }
 
 function New-DidResolveForwardMessage {

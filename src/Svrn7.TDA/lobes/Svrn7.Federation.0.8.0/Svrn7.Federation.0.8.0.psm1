@@ -1334,9 +1334,8 @@ function Invoke-Web7SocietyList {
     .SYNOPSIS
         Handles federation/1.0/society-list — returns all registered societies.
     .DESCRIPTION
-        No body fields required.  Include replyEndpoint in the body to receive a
-        federation/1.0/society-list-result reply; omit it to use the sender's DID
-        Document endpoint.  Replies with an array of society objects.
+        No body fields required.  Replies to the sender's DID Document endpoint
+        with a federation/1.0/society-list-result containing an array of society objects.
     .PARAMETER MessageDid
         TDA resource DID URL for the inbox message.
     #>
@@ -1376,15 +1375,10 @@ function Invoke-Web7SocietyList {
             queriedAt   = [datetimeoffset]::UtcNow.ToString('o')
         } | ConvertTo-Json -Depth 15 -Compress
 
-        $replyEndpoint = if ($body.PSObject.Properties['replyEndpoint']) { $body.replyEndpoint } else { $null }
-        $endpoint = if ($replyEndpoint) {
-            $replyEndpoint
-        } else {
-            Resolve-SocietySenderEndpoint -Did $msg.FromDid
-        }
+        $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
 
         if (-not $endpoint) {
-            Write-Warning "Invoke-Web7SocietyList: no reply endpoint for '$($msg.FromDid)' — result not delivered."
+            Write-Warning "Invoke-Web7SocietyList: cannot resolve endpoint for sender '$($msg.FromDid)' — result not delivered."
             return
         }
         Write-Information "Invoke-Web7SocietyList: $($societies.Count) society/societies, replying to $endpoint"
@@ -1409,18 +1403,12 @@ function Invoke-Web7FederationInit {
     .DESCRIPTION
         Body: { "federationDid":  "<DID>",
                 "federationName": "<name>",
-                "publicKeyHex":   "<hex>",
-                "replyEndpoint":  "<url>"   }   # optional
+                "publicKeyHex":   "<hex>" }
 
-        replyEndpoint is the DIDComm HTTP endpoint the sender wants the result
-        delivered to.  Include it when calling from a TDA (TDA-to-TDA).  Omit it
-        when calling from a script tool — no reply will be sent in that case.
-
-        If replyEndpoint is absent, the handler falls back to resolving the sender's
-        DID Document.  If neither source yields an endpoint the init still succeeds
-        and a warning is written to the PS stream; no error is raised.
-
-        Replies with federation/1.0/initialize-federation-result.
+        Replies to the sender's DID Document endpoint with
+        federation/1.0/initialize-federation-result.  If the sender's endpoint
+        cannot be resolved the init still succeeds and a warning is written to
+        the PS stream; no error is raised.
     .PARAMETER MessageDid
         TDA resource DID URL for the inbox message.
     #>
@@ -1459,18 +1447,10 @@ function Invoke-Web7FederationInit {
             initialisedAt        = [datetimeoffset]::UtcNow.ToString('o')
         } | ConvertTo-Json -Compress
 
-        # Resolve reply endpoint: explicit body field wins (TDA-to-TDA), then DID
-        # Document lookup (peer TDA registered before calling), then no reply (script).
-        # PSObject.Properties probe is required — Set-StrictMode throws on missing properties.
-        $replyEndpoint = if ($body.PSObject.Properties['replyEndpoint']) { $body.replyEndpoint } else { $null }
-        $endpoint = if ($replyEndpoint) {
-            $replyEndpoint
-        } elseif ($msg.FromDid) {
-            Resolve-SocietySenderEndpoint -Did $msg.FromDid
-        }
+        $endpoint = if ($msg.FromDid) { Resolve-SocietySenderEndpoint -Did $msg.FromDid }
 
         if (-not $endpoint) {
-            Write-Warning "Invoke-Web7FederationInit: no reply endpoint available — init succeeded but no initialize-federation-result will be sent."
+            Write-Warning "Invoke-Web7FederationInit: cannot resolve endpoint for sender '$($msg.FromDid)' — init succeeded but no initialize-federation-result will be sent."
             return
         }
 

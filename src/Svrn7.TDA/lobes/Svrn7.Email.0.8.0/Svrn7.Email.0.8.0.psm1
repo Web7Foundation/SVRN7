@@ -205,9 +205,9 @@ function Invoke-PandoMailList {
         Handles a List-Emails query and replies with an Get-PandoMails response.
 
     .DESCRIPTION
-        Reads the replyEndpoint from the request body, queries the local inbox
-        for processed email messages (newest-first, default limit 50), and
-        delivers an Get-PandoMails DIDComm message to the replyEndpoint.
+        Queries the local inbox for processed email messages (newest-first, default
+        limit 50) and delivers a Get-PandoMails DIDComm message to the sender's
+        DID Document endpoint.
 
         Protocol (inbound):  did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-Emails
         Protocol (outbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Get-PandoMails
@@ -216,8 +216,8 @@ function Invoke-PandoMailList {
         The TDA resource DID URL of the inbox message.
 
     .OUTPUTS
-        [Svrn7.TDA.OutboundMessage] delivering Get-PandoMails to replyEndpoint,
-        or $null if replyEndpoint is absent.
+        [Svrn7.TDA.OutboundMessage] delivering Get-PandoMails to the sender's endpoint,
+        or $null if the sender's endpoint cannot be resolved.
     #>
     [CmdletBinding()]
     [OutputType([Svrn7.TDA.OutboundMessage])]
@@ -342,8 +342,8 @@ function Get-TdaDid {
         The TDA resource DID URL of the inbox message.
 
     .OUTPUTS
-        [Svrn7.TDA.OutboundMessage] delivering Reply-TdaDid to replyEndpoint,
-        or $null if replyEndpoint is absent.
+        [Svrn7.TDA.OutboundMessage] delivering Reply-TdaDid to the sender's endpoint,
+        or $null if the sender's endpoint cannot be resolved.
     #>
     [CmdletBinding()]
     [OutputType([Svrn7.TDA.OutboundMessage])]

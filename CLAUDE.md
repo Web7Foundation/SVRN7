@@ -153,7 +153,9 @@ function Invoke-MyLobeVerb {
         $msg  = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
         $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
         # ... handle ...
-        [Svrn7.TDA.OutboundMessage]::new($replyEndpoint, $envelope)
+        $endpoint = Resolve-SocietySenderEndpoint -Did $msg.FromDid
+        if (-not $endpoint) { Write-Warning "...: cannot resolve endpoint — result not delivered."; return }
+        [Svrn7.TDA.OutboundMessage]::new($endpoint, $envelope)
     }
 }
 ```
@@ -265,10 +267,8 @@ On startup with an empty DID registry the TDA auto-generates a Wanderer identity
 
 | Limitation | Detail | Backlog ref |
 |---|---|---|
-| `UnpackAsync` mode reported as `SignOnly` for `SignThenEncrypt` | `UnpackJwsAsync` always returns `Mode = SignOnly` even when the JWS was unwrapped from a JWE outer layer. The `Mode` field on `InboxMessage` cannot distinguish `SignOnly` from `SignThenEncrypt`. Decryption and verification both succeed; only the reported mode is wrong. | — |
-| JIT LOBE reimport on every dispatch | `Import-Module -Force` runs each time for hot-update support; ~30 ms overhead per message | TDA-001a |
-| No "who-are-you" DIDComm protocol | No identity-query protocol exists to retrieve a running TDA's own DID via DIDComm. Current workaround: read `agent-identity.json` (last resort) or note the DID from the startup banner. | — |
-| PS cannot receive DIDComm replies | A standalone PowerShell session has no HTTP/2 listener — `replyEndpoint` must point at a running TDA | — |
+| JIT LOBE reimport on every dispatch | `Import-Module -Force` runs each time for hot-update support; ~30 ms overhead per message. Deferred to Epoch 1. | TDA-001a |
+| PS cannot receive DIDComm replies | A standalone PowerShell session has no HTTP/2 listener — replies require a running TDA as the `from` DID. | — |
 
 ---
 

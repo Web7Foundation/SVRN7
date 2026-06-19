@@ -303,7 +303,7 @@ auto-generated as `"TDA-{port}"` at first-run Wanderer bootstrap.
 
 Protocol `federation/1.0/society-list` → handler `Invoke-Web7SocietyList` in
 `Svrn7.Federation` LOBE.  Returns count, activeCount, and a societies array to
-the `replyEndpoint`.  See LOBEDEBUG.md §4.5 for the send pattern.
+the sender's DID Document endpoint.  See LOBEDEBUG.md §4.5 for the send pattern.
 
 ---
 
@@ -360,11 +360,11 @@ health-check cost only on actual failure, zero cost on the happy path.
 
 ---
 
-## TDA-001a — JIT LOBE reimport cost per dispatch (FYI / Design Note)
+## TDA-001a — JIT LOBE reimport cost per dispatch — *Deferred to Epoch 1*
 
 **Area:** `LobeManager.EnsureLoadedAsync`, `IsolatedRunspaceFactory`, `DIDCommMessageSwitchboard`
 
-**Summary:** JIT LOBEs are reimported via `Import-Module` on every message dispatch.
+**Summary:** JIT LOBEs are reimported via `Import-Module` on every message dispatch (~30 ms overhead per message).
 Because each dispatch opens a fresh `Runspace` from the shared `InitialSessionState`
 (ISS), JIT LOBEs are never present in the new runspace — `EnsureLoadedAsync` always
 runs `Import-Module` for them.
@@ -379,8 +379,9 @@ runs `Import-Module` for them.
 A crash or runaway cmdlet in one runspace cannot affect any other concurrent dispatch.
 The JIT reimport cost is the accepted price for that guarantee.
 
-**If JIT latency becomes a problem:**
-The fix is to dynamically add a JIT LOBE to the ISS template the first time it is
+**Deferred to Epoch 1.** The 30 ms overhead is acceptable at Epoch 0 throughput.
+
+**Fix when prioritised:** Dynamically add a JIT LOBE to the ISS template the first time it is
 needed (requires rebuilding the ISS or maintaining a secondary ISS per LOBE set).
 This is closely related to TDA-001 (hot-reload) — the same ISS rebuild mechanism
 would eliminate the per-dispatch import cost for frequently-used JIT LOBEs.

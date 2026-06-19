@@ -361,7 +361,7 @@ public sealed class DIDCommPackingService : IDIDCommService
 
         // Nested JWS (SignThenEncrypt inner layer)
         if (root.TryGetProperty("signatures", out _))
-            return await UnpackJwsAsync(root, json, ct);
+            return (await UnpackJwsAsync(root, json, ct)) with { Mode = DIDCommPackMode.SignThenEncrypt };
 
         return new DIDCommUnpackedMessage { Type = string.Empty, Body = json, Mode = DIDCommPackMode.Anoncrypt };
     }
