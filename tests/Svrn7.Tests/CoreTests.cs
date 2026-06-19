@@ -272,6 +272,78 @@ public class DIDCommTests
         unpacked.Body.Should().Contain("100");
         unpacked.Mode.Should().Be(DIDCommPackMode.SignThenEncrypt);
     }
+
+    // ── secp256k1 signing path (ES256K) ───────────────────────────────────────
+
+    [Fact] public async Task PackSigned_Secp256k1_ReturnsNonEmptyString()
+    {
+        var crypto = new CryptoService();
+        var kp     = crypto.GenerateSecp256k1KeyPair();
+        var msg    = _svc.NewMessage().Type("https://example.com/signed-secp256k1").Build();
+        var packed = await _svc.PackSignedAsync(msg, kp.PrivateKeyBytes, secp256k1: true);
+        packed.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact] public async Task PackSigned_Secp256k1_RoundTrip()
+    {
+        var crypto = new CryptoService();
+        var kp     = crypto.GenerateSecp256k1KeyPair();
+        var msg    = _svc.NewMessage()
+            .Type("https://example.com/signed-secp256k1-rt")
+            .Body(new { value = 99 })
+            .Build();
+        var packed   = await _svc.PackSignedAsync(msg, kp.PrivateKeyBytes, secp256k1: true);
+        var unpacked = await _svc.UnpackAsync(packed);
+        unpacked.Type.Should().Be("https://example.com/signed-secp256k1-rt");
+        unpacked.Body.Should().Contain("99");
+        unpacked.Mode.Should().Be(DIDCommPackMode.SignOnly);
+    }
+
+    [Fact] public async Task PackSigned_Secp256k1_WithResolver_VerifiesSignature()
+    {
+        var crypto = new CryptoService();
+        var kp     = crypto.GenerateSecp256k1KeyPair();
+        const string senderDid = "did:drn:wanderer.svrn7.net/agent/1.0/test-secp256k1";
+        var doc = new DidDocument
+        {
+            Did          = senderDid,
+            MethodName   = "drn",
+            DocumentJson = "{}",
+            VerificationMethod = new List<DidVerificationMethod>
+            {
+                new() { Id = $"{senderDid}#key-1", Type = "EcdsaSecp256k1VerificationKey2019",
+                        Controller = senderDid, PublicKeyHex = kp.PublicKeyHex }
+            }
+        };
+        var svc = new DIDCommPackingService(new InMemoryDidDocumentResolver(senderDid, doc));
+        var msg = svc.NewMessage()
+            .Type("https://example.com/secp256k1-verify")
+            .From(senderDid)
+            .Body(new { data = "verified" })
+            .Build();
+        var packed   = await svc.PackSignedAsync(msg, kp.PrivateKeyBytes, secp256k1: true);
+        var unpacked = await svc.UnpackAsync(packed);
+        unpacked.Type.Should().Be("https://example.com/secp256k1-verify");
+        unpacked.From.Should().Be(senderDid);
+        unpacked.Mode.Should().Be(DIDCommPackMode.SignOnly);
+    }
+
+    [Fact] public async Task PackSignedAndEncrypted_Secp256k1_RoundTrip()
+    {
+        var crypto   = new CryptoService();
+        var recipKp  = crypto.GenerateX25519KeyPair();
+        var senderKp = crypto.GenerateSecp256k1KeyPair();
+        var recipPub = Convert.FromHexString(recipKp.PublicKeyHex);
+        var msg = _svc.NewMessage()
+            .Type("https://example.com/sign-encrypt-secp256k1-rt")
+            .Body(new { payload = "secret-secp256k1" })
+            .Build();
+        var packed   = await _svc.PackSignedAndEncryptedAsync(msg, recipPub, senderKp.PrivateKeyBytes, secp256k1: true);
+        var unpacked = await _svc.UnpackAsync(packed, recipKp.PrivateKeyBytes);
+        unpacked.Type.Should().Be("https://example.com/sign-encrypt-secp256k1-rt");
+        unpacked.Body.Should().Contain("secret-secp256k1");
+        unpacked.Mode.Should().Be(DIDCommPackMode.SignThenEncrypt);
+    }
 }
 
 // ── Citizen registration tests ─────────────────────────────────────────────────
@@ -957,6 +1029,18 @@ public class TransferValidatorTests
                 () => v.ValidateAsync(req with { AmountGrana = 9_999 }));
         }
     }
+}
+
+// ── Test helper: single-DID in-memory resolver ────────────────────────────────
+internal sealed class InMemoryDidDocumentResolver : IDidDocumentResolver
+{
+    private readonly string      _did;
+    private readonly DidDocument _doc;
+    public InMemoryDidDocumentResolver(string did, DidDocument doc) { _did = did; _doc = doc; }
+    public Task<DidResolutionResult> ResolveAsync(string did, CancellationToken ct = default) =>
+        Task.FromResult(did == _did
+            ? new DidResolutionResult { Did = did, Found = true,  Document = _doc }
+            : new DidResolutionResult { Did = did, Found = false, Document = null });
 }
 
 // ── Test helper: in-memory nonce store (replaces LiteDB for unit tests) ───────
