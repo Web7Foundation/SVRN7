@@ -295,13 +295,15 @@ namespace Web7.SVRN7.Apps
             this.lblFromCaption.Name      = "lblFromCaption";
             this.lblFromCaption.Text      = "From:";
 
-            // txtFrom — read-only, pre-populated with TDA agent DID
+            // txtFrom — read-only, pre-populated with TDA agent DID (with display name if available)
             this.txtFrom.Dock      = DockStyle.Fill;
             this.txtFrom.Margin    = new Padding(2, 4, 4, 2);
             this.txtFrom.Name      = "txtFrom";
             this.txtFrom.ReadOnly  = true;
             this.txtFrom.BackColor = SystemColors.Control;
-            this.txtFrom.Text      = _client.TdaDid;
+            this.txtFrom.Text      = !string.IsNullOrEmpty(_client.TdaName) && !string.IsNullOrEmpty(_client.TdaDid)
+                ? $"\"{_client.TdaName}\" <{_client.TdaDid}>"
+                : _client.TdaDid;
 
             // lblToCaption
             this.lblToCaption.AutoSize  = true;
@@ -490,7 +492,7 @@ namespace Web7.SVRN7.Apps
             if (webView.CoreWebView2 != null)
             {
                 string json = await webView.CoreWebView2.ExecuteScriptAsync(
-                    "document.getElementById('editor').innerText");
+                    "document.getElementById('editor').innerHTML");
                 bodyText = System.Text.Json.JsonSerializer.Deserialize<string>(json) ?? string.Empty;
             }
 
@@ -502,10 +504,25 @@ namespace Web7.SVRN7.Apps
                 return;
             }
 
+            // Build sender display string from cached TDA identity
+            string senderDisplay = !string.IsNullOrEmpty(_client.TdaName) && !string.IsNullOrEmpty(_client.TdaDid)
+                ? $"\"{_client.TdaName}\" <{_client.TdaDid}>"
+                : _client.TdaDid;
+
+            // Resolve recipient DID Document to get display name; fall back to bare DID on miss/timeout
+            string recipientDisplay = to;
+            try
+            {
+                DidResolutionResult resolved = await _client.ResolveDidAsync(to);
+                if (resolved.Found && !string.IsNullOrEmpty(resolved.Svrn7Name))
+                    recipientDisplay = $"\"{resolved.Svrn7Name}\" <{to}>";
+            }
+            catch { }
+
             btnSend.Enabled = false;
             try
             {
-                await _client.SendAsync(to, subject, bodyText);
+                await _client.SendAsync(to, subject, bodyText, senderDisplay, recipientDisplay);
                 MessageBox.Show("Mail message sent.", "Web7 Mail",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 this.Close();

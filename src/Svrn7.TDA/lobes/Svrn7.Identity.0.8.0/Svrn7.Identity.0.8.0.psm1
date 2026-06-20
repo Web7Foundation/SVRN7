@@ -354,9 +354,30 @@ function Invoke-Svrn7DidResolveResponse {
 
         $pending = $SVRN7.TryCompletePendingResolution($originalRequestId)
         if ($null -eq $pending) {
-            # This TDA was the original requester — the response is for us.
-            Write-Verbose "Invoke-Svrn7DidResolveResponse: no pending entry for '$originalRequestId' — terminal (this TDA is the requester)."
-            return $null
+            # This TDA was the original requester — push the result to any waiting local UI
+            # client (e.g. PandoMail's ResolveDidAsync) via the WebSocket hub.
+            Write-Verbose "Invoke-Svrn7DidResolveResponse: '$originalRequestId' — terminal, pushing Reply-DidDocument to WebSocket."
+            $svrn7Name = ''
+            try {
+                $doc = Get-BodyField $body 'didDocument' $null
+                if ($found -and $null -ne $doc -and $doc.PSObject.Properties['Svrn7Name'] -and $doc.Svrn7Name) {
+                    $svrn7Name = $doc.Svrn7Name
+                }
+            } catch { }
+            $wsEnvelope = [ordered]@{
+                typ  = 'application/didcomm-plain+json'
+                id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+                type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/Reply-DidDocument'
+                from = $SVRN7.LocalDid
+                to   = @($SVRN7.LocalDid)
+                body = [ordered]@{
+                    correlationId = $originalRequestId
+                    requestedDid  = $requestedDid
+                    found         = $found
+                    svrn7Name     = $svrn7Name
+                }
+            } | ConvertTo-Json -Compress -Depth 3
+            return [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $wsEnvelope)
         }
 
         # Relay the response upstream to the TDA that originally asked us.
