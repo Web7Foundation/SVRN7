@@ -45,6 +45,7 @@ Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 #
 # Step 1 — Launch the Citizen TDA
 
+Write-Host "--- Step 1 — Launch the Citizen TDA ---"
 dotnet .\Svrn7.TDA.dll --port 8443 --name mwherman
 
 # The Citizen TDA starts as a Wanderer.  Expected startup banner:
@@ -62,6 +63,7 @@ dotnet .\Svrn7.TDA.dll --port 8443 --name mwherman
 #
 # Step 2 — Load the send helper (separate PowerShell terminal)
 
+Write-Host "--- Step 2 — Load the send helper ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
@@ -77,6 +79,7 @@ Write-Host "Wanderer DID: $wandererDid"
 # The Citizen TDA sends society-list to the Federation.  The Federation resolves the
 # reply endpoint from the sender's DID Document and replies with each Society's DID Document.
 
+Write-Host "--- E.3a — Discover available Societies ---"
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
@@ -121,6 +124,7 @@ Send-LocalDIDCommMessage -Port 8441 -Body $msg
 # The Citizen DID is derived from a secp256k1 key pair — distinct from the Wanderer
 # GUID DID.  Generate once and save the output.
 
+Write-Host "--- E.3 — Generate Citizen key material ---"
 $citizenKp  = New-Svrn7KeyPair
 $citizenDid = New-Svrn7Did -KeyPair $citizenKp -Role Citizen -SocietyName 'bindloss'
 
@@ -141,6 +145,7 @@ Write-Host "Private key : $($citizenKp.PrivateKeyHex)   <-- store securely"
 # serviceEndpointUrl is the Citizen TDA's DIDComm endpoint — the Society uses it to
 # create the Citizen's DID Document and to deliver the receipt reply.
 
+Write-Host "--- E.4 — Send register-citizen to the Society ---"
 $body = @{
     citizenDid         = $citizenDid.Did
     publicKeyHex       = $citizenKp.PublicKeyHex
@@ -192,6 +197,7 @@ Send-LocalDIDCommMessage -Port 8442 -Body $msg
 #
 # Step 3 — Verify agent-identity.json
 
+Write-Host "--- Step 3 — Verify agent-identity.json ---"
 Get-Content 8443/mem/agent-identity.json | ConvertFrom-Json |
     Select-Object did, parentTdaDid, parentTdaEndpointUrl
 
@@ -209,6 +215,7 @@ Get-Content 8443/mem/agent-identity.json | ConvertFrom-Json |
 #
 # Resetting the Citizen TDA
 
+Write-Host "--- Resetting the Citizen TDA ---"
 Remove-Item -Recurse -Force 8443\mem -ErrorAction SilentlyContinue
 # Or:
 dotnet .\Svrn7.TDA.dll --port 8443 --name mwherman --reset

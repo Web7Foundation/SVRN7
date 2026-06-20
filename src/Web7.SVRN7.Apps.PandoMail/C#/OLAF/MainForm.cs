@@ -66,6 +66,7 @@ namespace Web7.SVRN7.Apps
 			{
 				await _tdaClient.ConnectAsync();
 				_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
+				_tdaClient.Disconnected += OnTdaDisconnected;
 			}
 			catch
 			{
@@ -108,6 +109,7 @@ namespace Web7.SVRN7.Apps
 				{
 					await _tdaClient.ConnectAsync();
 					_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
+					_tdaClient.Disconnected += OnTdaDisconnected;
 					await UpdateTitleAsync();
 				}
 				catch
@@ -140,13 +142,18 @@ namespace Web7.SVRN7.Apps
 
 		private async Task UpdateTitleAsync()
 		{
-			string did = _tdaClient?.TdaDid ?? string.Empty;
+			string wsSuffix = _tdaClient is not null ? $" - {_tdaClient.WsUri}" : string.Empty;
+			if (_tdaClient == null || !_tdaClient.IsConnected)
+			{
+				this.Text = BaseTitle + wsSuffix + " - Not connected";
+				return;
+			}
+			string did = _tdaClient.TdaDid;
 			if (string.IsNullOrEmpty(did))
 			{
 				try { did = await _tdaClient.GetTdaDidAsync(); }
 				catch { }
 			}
-			string wsSuffix = _tdaClient is not null ? $" - {_tdaClient.WsUri}" : string.Empty;
 			this.Text = BaseTitle + wsSuffix + " - " + (string.IsNullOrEmpty(did) ? "Not connected" : did);
 		}
 
@@ -155,6 +162,12 @@ namespace Web7.SVRN7.Apps
 			// Marshal to UI thread and refresh the inbox when a new email arrives.
 			if (this.IsHandleCreated)
 				BeginInvoke(new MethodInvoker(async () => await RefreshInboxAsync()));
+		}
+
+		private void OnTdaDisconnected()
+		{
+			if (this.IsHandleCreated)
+				BeginInvoke(new MethodInvoker(async () => await UpdateTitleAsync()));
 		}
 
 		private static List<MailMessage> MapToMailMessages(List<EmailSummary> summaries)

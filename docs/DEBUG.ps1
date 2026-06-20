@@ -191,14 +191,17 @@ dotnet .\Svrn7.TDA.dll --port 8441 --name Federation --reset
 #
 # F.1 — Interactive teardown
 
+Write-Host "--- F.1 — Interactive teardown ---"
 Remove-Svrn7Databases
 
 # F.2 — Non-interactive teardown (CI / automated test scripts)
 
+Write-Host "--- F.2 — Non-interactive teardown ---"
 Remove-Svrn7Databases -Confirm:$false
 
 # F.3 — Preview without deleting (-WhatIf)
 
+Write-Host "--- F.3 — Preview without deleting ---"
 Remove-Svrn7Databases -WhatIf
 
 # Expected output:
@@ -212,6 +215,7 @@ Remove-Svrn7Databases -WhatIf
 
 # F.4 — Custom data directory
 
+Write-Host "--- F.4 — Custom data directory ---"
 Remove-Svrn7Databases `
     -Svrn7DbPath    tests/data/svrn7.db `
     -DidsDbPath     tests/data/svrn7-dids.db `
@@ -222,6 +226,7 @@ Remove-Svrn7Databases `
 
 # F.5 — Typical test lifecycle pattern
 
+Write-Host "--- F.5 — Typical test lifecycle pattern ---"
 # 1. Tear down previous run
 Remove-Svrn7Databases -Confirm:$false
 

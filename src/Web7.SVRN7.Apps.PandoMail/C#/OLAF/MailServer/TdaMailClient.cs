@@ -39,6 +39,9 @@ namespace Web7.SVRN7.Apps
         /// <summary>Fired on the thread-pool when TDA pushes an Email-Notify envelope.</summary>
         public event Action<string> EmailNotifyReceived;
 
+        /// <summary>Fired on the thread-pool when the WebSocket connection drops unexpectedly.</summary>
+        public event Action Disconnected;
+
         /// <summary>The connected TDA's agent DID, populated after GetTdaDidAsync() completes.</summary>
         public string TdaDid { get; private set; } = string.Empty;
 
@@ -222,6 +225,11 @@ namespace Web7.SVRN7.Apps
             }
             catch (OperationCanceledException) { }
             catch (WebSocketException) { }
+            finally
+            {
+                if (!ct.IsCancellationRequested)
+                    Disconnected?.Invoke();
+            }
         }
 
         private void DispatchReceived(string json)

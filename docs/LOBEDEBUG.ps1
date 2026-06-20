@@ -25,6 +25,7 @@ $PSVersionTable.PSVersion   # Major must be 7
 #
 # From the repo root in PowerShell 7:
 
+Write-Host "--- Step 1 — Build ---"
 Set-Location C:/SVRN7/repos/SVRN7
 dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj
 
@@ -53,6 +54,7 @@ Get-Content lobes/lobes.config.json | Select-String "Pando"
 #
 # In the TDA output folder (src/Svrn7.TDA/bin/Debug/net8.0):
 
+Write-Host "--- Step 2 — Start the TDA ---"
 dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 
 # Expected startup log:
@@ -76,6 +78,7 @@ dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 # In a separate PowerShell 7 terminal, navigate to the TDA output folder and import the
 # Federation module to get Send-LocalDIDCommMessage:
 
+Write-Host "--- Step 3 — Load the send helper ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
@@ -95,16 +98,19 @@ Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 # Open a second PowerShell 7 terminal, navigate to the output folder, and run the
 # bootstrap sequence.  (The TDA must be running in the first terminal throughout.)
 
+Write-Host "--- Step 4 — Bootstrap (first run only) ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
 # 4.1 — Generate the federation key pair (one-time)
 
+Write-Host "--- Step 4.1 — Generate the federation key pair ---"
 $federationKp = New-Svrn7KeyPair
 Write-Host "Public key : $($federationKp.PublicKeyHex)"
 
 # 4.2 — Initialise the federation
 
+Write-Host "--- Step 4.2 — Initialise the federation ---"
 $body = @{
     federationDid        = "did:drn:solo.svrn7.net"
     federationName       = "Web 7.0 SOVRON Foundation"
@@ -127,6 +133,7 @@ Send-LocalDIDCommMessage -Body $msg
 #
 # 4.3 — Verify the federation was created
 
+Write-Host "--- Step 4.3 — Verify the federation was created ---"
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
@@ -157,6 +164,7 @@ Send-LocalDIDCommMessage -Body $msg
 #
 # 4.4 — Register a new society
 
+Write-Host "--- Step 4.4 — Register a new society ---"
 $societyKp = New-Svrn7KeyPair
 
 $body = @{
@@ -183,6 +191,7 @@ Send-LocalDIDCommMessage -Body $msg
 #
 # 4.5 — List all societies in the federation
 
+Write-Host "--- Step 4.5 — List all societies in the federation ---"
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
 $body = @{
@@ -230,6 +239,7 @@ Send-LocalDIDCommMessage -Body $msg
 # The simplest test — no replyEndpoint, so the handler runs and logs the server time
 # but does not attempt outbound delivery.
 
+Write-Host "--- Step 5 — Send a Query-TOD message (no reply) ---"
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
@@ -260,6 +270,7 @@ Send-LocalDIDCommMessage -Body $msg
 #
 # Include replyEndpoint pointing at the local TDA to exercise the full reply path.
 
+Write-Host "--- Step 6 — Send a Query-TOD message (with reply endpoint) ---"
 $body = @{
     replyEndpoint = "http://localhost:8443"
 } | ConvertTo-Json -Compress
@@ -296,6 +307,7 @@ Send-LocalDIDCommMessage -Body $msg
 # Pando.Diagnostics.Impl.0.1.0.psm1 can be imported and tested in isolation — no TDA,
 # no assemblies, no database needed.
 
+Write-Host "--- Step 7 — Verify Get-TDADate standalone ---"
 Import-Module .\lobes\Pando.Diagnostics.0.1.0\Pando.Diagnostics.Impl.0.1.0.psm1
 
 $now = Get-TDADate
@@ -311,6 +323,7 @@ Write-Host "Type        : $($now.GetType().FullName)"
 #
 # Step 8 — Reset between test runs
 
+Write-Host "--- Step 8 — Reset between test runs ---"
 # (Stop the TDA first — Ctrl+C in the TDA terminal)
 Remove-Item -Path "mem\svrn7-inbox.db", "mem\svrn7-inbox-log.db" -ErrorAction SilentlyContinue
 dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA

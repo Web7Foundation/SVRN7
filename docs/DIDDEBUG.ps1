@@ -80,6 +80,7 @@ Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1
 #
 # D1.1 — Generate a key pair
 
+Write-Host "--- D1.1 — Generate a key pair ---"
 $kp = New-Svrn7KeyPair
 $kp
 
@@ -95,6 +96,7 @@ $kp
 # builds the DidDocument record in memory. No driver or database is needed — this is a
 # pure crypto operation.
 
+Write-Host "--- D1.2 — Create a DID ---"
 $didDoc = New-Svrn7Did -KeyPair $kp -Role 'Citizen' -SocietyName 'bindloss' `
               -ServiceEndpointUrl "http://localhost:8443/didcomm" `
               -Svrn7Name "MyTDA"
@@ -120,6 +122,7 @@ $didDoc.Did
 # context. Initialize-Svrn7FederationDriver sets up a local driver backed by its own
 # LiteDB databases — no running TDA is needed.
 
+Write-Host "--- D1b.1 — Initialise the local Federation driver ---"
 Initialize-Svrn7FederationDriver -DbPath "./data-d1" -DidMethodName "drn" -Verbose
 
 # Expected verbose output:
@@ -135,6 +138,7 @@ Initialize-Svrn7FederationDriver -DbPath "./data-d1" -DidMethodName "drn" -Verbo
 # to the local svrn7-dids.db. The stored document is assigned Version=1,
 # Status=Active, and Role=Citizen.
 
+Write-Host "--- D1b.2 — Persist the DID Document ---"
 $reg = Initialize-Svrn7Citizen -DidDocument $didDoc -KeyPair $kp
 $reg | Format-List CitizenDid, Success, EndowmentSvrn7
 
@@ -171,6 +175,7 @@ $result.Document.DocumentJson | ConvertFrom-Json | ConvertTo-Json -Depth 5
 #
 # D2.0 — Register the Federation (one-time, idempotent)
 
+Write-Host "--- D2.0 — Register the Federation ---"
 $kp = New-Svrn7KeyPair   # D1.1 — from PS CLI
 
 $body = @{
@@ -198,6 +203,7 @@ Send-LocalDIDCommMessage -Body $msg
 #
 # D2.1 — Register a Society
 
+Write-Host "--- D2.1 — Register a Society ---"
 $kp = New-Svrn7KeyPair   # D1.1 — from PS CLI
 
 $body = @{
@@ -225,6 +231,7 @@ Send-LocalDIDCommMessage -Body $msg
 #
 # D2.2 — Register a Citizen
 
+Write-Host "--- D2.2 — Register a Citizen ---"
 $kp = New-Svrn7KeyPair   # D1.1 — from PS CLI
 # DID is derived by the Society from publicKeyHex during register-citizen processing
 $citizenDid = New-Svrn7Did -KeyPair $kp -Role 'Citizen' -SocietyName 'bindloss'
@@ -258,6 +265,7 @@ Send-LocalDIDCommMessage -Body $msg
 #
 # D3.1 — Verification methods
 
+Write-Host "--- D3.1 — Verification methods ---"
 $didDoc.VerificationMethod | Format-List
 
 # Expected:
@@ -299,6 +307,7 @@ $didDoc.Proof   # $null at construction — populated after signing
 
 # D3.6 — Canonical W3C JSON
 
+Write-Host "--- D3.6 — Canonical W3C JSON ---"
 $didDoc.DocumentJson | ConvertFrom-Json | ConvertTo-Json -Depth 5
 
 # Expected (with service endpoint):
@@ -340,6 +349,7 @@ $didDoc.DeactivatedAt # $null while Active
 #
 # D4.1 — Resolve a DID to its full DIDDocument
 
+Write-Host "--- D4.1 — Resolve a DID to its full DIDDocument ---"
 $result = Resolve-Svrn7Did -Did $didDoc.Did
 $result.Found        # $true
 $result.Document     # DidDocument object
@@ -354,6 +364,7 @@ $result.Document.ServiceEndpoints | Format-List
 
 # D4.2 — Resolve a DID that does not exist
 
+Write-Host "--- D4.2 — Resolve a DID that does not exist ---"
 $result = Resolve-Svrn7Did -Did 'did:drn:doesnotexist'
 $result.Found      # $false
 $result.Document   # $null
@@ -361,6 +372,7 @@ $result.ErrorCode  # 'notFound'
 
 # D4.3 — Test whether a DID is Active
 
+Write-Host "--- D4.3 — Test whether a DID is Active ---"
 Test-Svrn7DidActive -Did $didDoc.Did   # $true
 
 # ---
@@ -374,6 +386,7 @@ Test-Svrn7DidActive -Did $didDoc.Did   # $true
 #
 # D8.1 — Send a DID resolve request
 
+Write-Host "--- D8.1 — Send a DID resolve request ---"
 $requesterDid = 'did:drn:bindloss.svrn7.net/citizen/1.0/<genesis-hash>'
 $targetDid    = 'did:drn:sovronia.svrn7.net/citizen/1.0/<genesis-hash>'
 

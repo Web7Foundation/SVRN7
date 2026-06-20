@@ -68,6 +68,7 @@ cd src\Svrn7.TDA\bin\Debug\net8.0
 #
 # D.1 — Resolve from a full Federation DID (standalone PowerShell)
 
+Write-Host "--- D.1 — Resolve from a full Federation DID ---"
 Import-Module .\lobes\Svrn7.Common.0.8.0\Svrn7.Common.0.8.0.psm1
 Initialize-Svrn7Assemblies
 
@@ -82,6 +83,7 @@ Write-Host "Federation endpoint: $endpoint"
 #
 # D.2 — Resolve from a bare domain
 
+Write-Host "--- D.2 — Resolve from a bare domain ---"
 $endpoint = Resolve-FederationEndpoint -FederationDid "svrn7.net"
 Write-Host "Federation endpoint: $endpoint"
 
@@ -89,6 +91,7 @@ Write-Host "Federation endpoint: $endpoint"
 #
 # D.3 — Use the endpoint to send a society-list DIDComm message
 
+Write-Host "--- D.3 — Use the endpoint to send a society-list message ---"
 $endpoint = Resolve-FederationEndpoint -FederationDid "svrn7.net"
 if (-not $endpoint) { throw "No drn.directory record found for svrn7.net" }
 
@@ -107,6 +110,7 @@ Send-LocalDIDCommMessage -Uri $endpoint -Body $msg
 #
 # D.4 — C# API in a TDA runspace
 
+Write-Host "--- D.4 — C# API in a TDA runspace ---"
 $endpoint = [Svrn7.TDA.DrnDirectory]::GetFederationEndpointAsync(
     "did:drn:federation.svrn7.net/agent/1.0/abc123"
 ).GetAwaiter().GetResult()
@@ -119,6 +123,7 @@ Write-Host "Endpoint: $endpoint"
 #
 # Pass --federationdomain when launching the TDA to auto-discover the Federation endpoint:
 
+Write-Host "--- D.6 — Auto-discovery at TDA startup ---"
 dotnet .\Svrn7.TDA.dll --port 8445 --name W5 --federationdomain svrn7.net
 
 # The TDA queries federation.svrn7.net.drn.directory during startup.  When a TXT record
@@ -147,6 +152,7 @@ dotnet .\Svrn7.TDA.dll --port 8445 --name W5 --federationdomain svrn7.net
 #
 # D.5 — Verify DnsClient.dll is present
 
+Write-Host "--- D.5 — Verify DnsClient.dll is present ---"
 if (Test-Path .\DnsClient.dll) { Write-Host "OK: DnsClient.dll" } else { Write-Host "MISSING — run: dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj" }
 
 # ---

@@ -50,6 +50,7 @@ Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 #
 # Step 1 — Launch the Federation TDA
 
+Write-Host "--- Step 1 — Launch the Federation TDA ---"
 dotnet .\Svrn7.TDA.dll --port 8441 --name Federation
 
 # Expected startup banner (first run):
@@ -74,6 +75,7 @@ dotnet .\Svrn7.TDA.dll --port 8441 --name Federation
 #
 # Open a second PowerShell 7 terminal and set the working directory:
 
+Write-Host "--- Step 2 — Load the send helper ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 
 # Import the LOBE that provides Send-LocalDIDCommMessage:
@@ -97,6 +99,7 @@ Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 # or HSM and never placed in config files.  The public key is recorded permanently
 # in the federation record.
 
+Write-Host "--- E.0.1 — Generate the federation governance key pair ---"
 $federationKp = New-Svrn7KeyPair
 
 Write-Host "Public key  : $($federationKp.PublicKeyHex)"
@@ -109,6 +112,7 @@ Write-Host "Private key : $($federationKp.PrivateKeyHex)   <-- store securely, n
 #
 # E.0.2 — Send initialize-federation
 
+Write-Host "--- E.0.2 — Send initialize-federation ---"
 $body = @{
     federationDid        = "did:drn:foundation.svrn7.net"
     federationName       = "Web 7.0 SOVRON Foundation"
@@ -153,6 +157,7 @@ Send-LocalDIDCommMessage -Port 8441 -Body $msg
 # Verifies the federation was initialised correctly.  Also works before initialisation
 # — returns found: false.
 
+Write-Host "--- E.1 — Query the Federation record ---"
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
@@ -193,6 +198,7 @@ Send-LocalDIDCommMessage -Port 8441 -Body $msg
 #
 # Invoke-Web7RegisterSociety handles the request on the Federation TDA.
 
+Write-Host "--- E.2 — Register the first Society ---"
 $societyKeyPair = New-Svrn7KeyPair
 
 $body = @{
@@ -253,6 +259,7 @@ Send-LocalDIDCommMessage -Port 8441 -Body $msg
 # Stop the TDA before deleting any database file — LiteDB holds an exclusive
 # write lock for the lifetime of the process.
 
+Write-Host "--- Resetting the Federation TDA ---"
 # Delete all Federation TDA data (port 8441)
 Remove-Item -Recurse -Force 8441\mem -ErrorAction SilentlyContinue
 

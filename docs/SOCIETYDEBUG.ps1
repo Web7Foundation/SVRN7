@@ -57,6 +57,7 @@ Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 #
 # A.1 — Start the Society TDA
 
+Write-Host "--- A.1 — Start the Society TDA ---"
 dotnet .\Svrn7.TDA.dll --port 8442 --name Bindloss
 
 # Expected startup banner (first run):
@@ -79,6 +80,7 @@ dotnet .\Svrn7.TDA.dll --port 8442 --name Bindloss
 #
 # A.2 — Load the send helper (separate PowerShell terminal)
 
+Write-Host "--- A.2 — Load the send helper ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
@@ -105,6 +107,7 @@ Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 #
 # Verify the parent wiring was persisted:
 
+Write-Host "--- E.2r — Verify Society registration result ---"
 Get-Content 8442/mem/agent-identity.json | ConvertFrom-Json |
     Select-Object did, parentTdaDid, parentTdaEndpointUrl
 
@@ -128,6 +131,7 @@ Get-Content 8442/mem/agent-identity.json | ConvertFrom-Json |
 # Run once and save the output.  The private key must be stored securely by the Citizen's
 # own TDA — the Society stores only the public key.
 
+Write-Host "--- B.1 — Generate Citizen key material ---"
 $kp  = New-Svrn7KeyPair
 $did = New-Svrn7Did -KeyPair $kp -MethodName "bindloss"
 
@@ -146,6 +150,7 @@ Write-Host "Private key : $($kp.PrivateKeyHex)   <-- store this securely, never 
 # serviceEndpointUrl is the Citizen TDA's DIDComm endpoint — the Society uses it to
 # deliver the receipt reply.
 
+Write-Host "--- B.2 — Send the onboarding request ---"
 $citizenDid   = $did.Did
 $publicKeyHex = $kp.PublicKeyHex
 
@@ -183,6 +188,7 @@ Send-LocalDIDCommMessage -Port 8442 -Body $msg
 #
 # B.5 — Verify via module query
 
+Write-Host "--- B.5 — Verify membership ---"
 # Membership check
 $body = @{ did = $citizenDid } | ConvertTo-Json -Compress
 $msg = @{
@@ -229,6 +235,7 @@ Send-LocalDIDCommMessage -Port 8442 -Body $msg
 #
 # E.5 — Query the Society record
 
+Write-Host "--- E.5 — Query the Society record ---"
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
@@ -251,6 +258,7 @@ Send-LocalDIDCommMessage -Port 8442 -Body $msg
 #
 # E.6 — Test membership for a specific DID
 
+Write-Host "--- E.6 — Test membership for a specific DID ---"
 $body = @{ did = $citizenDid } | ConvertTo-Json -Compress
 $msg = @{
     typ  = "application/didcomm-plain+json"
@@ -270,6 +278,7 @@ Send-LocalDIDCommMessage -Port 8442 -Body $msg
 #
 # Send member-query with an empty body:
 
+Write-Host "--- E.7 — List all members ---"
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
@@ -286,6 +295,7 @@ Send-LocalDIDCommMessage -Port 8442 -Body $msg
 #
 # E.8 — Query overdraft status
 
+Write-Host "--- E.8 — Query overdraft status ---"
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
@@ -311,6 +321,7 @@ Send-LocalDIDCommMessage -Port 8442 -Body $msg
 #
 # E.9 — Register a secondary DID method
 
+Write-Host "--- E.9 — Register a secondary DID method ---"
 $body = @{ methodName = "bindlossgov" } | ConvertTo-Json -Compress
 $msg = @{
     typ  = "application/didcomm-plain+json"
@@ -328,6 +339,7 @@ Send-LocalDIDCommMessage -Port 8442 -Body $msg
 #
 # E.10 — List DID methods
 
+Write-Host "--- E.10 — List DID methods ---"
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
@@ -352,6 +364,7 @@ Send-LocalDIDCommMessage -Port 8442 -Body $msg
 #
 # E.11 — Add a secondary DID for "mwherman"
 
+Write-Host "--- E.11 — Add a secondary DID ---"
 $body = @{
     citizenPrimaryDid = $citizenDid
     methodName        = "bindlossgov"
@@ -381,6 +394,7 @@ Send-LocalDIDCommMessage -Port 8442 -Body $msg
 #
 # D.1 — Import modules and initialise the drivers
 
+Write-Host "--- D.1 — Import modules and initialise the drivers ---"
 # Import order matters: Federation before Society
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1 -Force
 Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1    -Force
@@ -402,11 +416,13 @@ Connect-Svrn7Society `
 #
 # D.2 — Verify the Society record
 
+Write-Host "--- D.2 — Verify the Society record ---"
 Get-Svrn7OwnSociety | Select-Object SocietyDid, CurrentEpoch
 Get-Svrn7OverdraftStatus
 
 # D.3 — Generate citizen key material
 
+Write-Host "--- D.3 — Generate citizen key material ---"
 $kp  = New-Svrn7KeyPair
 $did = New-Svrn7Did -KeyPair $kp -MethodName "bindloss"
 "Citizen DID : $($did.Did)"
@@ -414,6 +430,7 @@ $did = New-Svrn7Did -KeyPair $kp -MethodName "bindloss"
 
 # D.4 — Register the citizen
 
+Write-Host "--- D.4 — Register the citizen ---"
 $reg = Register-Svrn7CitizenInSociety -DidDocument $did -KeyPair $kp
 $reg | Format-List
 
@@ -427,12 +444,14 @@ $reg | Format-List
 
 # D.5 — Verify membership and overdraft
 
+Write-Host "--- D.5 — Verify membership and overdraft ---"
 Test-Svrn7SocietyMember -Did $did.Did
 Get-Svrn7SocietyMembers | Select-Object MemberCount, MemberDids
 Get-Svrn7OverdraftRecord | Format-List
 
 # D.6 — Add a secondary DID method
 
+Write-Host "--- D.6 — Add a secondary DID method ---"
 Initialize-Svrn7SocietyDidMethod -MethodName "bindlossgov"
 Add-Svrn7CitizenDid -CitizenPrimaryDid $did.Did -MethodName "bindlossgov"
 
@@ -440,6 +459,7 @@ Add-Svrn7CitizenDid -CitizenPrimaryDid $did.Did -MethodName "bindlossgov"
 #
 # Resetting the Society TDA
 
+Write-Host "--- Resetting the Society TDA ---"
 # Stop the TDA first, then:
 Remove-Item -Recurse -Force 8442\mem -ErrorAction SilentlyContinue
 

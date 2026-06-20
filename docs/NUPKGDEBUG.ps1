@@ -39,6 +39,7 @@ $PSVersionTable.PSVersion   # Major must be 7
 #
 # Step 1 — Build (Terminal A)
 
+Write-Host "--- Step 1 — Build ---"
 Set-Location C:/SVRN7/repos/SVRN7
 dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj
 
@@ -49,6 +50,7 @@ dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj
 # This simulates a TDA instance that does not yet have Pando.Diagnostics
 # installed.  The TDA starts and runs normally without it.
 
+Write-Host "--- Step 2 — Remove the LOBE from the build output ---"
 $outDir  = 'src/Svrn7.TDA/bin/Debug/net8.0'
 $lobeOut = "$outDir/lobes/Pando.Diagnostics.0.1.0"
 
@@ -67,6 +69,7 @@ Test-Path $lobeOut   # expected: False
 #
 # Step 3 — Start the TDA (Terminal A)
 
+Write-Host "--- Step 3 — Start the TDA ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 dotnet Svrn7.TDA.dll --port 8443 --name MyTDA
 
@@ -84,6 +87,7 @@ dotnet Svrn7.TDA.dll --port 8443 --name MyTDA
 #
 # Do this once per PowerShell session.
 
+Write-Host "--- Step 4 — Load the Pando.Packaging module ---"
 Set-Location C:/SVRN7/repos/SVRN7
 Import-Module .\tools\Pando.Packaging.psm1
 
@@ -104,6 +108,7 @@ Get-Command -Module Pando.Packaging
 #
 # Step 5 — Package (Terminal B)
 
+Write-Host "--- Step 5 — Package ---"
 $lobeSrc = '.\src\Svrn7.TDA\lobes\Pando.Diagnostics.0.1.0'
 $distDir = '.\dist'
 
@@ -121,6 +126,7 @@ $nupkg   # should print the full path
 #
 # Step 6 — Validate (Terminal B)
 
+Write-Host "--- Step 6 — Validate ---"
 $nupkg | Test-LOBEPackage
 
 # Expected: 42 PASS  0 WARN  0 FAIL (or with one WARN if .psd1 is absent —
@@ -141,6 +147,7 @@ $nupkg | Test-LOBEPackage
 # is not installed, the Switchboard will dead-letter the message immediately
 # (MarkFailedAsync with retry: false).
 
+Write-Host "--- Step 7 — Verify the protocol is not yet registered ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
@@ -171,6 +178,7 @@ Send-LocalDIDCommMessage -Body $msg
 # Install the .nupkg into the running TDA's lobes directory.  No -LoadMode
 # is needed — JIT LOBEs are auto-discovered.
 
+Write-Host "--- Step 8 — Install ---"
 Set-Location C:/SVRN7/repos/SVRN7
 
 $lobesDir = '.\src\Svrn7.TDA\bin\Debug\net8.0\lobes'
@@ -216,6 +224,7 @@ Get-ChildItem $lobesDir\Pando.Diagnostics
 #
 # Step 10 — Trigger JIT import: send a date-query (Terminal B)
 
+Write-Host "--- Step 10 — Trigger JIT import ---"
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
@@ -262,6 +271,7 @@ Send-LocalDIDCommMessage -Body $msg
 #
 # 11.2 — Resend the message
 
+Write-Host "--- Step 11.2 — Resend the message (verify hot-update) ---"
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
@@ -295,6 +305,7 @@ Send-LocalDIDCommMessage -Body $msg
 # To test Publish-LOBEPackage without a remote server, use a local directory
 # as the NuGet feed source.
 
+Write-Host "--- Step 12 — Publish to a local folder feed ---"
 $feedDir = '.\local-feed'
 New-Item -ItemType Directory -Path $feedDir -Force | Out-Null
 

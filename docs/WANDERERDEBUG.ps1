@@ -19,8 +19,8 @@ $PSVersionTable.PSVersion   # Major must be 7
 
 # - The solution must be built before starting:
 
-Set-Location C:/SVRN7/repos/SVRN7
-dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj
+# Set-Location C:/SVRN7/repos/SVRN7
+# dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj
 
 # - Verify `Pando.Diagnostics` is in the JIT list:
 
@@ -47,6 +47,7 @@ Get-Content lobes/lobes.config.json | Select-String "Pando"
 #
 # Step 1 — Start W5 and W6 (Terminals A and B)
 
+Write-Host "--- Step 1 — Start W5 and W6 ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 Start-Process cmd.exe -ArgumentList '/k title W5 [Wanderer]:8445 && dotnet ".\Svrn7.TDA.dll" --port 8445 --name W5 --reset'
 Start-Process cmd.exe -ArgumentList '/k title W6 [Wanderer]:8446 && dotnet ".\Svrn7.TDA.dll" --port 8446 --name W6 --reset'
@@ -87,6 +88,7 @@ Start-Process cmd.exe -ArgumentList '/k title W6 [Wanderer]:8446 && dotnet ".\Sv
 # W5 and W6 each generate a unique public-key-derived DID on first run.  Read W6's DID
 # (the self-send scenario uses W6 as both sender and recipient):
 
+Write-Host "--- Step 3 — Read the Wanderer DIDs ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 
 $w6Did = (Get-Content 8446/mem/agent-identity.json | ConvertFrom-Json).did
@@ -103,6 +105,7 @@ Write-Host "W6 DID: $w6Did"
 #
 # Do this once per PowerShell session.
 
+Write-Host "--- Step 4 — Import the send helper ---"
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
 # This gives you `Send-LocalDIDCommMessage` for the steps below.
@@ -115,6 +118,7 @@ Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 # registry, so `Resolve-SocietySenderEndpoint` succeeds and the `Issue-TOD` reply is
 # delivered back to W6 without requiring federation or cross-TDA DID Document exchange.
 
+Write-Host "--- Step 5 — Send Query-TOD from W6 to itself ---"
 $msg = @{
     typ  = 'application/didcomm-plain+json'
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
@@ -215,6 +219,7 @@ Send-LocalDIDCommMessage -Port 8446 -Body $msg
 # and bootstrapped.  Complete DEBUG.md Scenario E steps E.0-E.2 first (Federation init +
 # Society registration).  Simplest setup — in two new titled terminals:
 
+Write-Host "--- Steps 10-14 — Register W5 with a Society (Wanderer → Citizen) ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 
 # Terminal D — Federation TDA on port 8441
@@ -240,6 +245,7 @@ Start-Process cmd.exe -ArgumentList '/k title Society:8442 && dotnet ".\Svrn7.TD
 # `Resolve-FederationEndpoint -FederationDid "svrn7.net"` instead of the hardcoded
 # `http://localhost:8441/didcomm` below.
 
+Write-Host "--- Step 10 — Discover available Societies ---"
 # Ensure the send helper is loaded (if not already from Step 4)
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
@@ -282,6 +288,7 @@ Send-LocalDIDCommMessage -Port 8441 -Body $msg
 # The Citizen DID is derived from a secp256k1 key pair — distinct from the Wanderer GUID
 # DID.  Generate once and save the output.
 
+Write-Host "--- Step 11 — Generate Citizen key material ---"
 $citizenKp  = New-Svrn7KeyPair
 $citizenDid = New-Svrn7Did -KeyPair $citizenKp -MethodName 'bindloss'
 
@@ -303,6 +310,7 @@ Write-Host "Private key : $($citizenKp.PrivateKeyHex)   <-- store securely"
 # Society can create W5's DID Document with the correct DIDComm endpoint and deliver the
 # receipt back to W5.
 
+Write-Host "--- Step 12 — Send register-citizen to the Society ---"
 $body = @{
     citizenDid         = $citizenDid.Did
     publicKeyHex       = $citizenKp.PublicKeyHex
@@ -350,6 +358,7 @@ Send-LocalDIDCommMessage -Port 8442 -Body $msg
 #
 # Read W5's identity file to confirm the parent TDA wiring was persisted:
 
+Write-Host "--- Step 14 — Verify agent-identity.json ---"
 Get-Content 8445/mem/agent-identity.json | ConvertFrom-Json | Select-Object did, parentTdaDid, parentTdaEndpointUrl
 
 # Expected:
@@ -368,6 +377,7 @@ Get-Content 8445/mem/agent-identity.json | ConvertFrom-Json | Select-Object did,
 #
 # Stop both TDAs (Ctrl+C in Terminal A and B), then delete their data directories:
 
+Write-Host "--- Step 9 — Reset between runs ---"
 Remove-Item -Recurse -Force 8445/mem -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force 8446/mem -ErrorAction SilentlyContinue
 

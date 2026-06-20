@@ -22,6 +22,7 @@ $PSVersionTable.PSVersion   # Major must be 7
 #
 # From the repo root in PowerShell 7:
 
+Write-Host "--- Step 1 — Build ---"
 Set-Location C:/SVRN7/repos/SVRN7
 dotnet build src/Svrn7.TDA/Svrn7.TDA.csproj
 
@@ -49,6 +50,7 @@ Get-Content lobes/lobes.config.json | Select-String "Email"
 #
 # In the TDA output folder (src/Svrn7.TDA/bin/Debug/net8.0):
 
+Write-Host "--- Step 2 — Start the TDA ---"
 dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 
 # Svrn7.Email is a JIT LOBE — it is not imported at startup.  It is loaded into
@@ -61,6 +63,7 @@ dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 #
 # In a separate PowerShell 7 terminal:
 
+Write-Host "--- Step 3 — Load the send helper ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 
@@ -75,6 +78,7 @@ Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
 # in both the outer DIDComm envelope (from) and the inner body (from) — the
 # handler uses the body field as the canonical sender identity.
 
+Write-Host "--- Step 4 — Send a test email ---"
 $rfc5322 = @"
 From: Web 7.0 Foundation <did:drn:foundation.svrn7.net>
 To: Bindloss Alberta <did:drn:bindloss.svrn7.net>
@@ -121,6 +125,7 @@ Send-LocalDIDCommMessage -Body $msg
 #
 # Step 5 — Send a second email
 
+Write-Host "--- Step 5 — Send a second email ---"
 $body = @{
     from        = "did:drn:foundation.svrn7.net"
     to          = "did:drn:bindloss.svrn7.net"
@@ -147,6 +152,7 @@ Send-LocalDIDCommMessage -Body $msg
 # The email/1.0/receipt protocol is also handled by Dequeue-PandoMail.  A receipt
 # body conventionally carries originalMessageId and deliveredAt:
 
+Write-Host "--- Step 6 — Send an email delivery receipt ---"
 $body = @{
     from              = "did:drn:foundation.svrn7.net"
     to                = "did:drn:bindloss.svrn7.net"
@@ -201,6 +207,7 @@ Send-LocalDIDCommMessage -Body $msg
 #
 # Send a malformed message with no rfc5322Body to verify the handler degrades gracefully:
 
+Write-Host "--- Step 8 — Missing rfc5322Body field (error path) ---"
 $body = @{
     from = "did:drn:foundation.svrn7.net"
     to   = "did:drn:bindloss.svrn7.net"
@@ -228,6 +235,7 @@ Send-LocalDIDCommMessage -Body $msg
 #
 # Step 9 — Reset between test runs
 
+Write-Host "--- Step 9 — Reset between test runs ---"
 # (Stop the TDA first — Ctrl+C in the TDA terminal)
 Remove-Item -Path "mem\svrn7-inbox.db", "mem\svrn7-inbox.db-log" -ErrorAction SilentlyContinue
 dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
@@ -248,6 +256,7 @@ dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 # The TDA resolves the sender's DID Document to find the reply endpoint and responds
 # with a Get-PandoMails message.
 
+Write-Host "--- Step 10 — List stored emails ---"
 $body = @{
     limit = 10
 } | ConvertTo-Json -Compress
