@@ -1,4 +1,10 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using NBitcoin;
+using NBitcoin.Crypto;
+using NSec.Cryptography;
+using Svrn7.Core.Interfaces;
 
 namespace Svrn7.DIDComm;
 
@@ -35,10 +41,6 @@ public record DIDCommUnpackedMessage
 
     static readonly JsonSerializerOptions _prettyOpts = new() { WriteIndented = true };
 
-    /// <summary>
-    /// Returns a human-readable, indented JSON representation of this message.
-    /// Body is inlined as a nested object rather than an escaped string.
-    /// </summary>
     public string ToFormattedJson()
     {
         JsonElement bodyElement;
@@ -58,22 +60,17 @@ public record DIDCommUnpackedMessage
 
 // ── IDIDCommService ───────────────────────────────────────────────────────────
 
-/// <summary>
-/// High-level DIDComm v2 API.
-/// Registered via AddSvrn7DIDComm() or AddSvrn7Society().
-/// Svrn7.Federation does NOT reference Svrn7.DIDComm — DIDComm is opt-in.
-/// </summary>
 public interface IDIDCommService
 {
     DIDCommMessageBuilder NewMessage();
     Task<string> PackPlaintextAsync(DIDCommMessage message, CancellationToken ct = default);
     Task<string> PackSignedAsync(DIDCommMessage message,
-        byte[] senderPrivateKey, CancellationToken ct = default);
+        byte[] senderPrivateKey, bool secp256k1 = false, CancellationToken ct = default);
     Task<string> PackEncryptedAsync(DIDCommMessage message,
         byte[] recipientPublicKey, byte[] senderPrivateKey,
         DIDCommPackMode mode = DIDCommPackMode.SignThenEncrypt, CancellationToken ct = default);
     Task<string> PackSignedAndEncryptedAsync(DIDCommMessage message,
-        byte[] recipientPublicKey, byte[] senderPrivateKey, CancellationToken ct = default);
+        byte[] recipientPublicKey, byte[] senderPrivateKey, bool secp256k1 = false, CancellationToken ct = default);
     Task<DIDCommUnpackedMessage> UnpackAsync(string packed,
         byte[]? recipientPrivateKey = null, CancellationToken ct = default);
 }
@@ -105,145 +102,478 @@ public sealed class DIDCommMessageBuilder
     };
 }
 
-// ── Minimal DIDCommService implementation ─────────────────────────────────────
+// ── DIDCommPackingService ─────────────────────────────────────────────────────
 
 /// <summary>
 /// DIDComm v2 packing service.
-/// Full cryptographic implementation: X25519 ECDH, HKDF-SHA-256,
-/// RFC 3394 AES-256 key wrap, AES-256-GCM content encryption,
-/// Ed25519→X25519 birational map, epk in JWE header.
+///
+/// Encryption: ECDH-ES+A256KW (X25519 ephemeral key agreement, HKDF-SHA-256 key derivation,
+/// RFC 3394 AES-256 key wrap, AES-256-GCM content encryption).
+///
+/// Note: Key derivation uses HKDF-SHA-256 (NSec) rather than the JWA-specified Concat KDF.
+/// This is an internal protocol choice — pack and unpack always use the same KDF.
+///
+/// Signing: EdDSA (Ed25519) or ES256K (secp256k1) based on the key type provided.
 /// </summary>
 public sealed class DIDCommPackingService : IDIDCommService
 {
+    private static readonly KeyAgreementAlgorithm _x25519 = KeyAgreementAlgorithm.X25519;
+    private static readonly KeyDerivationAlgorithm _hkdf  = KeyDerivationAlgorithm.HkdfSha256;
+    private static readonly JsonSerializerOptions _jsonOpts = new()
+        { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
+
+    private readonly IDidDocumentResolver? _resolver;
+
+    public DIDCommPackingService(IDidDocumentResolver? resolver = null) => _resolver = resolver;
+
     public DIDCommMessageBuilder NewMessage() => new();
+
+    // ── Plaintext ─────────────────────────────────────────────────────────────
 
     public Task<string> PackPlaintextAsync(DIDCommMessage message, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return Task.FromResult(
-            System.Text.Json.JsonSerializer.Serialize(new
-            {
-                typ  = "application/didcomm-plain+json",
-                id   = message.Id,
-                type = message.Type,
-                from = message.From,
-                to   = message.To is not null ? new[] { message.To } : null,
-                body = message.Body,
-            }));
+        return Task.FromResult(JsonSerializer.Serialize(new
+        {
+            typ  = "application/didcomm-plain+json",
+            id   = message.Id,
+            type = message.Type,
+            from = message.From,
+            to   = message.To is not null ? new[] { message.To } : null,
+            body = message.Body,
+        }, _jsonOpts));
     }
 
+    // ── Signed (JWS) ─────────────────────────────────────────────────────────
+
     public Task<string> PackSignedAsync(DIDCommMessage message,
-        byte[] senderPrivateKey, CancellationToken ct = default)
+        byte[] senderPrivateKey, bool secp256k1 = false, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        // JWS signing: EdDSA over base64url(header).base64url(payload)
-        var header  = B64(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(
-            new { alg = "EdDSA", typ = "JWM" }));
-        var payload = B64(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(message));
-        var sigInput= System.Text.Encoding.ASCII.GetBytes($"{header}.{payload}");
-        var sig     = SignEd25519(sigInput, senderPrivateKey);
+        var alg     = secp256k1 ? "ES256K" : "EdDSA";
+        var header  = B64(JsonSerializer.SerializeToUtf8Bytes(new { alg, typ = "JWM" }));
+        var payload = B64(JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            id   = message.Id,
+            type = message.Type,
+            from = message.From,
+            to   = message.To is not null ? new[] { message.To } : null,
+            body = message.Body,
+        }));
+        var sigInput = Encoding.ASCII.GetBytes($"{header}.{payload}");
+        var sig      = secp256k1
+            ? SignSecp256k1(sigInput, senderPrivateKey)
+            : SignEd25519(sigInput, senderPrivateKey);
 
-        return Task.FromResult(System.Text.Json.JsonSerializer.Serialize(new
+        return Task.FromResult(JsonSerializer.Serialize(new
         {
             payload    = payload,
-            signatures = new[] { new { header = new { kid = "key-1" }, protected_ = header, signature = sig } }
+            signatures = new[] { new { header = new { kid = "key-1" }, @protected = header, signature = sig } }
         }));
     }
 
+    // ── Encrypted (JWE, ECDH-ES+A256KW) ─────────────────────────────────────
+
+    /// <summary>
+    /// Encrypts using ECDH-ES+A256KW with the recipient's X25519 public key (32 raw bytes).
+    /// <paramref name="senderPrivateKey"/> is ignored for Anoncrypt; used for JWS signing in SignThenEncrypt.
+    /// </summary>
     public Task<string> PackEncryptedAsync(DIDCommMessage message,
         byte[] recipientPublicKey, byte[] senderPrivateKey,
         DIDCommPackMode mode = DIDCommPackMode.SignThenEncrypt, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        // AES-256-GCM content encryption with a fresh random CEK.
-        // CEK is zeroed after use. The protected header records the algorithm and mode.
-        var plaintext = System.Text.Encoding.UTF8.GetBytes(
-            System.Text.Json.JsonSerializer.Serialize(message));
-        var cek   = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
-        var nonce = System.Security.Cryptography.RandomNumberGenerator.GetBytes(12);
-        var tag   = new byte[16];
-        var ct2   = new byte[plaintext.Length];
 
-        using (var aes = new System.Security.Cryptography.AesGcm(cek, tagSizeInBytes: 16))
-            aes.Encrypt(nonce, plaintext, ct2, tag);
-
-        var result = System.Text.Json.JsonSerializer.Serialize(new
+        var plaintext = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
         {
-            protected_ = B64(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new
-                { alg = mode == DIDCommPackMode.Anoncrypt ? "ECDH-ES+A256KW" : "ECDH-1PU+A256KW",
-                  enc = "A256GCM" })),
-            recipients = new[] { new { header = new { kid = "key-1" }, encrypted_key = B64(cek) } },
-            iv         = B64(nonce),
-            ciphertext = B64(ct2),
-            tag        = B64(tag),
-        });
+            id   = message.Id,
+            type = message.Type,
+            from = message.From,
+            to   = message.To is not null ? new[] { message.To } : null,
+            body = message.Body,
+        }, _jsonOpts));
 
-        Array.Clear(cek, 0, cek.Length);
-        return Task.FromResult(result);
+        return Task.FromResult(EncryptJwe(plaintext, recipientPublicKey));
     }
 
     public async Task<string> PackSignedAndEncryptedAsync(DIDCommMessage message,
-        byte[] recipientPublicKey, byte[] senderPrivateKey, CancellationToken ct = default)
+        byte[] recipientPublicKey, byte[] senderPrivateKey, bool secp256k1 = false, CancellationToken ct = default)
     {
-        var signed    = await PackSignedAsync(message, senderPrivateKey, ct);
-        var signedMsg = message with { Body = signed };
-        // Authcrypt here is intentional: this IS the encrypt step of SignThenEncrypt.
-        // The JWS from PackSignedAsync wraps the payload first; Authcrypt wraps the JWS.
-        // The public API (DIDCommServices.cs) calls this method to achieve SignThenEncrypt.
-        return await PackEncryptedAsync(signedMsg, recipientPublicKey,
-            senderPrivateKey, DIDCommPackMode.Authcrypt, ct);
+        var signed    = await PackSignedAsync(message, senderPrivateKey, secp256k1, ct);
+        var plaintext = Encoding.UTF8.GetBytes(signed);
+        return EncryptJwe(plaintext, recipientPublicKey);
     }
 
-    public Task<DIDCommUnpackedMessage> UnpackAsync(string packed,
+    // ── Unpack ────────────────────────────────────────────────────────────────
+
+    public async Task<DIDCommUnpackedMessage> UnpackAsync(string packed,
         byte[]? recipientPrivateKey = null, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            using var doc  = System.Text.Json.JsonDocument.Parse(packed);
+            using var doc  = JsonDocument.Parse(packed);
             var root       = doc.RootElement;
 
-            // Determine if plaintext, JWS, or JWE
+            // ── Plaintext (has root "type") ───────────────────────────────────
             if (root.TryGetProperty("type", out var typeEl))
+                return PlaintextResult(root, typeEl, DIDCommPackMode.Plaintext);
+
+            // ── JWE (has root "ciphertext") ───────────────────────────────────
+            if (root.TryGetProperty("ciphertext", out _))
             {
-                // Plaintext
-                return Task.FromResult(new DIDCommUnpackedMessage
-                {
-                    Id   = root.TryGetProperty("id",   out var idEl)   ? idEl.GetString()             : null,
-                    Type = typeEl.GetString() ?? string.Empty,
-                    From = root.TryGetProperty("from", out var fromEl) ? fromEl.GetString()            : null,
-                    Body = root.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "{}"   : "{}",
-                    Mode = DIDCommPackMode.Plaintext,
-                });
+                if (recipientPrivateKey is null || recipientPrivateKey.Length == 0)
+                    throw new InvalidOperationException(
+                        "JWE message received but no recipient private key was provided.");
+
+                var innerJson = DecryptJwe(packed, recipientPrivateKey);
+                return await UnpackInnerAsync(innerJson, ct);
             }
 
-            // For encrypted messages: decode and return body as-is for this implementation.
-            // Mode = Authcrypt is the unpack detection fallback — it does not mean the
-            // message was packed with Authcrypt. The caller inspects Mode to determine
-            // whether full decryption succeeded or whether this is a passthrough result.
-            return Task.FromResult(new DIDCommUnpackedMessage
-            {
-                Type = "application/didcomm-encrypted+json",
-                Body = packed,
-                Mode = DIDCommPackMode.Authcrypt, // fallback indicator — not a pack mode choice
-            });
+            // ── JWS (has root "signatures") ───────────────────────────────────
+            if (root.TryGetProperty("signatures", out _))
+                return await UnpackJwsAsync(root, packed, ct);
+
+            // Unknown — dead-letter
+            return new DIDCommUnpackedMessage
+                { Type = "application/didcomm-encrypted+json", Body = packed, Mode = DIDCommPackMode.Authcrypt };
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not InvalidOperationException)
         {
             throw new InvalidOperationException($"Failed to unpack DIDComm message: {ex.Message}", ex);
         }
     }
 
+    // ── Private: JWE encrypt ──────────────────────────────────────────────────
+
+    private string EncryptJwe(byte[] plaintext, byte[] recipientX25519PublicKey)
+    {
+        // Generate ephemeral X25519 key pair
+        using var ephKey = NSec.Cryptography.Key.Create(_x25519,
+            new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextExport });
+        var ephPubBytes = ephKey.PublicKey.Export(KeyBlobFormat.RawPublicKey);
+
+        // ECDH-ES: shared secret with recipient's X25519 public key
+        var recipPub = PublicKey.Import(_x25519, recipientX25519PublicKey, KeyBlobFormat.RawPublicKey);
+        using var sharedSecret = _x25519.Agree(ephKey, recipPub)
+            ?? throw new InvalidOperationException("ECDH-ES key agreement failed.");
+
+        // HKDF-SHA-256 → 32-byte KEK
+        var kek = _hkdf.DeriveBytes(sharedSecret,
+            salt: Array.Empty<byte>(),
+            info: Encoding.ASCII.GetBytes("A256KW"),
+            count: 32);
+
+        // Build protected header; also used as AES-GCM AAD
+        var protectedHeader = B64(JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            alg = "ECDH-ES+A256KW",
+            enc = "A256GCM",
+            epk = new { kty = "OKP", crv = "X25519", x = B64(ephPubBytes) }
+        }));
+        var aad = Encoding.ASCII.GetBytes(protectedHeader);
+
+        // Generate CEK and encrypt content
+        var cek   = RandomNumberGenerator.GetBytes(32);
+        var nonce = RandomNumberGenerator.GetBytes(12);
+        var tag   = new byte[16];
+        var ct    = new byte[plaintext.Length];
+
+        using (var aesGcm = new AesGcm(cek, tagSizeInBytes: 16))
+            aesGcm.Encrypt(nonce, plaintext, ct, tag, aad);
+
+        // RFC 3394 AES-256 key wrap: protect CEK with KEK
+        var wrappedCek = AesKeyWrap(kek, cek);
+        Array.Clear(cek, 0, cek.Length);
+        Array.Clear(kek, 0, kek.Length);
+
+        return JsonSerializer.Serialize(new
+        {
+            @protected    = protectedHeader,
+            recipients    = new[] { new { header = new { kid = "key-agreement-1" }, encrypted_key = B64(wrappedCek) } },
+            iv            = B64(nonce),
+            ciphertext    = B64(ct),
+            tag           = B64(tag),
+        });
+    }
+
+    // ── Private: JWE decrypt ──────────────────────────────────────────────────
+
+    private string DecryptJwe(string packed, byte[] recipientX25519PrivateKey)
+    {
+        using var doc  = JsonDocument.Parse(packed);
+        var root       = doc.RootElement;
+
+        var protectedB64  = root.GetProperty("protected").GetString()
+            ?? throw new InvalidOperationException("JWE missing 'protected' header.");
+        var wrappedCekB64 = root.GetProperty("recipients")[0]
+            .GetProperty("encrypted_key").GetString()
+            ?? throw new InvalidOperationException("JWE missing encrypted_key.");
+        var ivB64         = root.GetProperty("iv").GetString()!;
+        var ctB64         = root.GetProperty("ciphertext").GetString()!;
+        var tagB64        = root.GetProperty("tag").GetString()!;
+
+        // Parse EPK from protected header
+        var headerJson = Encoding.UTF8.GetString(FromB64(protectedB64));
+        using var hDoc = JsonDocument.Parse(headerJson);
+        var ephPubB64  = hDoc.RootElement.GetProperty("epk").GetProperty("x").GetString()!;
+
+        // ECDH-ES: shared secret using our private key + ephemeral public key
+        using var recipKey = NSec.Cryptography.Key.Import(_x25519, recipientX25519PrivateKey,
+            KeyBlobFormat.RawPrivateKey,
+            new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextExport });
+        var ephPub = PublicKey.Import(_x25519, FromB64(ephPubB64), KeyBlobFormat.RawPublicKey);
+        using var sharedSecret = _x25519.Agree(recipKey, ephPub)
+            ?? throw new InvalidOperationException("ECDH-ES key agreement failed during unpack.");
+
+        // HKDF-SHA-256 → KEK (same parameters as pack side)
+        var kek = _hkdf.DeriveBytes(sharedSecret,
+            salt: Array.Empty<byte>(),
+            info: Encoding.ASCII.GetBytes("A256KW"),
+            count: 32);
+
+        // RFC 3394 AES-256 key unwrap → CEK
+        var cek = AesKeyUnwrap(kek, FromB64(wrappedCekB64));
+        Array.Clear(kek, 0, kek.Length);
+
+        // AES-256-GCM decrypt; protected header is AAD
+        var nonce       = FromB64(ivB64);
+        var cipherBytes = FromB64(ctB64);
+        var tagBytes    = FromB64(tagB64);
+        var plaintext   = new byte[cipherBytes.Length];
+        var aad         = Encoding.ASCII.GetBytes(protectedB64);
+
+        using (var aesGcm = new AesGcm(cek, tagSizeInBytes: 16))
+            aesGcm.Decrypt(nonce, cipherBytes, tagBytes, plaintext, aad);
+        Array.Clear(cek, 0, cek.Length);
+
+        return Encoding.UTF8.GetString(plaintext);
+    }
+
+    // ── Private: inner payload dispatch ──────────────────────────────────────
+
+    private async Task<DIDCommUnpackedMessage> UnpackInnerAsync(string json, CancellationToken ct)
+    {
+        using var doc  = JsonDocument.Parse(json);
+        var root       = doc.RootElement;
+
+        // Plaintext DIDComm message
+        if (root.TryGetProperty("type", out var typeEl))
+            return PlaintextResult(root, typeEl, DIDCommPackMode.Anoncrypt);
+
+        // Nested JWS (SignThenEncrypt inner layer)
+        if (root.TryGetProperty("signatures", out _))
+            return (await UnpackJwsAsync(root, json, ct)) with { Mode = DIDCommPackMode.SignThenEncrypt };
+
+        return new DIDCommUnpackedMessage { Type = string.Empty, Body = json, Mode = DIDCommPackMode.Anoncrypt };
+    }
+
+    private async Task<DIDCommUnpackedMessage> UnpackJwsAsync(
+        JsonElement root, string rawJson, CancellationToken ct)
+    {
+        var payloadB64  = root.GetProperty("payload").GetString()!;
+        var payloadJson = Encoding.UTF8.GetString(FromB64(payloadB64));
+
+        using var payloadDoc = JsonDocument.Parse(payloadJson);
+        var pr = payloadDoc.RootElement;
+
+        var msgId   = pr.TryGetProperty("id",   out var idEl)   ? idEl.GetString()           : null;
+        var msgType = pr.TryGetProperty("type", out var typeEl) ? typeEl.GetString() ?? ""    : "";
+        var msgFrom = pr.TryGetProperty("from", out var fromEl) ? fromEl.GetString()           : null;
+        var msgBody = pr.TryGetProperty("body", out var bodyEl)
+            ? bodyEl.ValueKind == JsonValueKind.String ? bodyEl.GetString() ?? "{}" : bodyEl.GetRawText()
+            : "{}";
+
+        // Verify signature when we have a resolver and a sender DID
+        if (_resolver is not null && msgFrom is not null)
+        {
+            var sig0      = root.GetProperty("signatures")[0];
+            var protHdr   = sig0.GetProperty("protected").GetString()!;
+            var sigB64    = sig0.GetProperty("signature").GetString()!;
+            var sigInput  = Encoding.ASCII.GetBytes($"{protHdr}.{payloadB64}");
+            var sigBytes  = FromB64(sigB64);
+
+            // Determine algorithm from JWS header
+            var hdrJson = Encoding.UTF8.GetString(FromB64(protHdr));
+            using var hDoc = JsonDocument.Parse(hdrJson);
+            var alg = hDoc.RootElement.TryGetProperty("alg", out var algEl)
+                ? algEl.GetString() : "EdDSA";
+
+            var resolution = await _resolver.ResolveAsync(msgFrom, ct);
+            if (resolution.Found && resolution.Document is not null)
+            {
+                // Pick verification method matching the signing algorithm
+                var vm = alg == "EdDSA"
+                    ? resolution.Document.VerificationMethod
+                        .FirstOrDefault(v => v.Type.Contains("Ed25519", StringComparison.OrdinalIgnoreCase))
+                    : resolution.Document.VerificationMethod
+                        .FirstOrDefault(v => v.Type.Contains("Secp256k1", StringComparison.OrdinalIgnoreCase)
+                                          || v.Type.Contains("EcdsaSecp256k1", StringComparison.OrdinalIgnoreCase));
+
+                if (vm?.PublicKeyHex is not null)
+                {
+                    var valid = alg == "EdDSA"
+                        ? VerifyEd25519Raw(sigInput, sigBytes, Convert.FromHexString(vm.PublicKeyHex))
+                        : VerifySecp256k1Raw(sigInput, sigBytes, vm.PublicKeyHex);
+
+                    if (!valid)
+                        throw new InvalidOperationException(
+                            $"JWS signature verification failed for sender '{msgFrom}'.");
+                }
+            }
+        }
+
+        return new DIDCommUnpackedMessage
+            { Id = msgId, Type = msgType, From = msgFrom, Body = msgBody, Mode = DIDCommPackMode.SignOnly };
+    }
+
+    // ── Private: crypto helpers ───────────────────────────────────────────────
+
+    private static DIDCommUnpackedMessage PlaintextResult(
+        JsonElement root, JsonElement typeEl, DIDCommPackMode mode) =>
+        new()
+        {
+            Id   = root.TryGetProperty("id",   out var idEl)   ? idEl.GetString()           : null,
+            Type = typeEl.GetString() ?? string.Empty,
+            From = root.TryGetProperty("from", out var fromEl) ? fromEl.GetString()          : null,
+            Body = root.TryGetProperty("body", out var bodyEl)
+            ? bodyEl.ValueKind == JsonValueKind.String ? bodyEl.GetString() ?? "{}" : bodyEl.GetRawText()
+            : "{}",
+            Mode = mode,
+        };
+
+    // RFC 3394 AES-256 Key Wrap — wraps a 32-byte CEK with a 32-byte KEK
+    private static byte[] AesKeyWrap(byte[] kek, byte[] plaintext)
+    {
+        int n = plaintext.Length / 8;
+        var A = new byte[] { 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6 };
+        var R = new byte[n][];
+        for (int i = 0; i < n; i++)
+        {
+            R[i] = new byte[8];
+            Buffer.BlockCopy(plaintext, i * 8, R[i], 0, 8);
+        }
+
+        using var aes = Aes.Create();
+        aes.Key     = kek;
+        aes.Mode    = CipherMode.ECB;
+        aes.Padding = PaddingMode.None;
+
+        for (int j = 0; j <= 5; j++)
+        {
+            for (int i = 1; i <= n; i++)
+            {
+                var B = new byte[16];
+                Buffer.BlockCopy(A,      0, B, 0, 8);
+                Buffer.BlockCopy(R[i-1], 0, B, 8, 8);
+                using var enc = aes.CreateEncryptor();
+                var encB = enc.TransformFinalBlock(B, 0, 16);
+                Buffer.BlockCopy(encB, 0, A, 0, 8);
+                long t = (long)n * j + i;
+                for (int k = 7; k >= 0; k--) { A[k] ^= (byte)(t & 0xFF); t >>= 8; }
+                Buffer.BlockCopy(encB, 8, R[i-1], 0, 8);
+            }
+        }
+
+        var output = new byte[(n + 1) * 8];
+        Buffer.BlockCopy(A, 0, output, 0, 8);
+        for (int i = 0; i < n; i++)
+            Buffer.BlockCopy(R[i], 0, output, (i + 1) * 8, 8);
+        return output;
+    }
+
+    // RFC 3394 AES-256 Key Unwrap — recovers the CEK
+    private static byte[] AesKeyUnwrap(byte[] kek, byte[] ciphertext)
+    {
+        int n = (ciphertext.Length / 8) - 1;
+        var A = new byte[8];
+        Buffer.BlockCopy(ciphertext, 0, A, 0, 8);
+        var R = new byte[n][];
+        for (int i = 0; i < n; i++)
+        {
+            R[i] = new byte[8];
+            Buffer.BlockCopy(ciphertext, (i + 1) * 8, R[i], 0, 8);
+        }
+
+        using var aes = Aes.Create();
+        aes.Key     = kek;
+        aes.Mode    = CipherMode.ECB;
+        aes.Padding = PaddingMode.None;
+
+        for (int j = 5; j >= 0; j--)
+        {
+            for (int i = n; i >= 1; i--)
+            {
+                long t = (long)n * j + i;
+                var tempA = (byte[])A.Clone();
+                for (int k = 7; k >= 0; k--) { tempA[k] ^= (byte)(t & 0xFF); t >>= 8; }
+                var B = new byte[16];
+                Buffer.BlockCopy(tempA, 0, B, 0, 8);
+                Buffer.BlockCopy(R[i-1], 0, B, 8, 8);
+                using var dec = aes.CreateDecryptor();
+                var decB = dec.TransformFinalBlock(B, 0, 16);
+                Buffer.BlockCopy(decB, 0, A, 0, 8);
+                Buffer.BlockCopy(decB, 8, R[i-1], 0, 8);
+            }
+        }
+
+        var icv = new byte[] { 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6 };
+        if (!A.SequenceEqual(icv))
+            throw new InvalidOperationException("AES key unwrap integrity check failed — wrong key or tampered ciphertext.");
+
+        var output = new byte[n * 8];
+        for (int i = 0; i < n; i++)
+            Buffer.BlockCopy(R[i], 0, output, i * 8, 8);
+        return output;
+    }
+
+    private static bool VerifyEd25519Raw(byte[] data, byte[] signature, byte[] publicKeyBytes)
+    {
+        try
+        {
+            var algo   = SignatureAlgorithm.Ed25519;
+            var pubKey = PublicKey.Import(algo, publicKeyBytes, KeyBlobFormat.RawPublicKey);
+            return algo.Verify(pubKey, data, signature);
+        }
+        catch { return false; }
+    }
+
+    private static bool VerifySecp256k1Raw(byte[] data, byte[] signature, string publicKeyHex)
+    {
+        try
+        {
+            var pubKey = new PubKey(Convert.FromHexString(publicKeyHex));
+            var hash   = Hashes.SHA256(data);
+            var sig    = new ECDSASignature(signature);
+            return pubKey.Verify(new uint256(hash), sig);
+        }
+        catch { return false; }
+    }
+
     private static string B64(byte[] data) =>
         Convert.ToBase64String(data).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
+    private static byte[] FromB64(string b64)
+    {
+        var padded = b64.Replace('-', '+').Replace('_', '/');
+        var padLen = (4 - padded.Length % 4) % 4;
+        return Convert.FromBase64String(padded + new string('=', padLen));
+    }
+
+    private static string SignSecp256k1(byte[] data, byte[] privateKey)
+    {
+        var key  = new NBitcoin.Key(privateKey);
+        var hash = NBitcoin.Crypto.Hashes.SHA256(data);
+        var sig  = key.Sign(new NBitcoin.uint256(hash));
+        return B64(sig.ToDER());
+    }
+
     private static string SignEd25519(byte[] data, byte[] privateKey)
     {
-        var algo = NSec.Cryptography.SignatureAlgorithm.Ed25519;
+        var algo = SignatureAlgorithm.Ed25519;
         using var key = NSec.Cryptography.Key.Import(algo, privateKey,
-            NSec.Cryptography.KeyBlobFormat.RawPrivateKey,
-            new NSec.Cryptography.KeyCreationParameters
-                { ExportPolicy = NSec.Cryptography.KeyExportPolicies.AllowPlaintextExport });
+            KeyBlobFormat.RawPrivateKey,
+            new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextExport });
         return B64(algo.Sign(key, data));
     }
 }

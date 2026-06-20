@@ -114,7 +114,7 @@ Web7-DSA.sln
 └── Svrn7.TDA/             — TDA Host (5 Critical components, DSA 0.24)
     ├── Svrn7RunspaceContext.cs  — $SVRN7 shared session variable
     ├── LobeManager.cs           — eager/JIT LOBE loader, lobes.config.json
-    ├── RunspacePoolManager.cs   — PowerShell RunspacePool lifecycle
+    ├── IsolatedRunspaceFactory.cs   — PowerShell RunspacePool lifecycle
     ├── DIDCommMessageSwitchboard.cs — sole inbox reader, pass-by-reference routing
     ├── KestrelListenerService.cs    — POST /didcomm, HTTP/2 + mTLS
     ├── TdaHost.cs               — TdaOptions, SwitchboardHostedService, DI extensions
@@ -128,17 +128,17 @@ Web7-DSA.sln
 
 | # | Module | Type | Protocol families |
 |---|---|---|---|
-| 1 | Svrn7.Common.psm1 | Eager | — (shared helpers) |
-| 2 | Svrn7.Federation.psm1 | Eager | federation/1.0/*, transfer/1.0/*, did/1.0/* |
-| 3 | Svrn7.Society.psm1 | Eager | transfer/1.0/*, onboard/1.0/*, society/1.0/* |
-| 4 | Svrn7.UX.psm1 | Eager | ux/1.0/* (balance-update, notification, registration-complete) |
-| 5 | Svrn7.Email.psm1 | JIT | did:drn:svrn7.net/protocols/email/1.0/* |
-| 6 | Svrn7.Calendar.psm1 | JIT | did:drn:svrn7.net/protocols/calendar/1.0/* |
-| 7 | Svrn7.Presence.psm1 | JIT | did:drn:svrn7.net/protocols/presence/1.0/* |
-| 8 | Svrn7.Notifications.psm1 | JIT | did:drn:svrn7.net/protocols/notification/1.0/* |
-| 9 | Svrn7.Onboarding.psm1 | JIT | did:drn:svrn7.net/protocols/onboard/1.0/* |
-|10 | Svrn7.Invoicing.psm1 | JIT | did:drn:svrn7.net/protocols/invoice/1.0/* |
-|11 | Svrn7.Identity.psm1 | JIT | did:drn:svrn7.net/protocols/did/1.0/*, vc/1.0/* |
+| 1 | Svrn7.Common.0.8.0.psm1 | Eager | — (shared helpers) |
+| 2 | Svrn7.Federation.0.8.0.psm1 | Eager | federation/1.0/*, transfer/1.0/*, did/1.0/* |
+| 3 | Svrn7.Society.0.8.0.psm1 | Eager | transfer/1.0/*, Svrn7.Onboarding/0.8.0/*, society/1.0/* |
+| 4 | Svrn7.UX.0.8.0.psm1 | Eager | ux/1.0/* (balance-update, notification, registration-complete) |
+| 5 | Svrn7.Email.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/* |
+| 6 | Svrn7.Calendar.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/* |
+| 7 | Svrn7.Presence.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/* |
+| 8 | Svrn7.Notifications.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/* |
+| 9 | Svrn7.Onboarding.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/* |
+|10 | Svrn7.Invoicing.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/* |
+|11 | Svrn7.Identity.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-*, Svrn7.Identity/0.8.0/vc-* |
 
 Each LOBE ships .psm1 + .psd1 + .lobe.json (MCP-aligned descriptor).
 lobes.config.json: eager = [Common, Federation, Society, UX]; jit = [Email, Calendar, Presence, Notifications, Onboarding, Invoicing, Identity]
@@ -299,34 +299,34 @@ decryption. For monetary commitments (`TransferOrderCredential`), non-repudiatio
 
 ### DIDComm Protocol URIs (all `svrn7.net` — NOT `svrn7.io`)
 ```
-did:drn:svrn7.net/protocols/transfer/1.0/request
-did:drn:svrn7.net/protocols/transfer/1.0/receipt
-did:drn:svrn7.net/protocols/transfer/1.0/order
-did:drn:svrn7.net/protocols/transfer/1.0/order-receipt
-did:drn:svrn7.net/protocols/endowment/1.0/overdraft-draw-request
-did:drn:svrn7.net/protocols/endowment/1.0/overdraft-draw-receipt
-did:drn:svrn7.net/protocols/endowment/1.0/top-up
-did:drn:svrn7.net/protocols/supply/1.0/update
-did:drn:svrn7.net/protocols/did/1.0/resolve-request
-did:drn:svrn7.net/protocols/did/1.0/resolve-response
-did:drn:svrn7.net/protocols/society/1.0/society-query
-did:drn:svrn7.net/protocols/society/1.0/society-query-result
-did:drn:svrn7.net/protocols/society/1.0/member-query
-did:drn:svrn7.net/protocols/society/1.0/member-query-result
-did:drn:svrn7.net/protocols/society/1.0/overdraft-query
-did:drn:svrn7.net/protocols/society/1.0/overdraft-query-result
-did:drn:svrn7.net/protocols/society/1.0/did-methods-query
-did:drn:svrn7.net/protocols/society/1.0/did-methods-query-result
-did:drn:svrn7.net/protocols/society/1.0/did-method-register
-did:drn:svrn7.net/protocols/society/1.0/did-method-register-result
-did:drn:svrn7.net/protocols/society/1.0/citizen-did-add
-did:drn:svrn7.net/protocols/society/1.0/citizen-did-add-result
-did:drn:svrn7.net/protocols/federation/1.0/federation-query
-did:drn:svrn7.net/protocols/federation/1.0/federation-query-result
-did:drn:svrn7.net/protocols/federation/1.0/init
-did:drn:svrn7.net/protocols/federation/1.0/init-result
-did:drn:svrn7.net/protocols/federation/1.0/register-society
-did:drn:svrn7.net/protocols/federation/1.0/register-society-result
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-receipt
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order-receipt
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-draw-request
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-draw-receipt
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/endowment-top-up
+did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/supply-update
+did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request
+did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/society-query
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/society-query-result
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/member-query
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/member-query-result
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-query
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-query-result
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-methods-query
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-methods-query-result
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-method-register
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-method-register-result
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/citizen-did-add
+did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/citizen-did-add-result
+did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/federation-query
+did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/federation-query-result
+did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation
+did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation-result
+did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society
+did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society-result
 ```
 
 ---
@@ -582,7 +582,7 @@ src/Svrn7.TDA/
 ├── TdaHost.cs                   — TdaOptions, SwitchboardHostedService, AddSvrn7Tda() DI
 ├── KestrelListenerService.cs    — POST /didcomm, HTTP/2 + mTLS, UnpackAsync boundary
 ├── DIDCommMessageSwitchboard.cs — sole inbox reader, epoch gate, DID URL pass-by-reference
-├── RunspacePoolManager.cs       — PowerShell RunspacePool (min=2, max=N), epoch refresh
+├── IsolatedRunspaceFactory.cs       — PowerShell RunspacePool (min=2, max=N), epoch refresh
 ├── LobeManager.cs               — eager/JIT LOBE loading from lobes.config.json
 ├── Svrn7RunspaceContext.cs      — $SVRN7 session variable: Driver, Inbox, Cache, Epoch
 └── TdaResourceAddress.cs        — DID URL typed builder/parser (delegates to TdaResourceId)
@@ -625,28 +625,28 @@ New in DSA 0.24. Conditional: only instantiated by AddSvrn7Society().
 All new LOBEs have both .psm1 and .psd1 manifests.
 Eager (InitialSessionState): Svrn7.Common, Svrn7.Federation, Svrn7.Society
 JIT (Import-Module on first use):
-  Svrn7.Email.psm1         — email/1.0/* (RFC 5322 tunneling over DIDComm)
-  Svrn7.Calendar.psm1      — calendar/1.0/* (iCalendar tunneling over DIDComm)
-  Svrn7.Presence.psm1      — presence/1.0/* (net-new DIDComm protocol)
-  Svrn7.Notifications.psm1 — notification/1.0/* (net-new DIDComm protocol)
-  Svrn7.Onboarding.psm1    — onboard/1.0/* (wraps Register-Svrn7CitizenInSociety)
-  Svrn7.Invoicing.psm1     — invoice/1.0/* (wraps Invoke-Svrn7IncomingTransfer)
+  Svrn7.Email.0.8.0.psm1         — email/1.0/* (RFC 5322 tunneling over DIDComm)
+  Svrn7.Calendar.0.8.0.psm1      — calendar/1.0/* (iCalendar tunneling over DIDComm)
+  Svrn7.Presence.0.8.0.psm1      — presence/1.0/* (net-new DIDComm protocol)
+  Svrn7.Notifications.0.8.0.psm1 — Svrn7.Notifications/0.8.0/* (net-new DIDComm protocol)
+  Svrn7.Onboarding.0.8.0.psm1    — Svrn7.Onboarding/0.8.0/* (wraps Register-Svrn7CitizenInSociety)
+  Svrn7.Invoicing.0.8.0.psm1     — Svrn7.Invoicing/0.8.0/* (wraps Invoke-Svrn7IncomingTransfer)
 
 ### Agent Scripts (lobes/)
-  Agent1-Coordinator.ps1  — dispatch via Get-Web7Message / Send-Web7Message
-  Agent2-Onboarding.ps1   — onboard/1.0/request → ConvertFrom-Web7OnboardRequest
-  AgentN-Invoicing.ps1    — invoice/1.0/request → ConvertFrom-Web7InvoiceRequest
+  Agent1-Coordinator.ps1  — dispatch via Dequeue-Svrn7Message / Enqueue-Svrn7Message
+  Agent2-Onboarding.ps1   — Svrn7.Onboarding/0.8.0/register-citizen → ConvertFrom-Web7OnboardRequest
+  AgentN-Invoicing.ps1    — Svrn7.Invoicing/0.8.0/request → ConvertFrom-Web7InvoiceRequest
 
 ### LOBE Cmdlet Naming Convention (v0.8.0)
 All DIDComm handler cmdlets use the `-Web7` infix.
-Federation handlers (Svrn7.Federation.psm1):
+Federation handlers (Svrn7.Federation.0.8.0.psm1):
   Invoke-Web7FederationQuery  — federation/1.0/federation-query
-  Invoke-Web7FederationInit   — federation/1.0/init (idempotent bootstrap)
+  Invoke-Web7FederationInit   — federation/1.0/initialize-federation (idempotent bootstrap)
   Invoke-Web7RegisterSociety  — federation/1.0/register-society
-Society handlers (Svrn7.Society.psm1):
+Society handlers (Svrn7.Society.0.8.0.psm1):
   Invoke-Web7SocietyQuery, Invoke-Web7MemberQuery, Invoke-Web7OverdraftQuery,
   Invoke-Web7DidMethodsQuery, Invoke-Web7DidMethodRegister, Invoke-Web7CitizenDidAdd
-Shared helpers (Svrn7.Common.psm1 — dot-sourced by both modules):
+Shared helpers (Svrn7.Common.0.8.0.psm1 — dot-sourced by both modules):
   Get-ActiveSocietyDriver   — returns $SVRN7.Driver (TDA) or $Script:SocietyDriver
   Get-ActiveFederationDriver— returns $SVRN7.Driver (TDA) or $Script:FederationDriver
   Resolve-SocietySenderEndpoint — resolves DIDComm reply endpoint from sender DID
@@ -677,7 +677,7 @@ var reg = _lobes.TryResolveProtocol(msg.MessageType);  // dynamic lookup
 await _lobes.EnsureLoadedAsync(ensurePs, reg.ModulePath, ct);  // JIT import
 await InvokeCmdletPipelineAsync(reg.Entrypoint, msg.Id, ct);   // dispatch
 ```
-Only hardcoded concern remaining: Option A transfer/1.0/order idempotency check.
+Only hardcoded concern remaining: Option A Svrn7.Society/0.8.0/transfer-order idempotency check.
 IsPermittedInEpoch() now reads epochRequired from the LobeProtocolRegistration.
 
 ### .lobe.json descriptor format (lobes/{module-name}.lobe.json)
@@ -726,7 +726,7 @@ Formally defined in draft-herman-parchment-programming-00 Section 5.2.1.
 - LOBE (3)      → {Name}.psm1 + {Name}.psd1 + {Name}.lobe.json + exported cmdlets
 - Data Storage (5) → LiteDB context class + IXxxStore interface + implementation
 - Data Access (6)  → IXxxResolver interface + implementation(s)
-- Runspace Pool (7)→ RunspacePoolManager.cs + InitialSessionState builder
+- Runspace Pool (7)→ IsolatedRunspaceFactory.cs + InitialSessionState builder
 - Switchboard (8)  → DIDCommMessageSwitchboard.cs + protocol registry (ConcurrentDictionary)
 - Host (9)      → Program.cs + IServiceCollection DI + IHostedService registrations
 - PS Runspace (10) → Agent{N}.ps1 + Switchboard protocol registration

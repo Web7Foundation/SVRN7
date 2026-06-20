@@ -1,4 +1,5 @@
 using LiteDB;
+using Microsoft.Extensions.Logging;
 using Svrn7.Core.Exceptions;
 using Svrn7.Core.Interfaces;
 using Svrn7.Core.Models;
@@ -64,8 +65,14 @@ public sealed class DidRegistryLiteContext : IDisposable
 /// <summary>IDidDocumentRegistry implementation backed by svrn7-dids.db.</summary>
 public sealed class LiteDidDocumentRegistry : IDidDocumentRegistry
 {
-    private readonly DidRegistryLiteContext _ctx;
-    public LiteDidDocumentRegistry(DidRegistryLiteContext ctx) => _ctx = ctx;
+    private readonly DidRegistryLiteContext           _ctx;
+    private readonly ILogger<LiteDidDocumentRegistry> _log;
+
+    public LiteDidDocumentRegistry(DidRegistryLiteContext ctx, ILogger<LiteDidDocumentRegistry> log)
+    {
+        _ctx = ctx;
+        _log = log;
+    }
 
     public Task CreateAsync(DidDocument document, CancellationToken ct = default)
     {
@@ -76,6 +83,8 @@ public sealed class LiteDidDocumentRegistry : IDidDocumentRegistry
         _ctx.Documents.Insert(document);
         _ctx.History.Insert(document with { Id = Guid.NewGuid().ToString("N") });
         IndexVerificationMethods(document);
+        if (_log.IsEnabled(LogLevel.Debug))
+            _log.LogDebug("DID Document created: {Content}", FormatForLog(document));
         return Task.CompletedTask;
     }
 
@@ -92,6 +101,8 @@ public sealed class LiteDidDocumentRegistry : IDidDocumentRegistry
         document = document with { UpdatedAt = DateTimeOffset.UtcNow };
         _ctx.Documents.Update(document);
         _ctx.History.Insert(document with { Id = Guid.NewGuid().ToString("N") });
+        if (_log.IsEnabled(LogLevel.Debug))
+            _log.LogDebug("DID Document updated: {Content}", FormatForLog(document));
         return Task.CompletedTask;
     }
 
@@ -103,6 +114,8 @@ public sealed class LiteDidDocumentRegistry : IDidDocumentRegistry
         doc.Status        = DidStatus.Deactivated;
         doc.DeactivatedAt = DateTimeOffset.UtcNow;
         _ctx.Documents.Update(doc);
+        if (_log.IsEnabled(LogLevel.Debug))
+            _log.LogDebug("DID Document deactivated: {Content}", FormatForLog(doc));
         return Task.CompletedTask;
     }
 
@@ -115,6 +128,8 @@ public sealed class LiteDidDocumentRegistry : IDidDocumentRegistry
             throw new InvalidDidException(did, "Cannot suspend a deactivated DID Document.");
         doc.Status = DidStatus.Suspended;
         _ctx.Documents.Update(doc);
+        if (_log.IsEnabled(LogLevel.Debug))
+            _log.LogDebug("DID Document suspended: {Content}", FormatForLog(doc));
         return Task.CompletedTask;
     }
 
@@ -127,6 +142,8 @@ public sealed class LiteDidDocumentRegistry : IDidDocumentRegistry
             throw new InvalidDidException(did, "Cannot reinstate a deactivated DID Document.");
         doc.Status = DidStatus.Active;
         _ctx.Documents.Update(doc);
+        if (_log.IsEnabled(LogLevel.Debug))
+            _log.LogDebug("DID Document reinstated: {Content}", FormatForLog(doc));
         return Task.CompletedTask;
     }
 
@@ -137,6 +154,8 @@ public sealed class LiteDidDocumentRegistry : IDidDocumentRegistry
         if (doc is null)
             return Task.FromResult(new DidResolutionResult
                 { Did = did, Found = false, ErrorCode = "notFound", Document = null });
+        if (_log.IsEnabled(LogLevel.Debug))
+            _log.LogDebug("DID Document resolved: {Content}", FormatForLog(doc));
         return Task.FromResult(new DidResolutionResult
             { Did = did, Found = true, Document = doc });
     }
@@ -190,6 +209,20 @@ public sealed class LiteDidDocumentRegistry : IDidDocumentRegistry
             }
         }
         catch (System.Text.Json.JsonException) { /* malformed doc — skip */ }
+    }
+
+    private static string FormatForLog(DidDocument doc)
+    {
+        var summary = $"DID={doc.Did} Version={doc.Version} Status={doc.Status} Role={doc.Role} " +
+                      $"Keys={doc.VerificationMethod.Count} Services={doc.ServiceEndpoints.Count}";
+        try
+        {
+            var pretty = System.Text.Json.JsonSerializer.Serialize(
+                System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(doc.DocumentJson),
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            return $"{summary}\n{pretty}";
+        }
+        catch { return summary; }
     }
 
     public Task<IReadOnlyList<DidDocument>> QueryAsync(

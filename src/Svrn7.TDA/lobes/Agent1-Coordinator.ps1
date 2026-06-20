@@ -18,18 +18,18 @@
 
     LOBEs available in this runspace:
         Eager (pre-loaded via InitialSessionState):
-            Svrn7.Common.psm1
-            Svrn7.Federation.psm1
-            Svrn7.Society.psm1
-            Svrn7.UX.psm1           → ux/1.0/* (balance updates, notifications, registration)
+            Svrn7.Common.0.8.0.psm1
+            Svrn7.Federation.0.8.0.psm1
+            Svrn7.Society.0.8.0.psm1
+            Svrn7.UX.0.8.0.psm1           → ux/1.0/* (balance updates, notifications, registration)
 
         JIT (imported on first message of each type):
-            Svrn7.Email.psm1        → did:drn:svrn7.net/protocols/email/1.0/*
-            Svrn7.Calendar.psm1     → did:drn:svrn7.net/protocols/calendar/1.0/*
-            Svrn7.Presence.psm1     → did:drn:svrn7.net/protocols/presence/1.0/*
-            Svrn7.Notifications.psm1→ did:drn:svrn7.net/protocols/notification/1.0/*
-            Svrn7.Identity.psm1     → did:drn:svrn7.net/protocols/did/1.0/*
-                                      did:drn:svrn7.net/protocols/vc/1.0/*
+            Svrn7.Email.0.8.0.psm1        → did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/*
+            Svrn7.Calendar.0.8.0.psm1     → did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/*
+            Svrn7.Presence.0.8.0.psm1     → did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/*
+            Svrn7.Notifications.0.8.0.psm1→ did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/*
+            Svrn7.Identity.0.8.0.psm1     → did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-*
+                                      did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/vc-*
 
     $SVRN7 session variable is pre-injected by LobeManager.
     $SVRN7_JIT_LOBES contains the array of JIT LOBE paths.
@@ -47,7 +47,8 @@ function Import-JitLobeIfNeeded {
     if ($script:LoadedJitLobes.ContainsKey($LobeName)) { return }
 
     $path = $SVRN7_JIT_LOBES | Where-Object {
-        [System.IO.Path]::GetFileNameWithoutExtension($_) -eq $LobeName
+        $stem = [System.IO.Path]::GetFileNameWithoutExtension($_)
+        $stem -eq $LobeName -or $stem -like "$LobeName.*"
     } | Select-Object -First 1
 
     if (-not $path) {
@@ -66,7 +67,7 @@ function Invoke-EmailAgent {
     param([string] $MessageDid)
     Import-JitLobeIfNeeded -LobeName 'Svrn7.Email'
     try {
-        $result = Receive-Web7Email -MessageDid $MessageDid
+        $result = Dequeue-PandoMail -MessageDid $MessageDid
         Write-Verbose "Agent 1 / Email: processed $MessageDid"
         return $result
     } catch {
@@ -79,7 +80,7 @@ function Invoke-CalendarAgent {
     Import-JitLobeIfNeeded -LobeName 'Svrn7.Calendar'
     try {
         $result = if ($MessageType -like '*/invite') {
-            Get-Web7Message -Did $MessageDid |
+            Dequeue-Svrn7Message -Did $MessageDid |
                 Receive-Web7MeetingRequest |
                 New-Web7CalendarResponse -Accept
         } else {
@@ -142,8 +143,8 @@ function Invoke-IdentityAgent {
     Import-JitLobeIfNeeded -LobeName 'Svrn7.Identity'
     try {
         $result = switch -Wildcard ($MessageType) {
-            '*/did/1.0/resolve-request'               { Resolve-Svrn7Did -MessageDid $MessageDid }
-            '*/vc/1.0/resolve-by-subject-request'     { Get-Svrn7VcById  -MessageDid $MessageDid }
+            '*/Svrn7.Identity/0.8.0/did-resolve-request'               { Resolve-Svrn7Did -MessageDid $MessageDid }
+            '*/Svrn7.Identity/0.8.0/vc-resolve-by-subject-request'     { Get-Svrn7VcById  -MessageDid $MessageDid }
             default { Write-Warning "Agent 1 / Identity: unhandled type $MessageType"; $null }
         }
         Write-Verbose "Agent 1 / Identity: processed $MessageDid ($MessageType)"
@@ -153,10 +154,10 @@ function Invoke-IdentityAgent {
     }
 }
 
-# ── Get-Web7Message (pass-by-reference resolution) ────────────────────────────
+# ── Dequeue-Svrn7Message (pass-by-reference resolution) ────────────────────────────
 # Exposed as a cmdlet for use by all LOBE pipelines in this runspace.
 
-function Get-Web7Message {
+function Dequeue-Svrn7Message {
     <#
     .SYNOPSIS
         Resolves an inbox message by its TDA resource DID URL.
@@ -168,28 +169,27 @@ function Get-Web7Message {
     param([Parameter(Mandatory)] [string] $Did)
     process {
         $msg = $SVRN7.GetMessageAsync($Did).GetAwaiter().GetResult()
-        if (-not $msg) { throw "Get-Web7Message: message '$Did' not found." }
+        if (-not $msg) { throw "Dequeue-Svrn7Message: message '$Did' not found." }
         # Pass through with the DID URL attached for downstream pipeline use
         $msg | Add-Member -NotePropertyName 'MessageDid' -NotePropertyValue $Did -PassThru
     }
 }
 
-# ── Send-Web7Message (outbound queue entry point) ──────────────────────────────
+# ── Enqueue-Svrn7Message (outbound queue entry point) ──────────────────────────────
 
-function Send-Web7Message {
+function Enqueue-Svrn7Message {
     <#
     .SYNOPSIS
         Posts an outbound DIDComm message to the Switchboard's outbound queue.
     .PARAMETER OutboundMessage
-        Hashtable with PeerEndpoint, PackedMessage, MessageType.
+        OutboundMessage from a LOBE handler (pipeline input).
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory, ValueFromPipeline)] [hashtable] $OutboundMessage)
+    param([Parameter(Mandatory, ValueFromPipeline)] [Svrn7.TDA.OutboundMessage] $OutboundMessage)
     process {
-        # Return a C# OutboundMessage record so the Switchboard's BaseObject check matches.
-        [Svrn7.TDA.OutboundMessage]::new(
-            $OutboundMessage.PeerEndpoint,
-            $OutboundMessage.PackedMessage)
+        # Emits the OutboundMessage to the pipeline. The Switchboard collects it
+        # from the pipeline result set and calls _outboundQueue.Enqueue() in C#.
+        $OutboundMessage
     }
 }
 

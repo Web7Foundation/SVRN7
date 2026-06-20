@@ -130,16 +130,19 @@ public sealed class Svrn7Driver : ISvrn7Driver
         RegisterCitizenRequest request, CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Did);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.PublicKeyHex);
+        ArgumentNullException.ThrowIfNull(request.DidDocument);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.DidDocument.Did);
+
+        var did          = request.DidDocument.Did;
+        var publicKeyHex = request.DidDocument.VerificationMethod.FirstOrDefault()?.PublicKeyHex ?? string.Empty;
 
         try
         {
             // Encrypt and store citizen
             var citizen = new CitizenRecord
             {
-                Did                       = request.Did,
-                PublicKeyHex              = request.PublicKeyHex,
+                Did                       = did,
+                PublicKeyHex              = publicKeyHex,
                 EncryptedPrivateKeyBase64 = Convert.ToBase64String(request.PrivateKeyBytes),
             };
             await _registry.RegisterCitizenAsync(citizen, ct);
@@ -147,41 +150,41 @@ public sealed class Svrn7Driver : ISvrn7Driver
             // Primary DID record
             await _registry.StoreCitizenDidAsync(new CitizenDidRecord
             {
-                CitizenPrimaryDid = request.Did,
-                Did               = request.Did,
+                CitizenPrimaryDid = did,
+                Did               = did,
                 MethodName        = _options.DidMethodName,
                 IsPrimary         = true,
             }, ct);
 
             // Wallet (restricted until Epoch 1)
-            var wallet = new Wallet { Did = request.Did, BalanceGrana = 0, IsRestricted = true };
+            var wallet = new Wallet { Did = did, BalanceGrana = 0, IsRestricted = true };
             await _wallets.CreateWalletAsync(wallet, ct);
 
             // Endowment UTXO
-            var txId = _crypto.Blake3Hex(Encoding.UTF8.GetBytes($"ENDOW:{request.Did}:{DateTimeOffset.UtcNow:O}"));
+            var txId = _crypto.Blake3Hex(Encoding.UTF8.GetBytes($"ENDOW:{did}:{DateTimeOffset.UtcNow:O}"));
             await _wallets.AddUtxoAsync(new Utxo
             {
                 Id          = txId,
-                OwnerDid    = request.Did,
+                OwnerDid    = did,
                 AmountGrana = Svrn7Constants.CitizenEndowmentGrana,
             }, ct);
 
-            // DID Document
-            var didDoc = BuildMinimalDidDocument(request.Did, request.PublicKeyHex, _options.DidMethodName);
-            await _didRegistry.CreateAsync(didDoc, ct);
+            // DID Document — stamp role then persist
+            var citizenDoc = request.DidDocument with { Role = Svrn7Role.Citizen };
+            await _didRegistry.CreateAsync(citizenDoc, ct);
 
             // Endowment VC
             var jwtVc = await _vcService.IssueAsync(
                 _options.DidMethodName + ":foundation",
-                request.Did,
+                did,
                 "Svrn7EndowmentCredential",
-                new { id = request.Did, amountGrana = Svrn7Constants.CitizenEndowmentGrana, amountSvrn7Display = Svrn7Constants.CitizenEndowmentSvrn7Display },
+                new { id = did, amountGrana = Svrn7Constants.CitizenEndowmentGrana, amountSvrn7Display = Svrn7Constants.CitizenEndowmentSvrn7Display },
                 _foundationPrivateKey, ct: ct);
             var vcRecord = new VcRecord
             {
                 VcId       = $"urn:uuid:{Guid.NewGuid()}",
                 IssuerDid  = _options.DidMethodName + ":foundation",
-                SubjectDid = request.Did,
+                SubjectDid = did,
                 Types      = new List<string> { "VerifiableCredential", "Svrn7EndowmentCredential" },
                 VcHash     = _crypto.Blake3Hex(Encoding.UTF8.GetBytes(jwtVc)),
                 JwtEncoded = jwtVc,
@@ -192,17 +195,17 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
             // Merkle log
             await _merkle.AppendAsync("CitizenRegistration",
-                JsonSerializer.Serialize(new { did = request.Did, timestamp = DateTimeOffset.UtcNow }), ct);
+                JsonSerializer.Serialize(new { did, timestamp = DateTimeOffset.UtcNow }), ct);
 
             _ctzReg.Add(1);
             _didsPubl.Add(1);
             _vcIssued.Add(1);
-            _log.LogInformation("Citizen registered: {Did}", request.Did);
-            return OperationResult.Ok(new { request.Did, VcId = vcRecord.VcId });
+            _log.LogInformation("Citizen registered: {Did}", did);
+            return OperationResult.Ok(new { did, VcId = vcRecord.VcId });
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Citizen registration failed for {Did}", request.Did);
+            _log.LogError(ex, "Citizen registration failed for {Did}", request.DidDocument.Did);
             return OperationResult.Fail(ex.Message);
         }
     }
@@ -234,76 +237,74 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
     // ── Society lifecycle ──────────────────────────────────────────────────────
 
-    public async Task<OperationResult> RegisterSocietyAsync(
+    public async Task<OperationResult> InitializeSocietyAsync(
         RegisterSocietyRequest request, CancellationToken ct = default)
     {
         ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Did);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.PrimaryDidMethodName);
+        ArgumentNullException.ThrowIfNull(request.DidDocument);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.DidDocument.Did);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.DidDocument.MethodName);
+
+        var did          = request.DidDocument.Did;
+        var publicKeyHex = request.DidDocument.VerificationMethod.FirstOrDefault()?.PublicKeyHex ?? string.Empty;
 
         try
         {
-            // Validate method name format ([a-z0-9]+)
-            if (!System.Text.RegularExpressions.Regex.IsMatch(request.PrimaryDidMethodName, @"^[a-z0-9]+$"))
-                throw new ConfigurationException(
-                    $"DID method name '{request.PrimaryDidMethodName}' must match [a-z0-9]+.");
-
-            // Check uniqueness in Federation registry
-            var status = await _federation.GetMethodStatusAsync(request.PrimaryDidMethodName, ct);
-            var existingRecord = await _federation.GetMethodRecordAsync(request.PrimaryDidMethodName, ct);
-            if (existingRecord is not null && status == DidMethodStatus.Active)
-                throw new DuplicateDidMethodException(request.PrimaryDidMethodName, existingRecord.SocietyDid);
-            if (status == DidMethodStatus.Dormant)
-            {
-                var dormantRecord = await _federation.GetMethodRecordAsync(request.PrimaryDidMethodName, ct);
-                throw new DormantDidMethodException(request.PrimaryDidMethodName,
-                    dormantRecord?.DormantUntil ?? DateTimeOffset.UtcNow.Add(_options.DidMethodDormancyPeriod));
-            }
-
             var society = new SocietyRecord
             {
-                Did                  = request.Did,
-                PublicKeyHex         = request.PublicKeyHex,
-                SocietyName          = request.SocietyName,
-                PrimaryDidMethodName = request.PrimaryDidMethodName,
+                Did          = did,
+                PublicKeyHex = publicKeyHex,
+                SocietyName  = request.SocietyName,
             };
             await _registry.RegisterSocietyAsync(society, ct);
 
-            // Register primary method name in Federation registry
-            await _federation.RegisterMethodAsync(new SocietyDidMethodRecord
-            {
-                SocietyDid  = request.Did,
-                MethodName  = request.PrimaryDidMethodName,
-                IsPrimary   = true,
-                Status      = DidMethodStatus.Active,
-            }, ct);
-
             // Society wallet (active — receives Epoch 0 transfers)
             await _wallets.CreateWalletAsync(
-                new Wallet { Did = request.Did, BalanceGrana = 0, IsRestricted = false }, ct);
+                new Wallet { Did = did, BalanceGrana = 0, IsRestricted = false }, ct);
 
-            // Overdraft record
-            // (ISocietyMembershipStore would store this — handled by Svrn7.Society layer)
+            // DID Document — stamp role then persist
+            var societyDoc = request.DidDocument with { Role = Svrn7Role.Society };
+            await _didRegistry.CreateAsync(societyDoc, ct);
 
-            // DID Document
-            var didDoc = BuildMinimalDidDocument(request.Did, request.PublicKeyHex, request.PrimaryDidMethodName);
-            await _didRegistry.CreateAsync(didDoc, ct);
+            _didsPubl.Add(1);
+            _log.LogInformation("Society initialised locally: {Did}", did);
+            return OperationResult.Ok(new { did });
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Society initialisation failed for {Did}", request.DidDocument.Did);
+            return OperationResult.Fail(ex.Message);
+        }
+    }
 
-            // VTC Credential — skipped when foundation private key is not configured (dev mode)
+    public async Task<OperationResult> RegisterSocietyInFederationAsync(
+        string societyDid, CancellationToken ct = default)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(societyDid);
+
+        var society = await _registry.GetSocietyAsync(societyDid, ct)
+            ?? throw new NotFoundException("SocietyRecord", societyDid);
+
+        try
+        {
+            // VTC Credential
             string? vtcVcId = null;
+            var federationRecord = await _federation.GetAsync(ct);
+            var issuerDid = federationRecord?.Did ?? "did:drn:federation.svrn7.net/federation/1.0/unknown";
             if (_foundationPrivateKey.Length > 0)
             {
                 var jwtVc = await _vcService.IssueAsync(
-                    _options.DidMethodName + ":foundation",
-                    request.Did,
+                    issuerDid,
+                    societyDid,
                     "Svrn7VtcCredential",
-                    new { id = request.Did, societyName = request.SocietyName, methodName = request.PrimaryDidMethodName },
+                    new { id = societyDid, societyName = society.SocietyName },
                     _foundationPrivateKey, ct: ct);
                 var vcRecord = new VcRecord
                 {
                     VcId       = $"urn:uuid:{Guid.NewGuid()}",
-                    IssuerDid  = _options.DidMethodName + ":foundation",
-                    SubjectDid = request.Did,
+                    IssuerDid  = issuerDid,
+                    SubjectDid = societyDid,
                     Types      = new List<string> { "VerifiableCredential", "Svrn7VtcCredential" },
                     VcHash     = _crypto.Blake3Hex(Encoding.UTF8.GetBytes(jwtVc)),
                     JwtEncoded = jwtVc,
@@ -316,23 +317,30 @@ public sealed class Svrn7Driver : ISvrn7Driver
             }
             else
             {
-                _log.LogWarning("RegisterSocietyAsync: FoundationPrivateKey not configured — " +
-                    "VTC credential skipped for {Did} (development mode)", request.Did);
+                _log.LogWarning("RegisterSocietyInFederationAsync: FoundationPrivateKey not configured — " +
+                    "VTC credential skipped for {Did} (development mode)", societyDid);
             }
 
             await _merkle.AppendAsync("SocietyRegistration",
-                JsonSerializer.Serialize(new { did = request.Did, method = request.PrimaryDidMethodName }), ct);
+                JsonSerializer.Serialize(new { did = societyDid, societyName = society.SocietyName }), ct);
 
             _socReg.Add(1);
-            _didsPubl.Add(1);
-            _log.LogInformation("Society registered: {Did} ({Method})", request.Did, request.PrimaryDidMethodName);
-            return OperationResult.Ok(new { request.Did, VcId = vtcVcId });
+            _log.LogInformation("Society registered in Federation: {Did}", societyDid);
+            return OperationResult.Ok(new { did = societyDid, VcId = vtcVcId });
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Society registration failed for {Did}", request.Did);
+            _log.LogError(ex, "Society Federation registration failed for {Did}", societyDid);
             return OperationResult.Fail(ex.Message);
         }
+    }
+
+    public async Task<OperationResult> RegisterSocietyAsync(
+        RegisterSocietyRequest request, CancellationToken ct = default)
+    {
+        var init = await InitializeSocietyAsync(request, ct);
+        if (!init.Success) return init;
+        return await RegisterSocietyInFederationAsync(request.DidDocument.Did, ct);
     }
 
     public Task<SocietyRecord?> GetSocietyAsync(string did, CancellationToken ct = default)
@@ -362,73 +370,6 @@ public sealed class Svrn7Driver : ISvrn7Driver
         await _didRegistry.DeactivateAsync(did, ct);
         await _merkle.AppendAsync("SocietyDeactivation",
             JsonSerializer.Serialize(new { did, timestamp = DateTimeOffset.UtcNow }), ct);
-    }
-
-    // ── DID method names ───────────────────────────────────────────────────────
-
-    public async Task<OperationResult> RegisterAdditionalDidMethodAsync(
-        string societyDid, string methodName, CancellationToken ct = default)
-    {
-        ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(methodName);
-
-        if (!System.Text.RegularExpressions.Regex.IsMatch(methodName, @"^[a-z0-9]+$"))
-            return OperationResult.Fail($"Method name '{methodName}' must match [a-z0-9]+.");
-
-        var existingActive = await _federation.GetMethodRecordAsync(methodName, ct);
-        if (existingActive is not null)
-            return OperationResult.Fail($"Method name '{methodName}' is already registered to '{existingActive.SocietyDid}'.");
-
-        // Check dormancy (time-based)
-        var allRecords = await _federation.GetAllMethodsAsync(statusFilter: DidMethodStatus.Dormant, ct: ct);
-        var dormant = allRecords.FirstOrDefault(r => r.MethodName == methodName
-            && r.DormantUntil.HasValue && r.DormantUntil.Value > DateTimeOffset.UtcNow);
-        if (dormant is not null)
-            return OperationResult.Fail(
-                $"Method name '{methodName}' is dormant until {dormant.DormantUntil:O}.");
-
-        await _federation.RegisterMethodAsync(new SocietyDidMethodRecord
-        {
-            SocietyDid = societyDid,
-            MethodName = methodName,
-            IsPrimary  = false,
-            Status     = DidMethodStatus.Active,
-        }, ct);
-
-        _log.LogInformation("Additional DID method '{Method}' registered for Society '{Society}'",
-            methodName, societyDid);
-        return OperationResult.Ok();
-    }
-
-    public async Task<OperationResult> DeregisterDidMethodAsync(
-        string societyDid, string methodName, CancellationToken ct = default)
-    {
-        ThrowIfDisposed();
-        var society = await _registry.GetSocietyAsync(societyDid, ct)
-            ?? throw new NotFoundException("Society", societyDid);
-
-        if (society.PrimaryDidMethodName == methodName)
-            throw new PrimaryDidMethodException(methodName);
-
-        var dormantUntil = DateTimeOffset.UtcNow.Add(_options.DidMethodDormancyPeriod);
-        await _federation.DeregisterMethodAsync(methodName, dormantUntil, ct);
-
-        _log.LogInformation("DID method '{Method}' deregistered from Society '{Society}'. Dormant until {Until}",
-            methodName, societyDid, dormantUntil);
-        return OperationResult.Ok(new { dormantUntil });
-    }
-
-    public Task<DidMethodStatus> GetDidMethodStatusAsync(string methodName, CancellationToken ct = default)
-    {
-        ThrowIfDisposed();
-        return _federation.GetMethodStatusAsync(methodName, ct);
-    }
-
-    public Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllDidMethodsAsync(
-        string? societyDid = null, DidMethodStatus? statusFilter = null, CancellationToken ct = default)
-    {
-        ThrowIfDisposed();
-        return _federation.GetAllMethodsAsync(societyDid, statusFilter, ct);
     }
 
     // ── Transfers ──────────────────────────────────────────────────────────────
@@ -584,10 +525,14 @@ public sealed class Svrn7Driver : ISvrn7Driver
     }
 
     public async Task<OperationResult> InitialiseFederationAsync(
-        string federationDid, string federationName, string publicKeyHex,
-        string primaryDidMethodName, CancellationToken ct = default)
+        DidDocument didDocument, string federationName, CancellationToken ct = default)
     {
         ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(didDocument);
+
+        var federationDid = didDocument.Did;
+        var publicKeyHex  = didDocument.VerificationMethod.FirstOrDefault()?.PublicKeyHex ?? string.Empty;
+
         var existing = await _federation.GetAsync(ct);
         if (existing is not null)
         {
@@ -597,11 +542,10 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
         var record = new FederationRecord
         {
-            Did                    = federationDid,
-            PublicKeyHex           = publicKeyHex,
-            FederationName         = federationName,
-            PrimaryDidMethodName   = primaryDidMethodName,
-            TotalSupplyGrana       = Svrn7Constants.FederationInitialSupplyGrana,
+            Did                      = federationDid,
+            PublicKeyHex             = publicKeyHex,
+            FederationName           = federationName,
+            TotalSupplyGrana         = Svrn7Constants.FederationInitialSupplyGrana,
             EndowmentPerSocietyGrana = 0,
         };
         await _federation.InitialiseAsync(record, ct);
@@ -614,15 +558,19 @@ public sealed class Svrn7Driver : ISvrn7Driver
             IsRestricted = false,
         }, ct);
 
+        // DID Document — stamp role then persist
+        var fedDoc = didDocument with { Role = Svrn7Role.Federation };
+        await _didRegistry.CreateAsync(fedDoc, ct);
+
         await _merkle.AppendAsync("FederationInitialised",
             JsonSerializer.Serialize(new
             {
                 federationDid,
                 federationName,
-                primaryDidMethodName,
                 totalSupplyGrana = Svrn7Constants.FederationInitialSupplyGrana,
             }), ct);
 
+        _didsPubl.Add(1);
         _log.LogInformation("Federation initialised: {Did} ({Name}), supply {Supply} grana",
             federationDid, federationName, Svrn7Constants.FederationInitialSupplyGrana);
         return OperationResult.Ok(new
@@ -724,6 +672,7 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
     public Svrn7KeyPair GenerateSecp256k1KeyPair() { ThrowIfDisposed(); return _crypto.GenerateSecp256k1KeyPair(); }
     public Svrn7KeyPair GenerateEd25519KeyPair()   { ThrowIfDisposed(); return _crypto.GenerateEd25519KeyPair(); }
+    public Svrn7KeyPair GenerateX25519KeyPair()    { ThrowIfDisposed(); return _crypto.GenerateX25519KeyPair(); }
     public string SignSecp256k1(byte[] p, byte[] k) { ThrowIfDisposed(); return _crypto.SignSecp256k1(p, k); }
     public bool VerifySecp256k1(byte[] p, string s, string k) { ThrowIfDisposed(); return _crypto.VerifySecp256k1(p, s, k); }
     public Task<string> Blake3HexAsync(byte[] d, CancellationToken ct = default)
@@ -761,32 +710,72 @@ public sealed class Svrn7Driver : ISvrn7Driver
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    private static DidDocument BuildMinimalDidDocument(string did, string publicKeyHex, string methodName)
+    public DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null, string? x25519PublicKeyHex = null)
+        => BuildMinimalDidDocument(did, publicKeyHex, methodName, serviceEndpointUrl, role, tdaName, x25519PublicKeyHex);
+
+    public static DidDocument BuildMinimalDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null, string? x25519PublicKeyHex = null)
     {
+        var keyId   = $"{did}#key-1";
+        var kaKeyId = x25519PublicKeyHex is not null ? $"{did}#key-agreement-1" : (string?)null;
+
+        var vm = new DidVerificationMethod
+        {
+            Id           = keyId,
+            Type         = "EcdsaSecp256k1VerificationKey2019",
+            Controller   = did,
+            PublicKeyHex = publicKeyHex,
+        };
+
+        DidServiceEndpoint? svc = serviceEndpointUrl is not null
+            ? new DidServiceEndpoint { Id = $"{did}#didcomm-1", Type = "DIDCommMessaging", ServiceEndpoint = serviceEndpointUrl }
+            : null;
+
+        var jsonOpts = new JsonSerializerOptions
+            { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
+
+        object[] verificationMethods = kaKeyId is not null
+            ? [
+                new { id = vm.Id, type = vm.Type, controller = vm.Controller, publicKeyHex = vm.PublicKeyHex },
+                new { id = kaKeyId, type = "X25519KeyAgreementKey2020", controller = did, publicKeyHex = x25519PublicKeyHex }
+              ]
+            : [new { id = vm.Id, type = vm.Type, controller = vm.Controller, publicKeyHex = vm.PublicKeyHex }];
+
         var doc = new
         {
             context            = new[] { "https://www.w3.org/ns/did/v1" },
             id                 = did,
-            verificationMethod = new[]
-            {
-                new
-                {
-                    id           = $"{did}#key-1",
-                    type         = "EcdsaSecp256k1VerificationKey2019",
-                    controller   = did,
-                    publicKeyHex = publicKeyHex
-                }
-            },
-            authentication = new[] { $"{did}#key-1" },
+            verificationMethod = verificationMethods,
+            authentication     = new[] { keyId },
+            assertionMethod    = new[] { keyId },
+            keyAgreement       = kaKeyId is not null ? new[] { kaKeyId } : null,
+            service            = svc is not null
+                ? new[] { new { id = svc.Id, type = svc.Type, serviceEndpoint = svc.ServiceEndpoint } }
+                : null,
+            tdaRole            = role?.ToString(),
+            tdaName            = tdaName,
         };
 
-        return new DidDocument
+        var result = new DidDocument
         {
-            Did          = did,
-            MethodName   = methodName,
-            Version      = 1,
-            Status       = DidStatus.Active,
-            DocumentJson = JsonSerializer.Serialize(doc),
+            Did                = did,
+            MethodName         = methodName,
+            Controller         = did,
+            VerificationMethod = [vm],
+            Authentication     = [keyId],
+            AssertionMethod    = [keyId],
+            Role               = role,
+            Svrn7Name          = tdaName,
+            Version            = 1,
+            Status             = DidStatus.Active,
+            DocumentJson       = JsonSerializer.Serialize(doc, jsonOpts),
         };
+        if (svc is not null)   result.ServiceEndpoints.Add(svc);
+        if (kaKeyId is not null)
+        {
+            result.VerificationMethod.Add(new DidVerificationMethod
+                { Id = kaKeyId, Type = "X25519KeyAgreementKey2020", Controller = did, PublicKeyHex = x25519PublicKeyHex });
+            result.KeyAgreement.Add(kaKeyId);
+        }
+        return result;
     }
 }

@@ -1,0 +1,482 @@
+# SVRN7 — DID & DIDDocument Debug Guide
+#
+# Covers all DID and DIDDocument operations: key generation, registration, document
+# inspection, method management, secondary DIDs, resolution, and DIDComm-based resolution.
+#
+# ---
+#
+# DID Document types
+#
+# There is one DID Document schema (Svrn7.Core.Models.DidDocument) shared across all
+# roles.  The Role field and DID format distinguish the four variants:
+#
+# | Role       | DidDocument.Role | DID format                                                          | Created by                                                                      |
+# |------------|------------------|---------------------------------------------------------------------|---------------------------------------------------------------------------------|
+# | Wanderer   | Wanderer         | did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>                | TDA auto-generates on first run; key material persisted to {port}/mem/agent-identity.json |
+# | Citizen    | Citizen          | did:drn:<societyname>.svrn7.net/citizen/1.0/<genesis-hash>         | Society creates during register-citizen processing                              |
+# | Society    | Society          | did:drn:federation.svrn7.net/<societyname>/1.0/<genesis-hash>      | Federation creates during register-society processing                           |
+# | Federation | Federation       | did:drn:federation.svrn7.net/federation/1.0/<genesis-hash>         | Self-created during initialize-federation                                       |
+#
+# <genesis-hash> = Blake3(genesis_secp256k1_compressed_pubkey_bytes) hex-encoded (64 chars).
+# Derived once; stable across key rotations — key rotation updates verificationMethod in the
+# DID Document, not the DID itself.
+#
+# Key fields shared by all four types:
+#
+# | Field                | Purpose                                                                             |
+# |----------------------|-------------------------------------------------------------------------------------|
+# | Did                  | W3C DID identifier — the primary lookup key                                         |
+# | MethodName           | SVRN7 registry key — always drn                                                     |
+# | VerificationMethod[] | secp256k1 or Ed25519 public keys                                                    |
+# | ServiceEndpoints[]   | DIDComm endpoints (Type = "DIDCommMessaging", ServiceEndpoint = "http://host:port/didcomm") |
+# | Role                 | Enum tag — used for role-based resolution escalation                                |
+# | Svrn7Name            | Human-readable name displayed in the TDA startup banner                             |
+#
+# Bootstrap exchange: The creating party sends a copy of the created DID Document back
+# to the registering party in the reply, so both registries hold the document after a
+# single registration round-trip:
+#
+# register-citizen      →  Society stores citizenDidDocument
+# receipt               →  Citizen stores citizenDidDocument + societyDidDocument
+#
+# register-society      →  Federation stores societyDidDocument
+# register-society-result → Society stores societyDidDocument + federationDidDocument
+#
+# society-list-result   →  Requester stores societyDidDocument (per society in the result)
+#
+# ---
+#
+# Prerequisites
+#
+# PowerShell 7 — All commands require PowerShell 7 (pwsh.exe):
+
+$PSVersionTable.PSVersion   # Major must be 7
+
+# Working directory:
+
+Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
+
+# Module imports:
+
+Import-Module .\lobes\Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1
+Import-Module .\lobes\Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1
+
+# TDA requirement:
+# New-Svrn7KeyPair and New-Svrn7Did work with no TDA and no driver — both are pure
+# in-memory operations. Persistence cmdlets (Initialize-Svrn7Citizen, etc.) require the
+# $SVRN7 Federation driver context — set up either by running a TDA or by calling
+# Initialize-Svrn7FederationDriver in the local PS session (Scenario D1b.1).
+#
+# Two workflows:
+#
+# | Workflow                          | When to use                                                   |
+# |-----------------------------------|---------------------------------------------------------------|
+# | Standalone PS (D1)                | Dev/test: Initialize-Svrn7FederationDriver opens local DBs; no TDA process needed |
+# | DIDComm via running TDA (D2)      | Production: send messages to a live TDA; driver lives inside the TDA host |
+#
+# ---
+#
+# Scenario D1 — Key generation and DID creation (PS CLI, no TDA required)
+#
+# D1.1 — Generate a key pair
+
+Write-Host "--- D1.1 — Generate a key pair ---"
+$kp = New-Svrn7KeyPair
+$kp
+
+# Expected output:
+#
+# Algorithm    : Secp256k1
+# PublicKeyHex : 02a1b2c3d4...
+# PrivateKeyHex: 8f7e6d5c4b...
+#
+# D1.2 — Create a DID
+#
+# New-Svrn7Did derives the DID URI deterministically from the secp256k1 public key and
+# builds the DidDocument record in memory. No driver or database is needed — this is a
+# pure crypto operation.
+
+Write-Host "--- D1.2 — Create a DID ---"
+$didDoc = New-Svrn7Did -KeyPair $kp -Role 'Citizen' -SocietyName 'bindloss' `
+              -ServiceEndpointUrl "http://localhost:8443/didcomm" `
+              -Svrn7Name "MyTDA"
+
+$didDoc.Did
+
+# Expected output:
+#
+# did:drn:bindloss.svrn7.net/citizen/1.0/a3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4
+#
+# The DID string is derived deterministically from Blake3(PublicKeyHex bytes) — the same
+# genesis key pair always produces the same DID regardless of subsequent key rotations.
+#
+# ---
+#
+# Scenario D1b — Persist a DID Document via local driver (no TDA required)
+#
+# Requires $didDoc and $kp from Scenario D1.
+#
+# D1b.1 — Initialise the local Federation driver
+#
+# Initialize-Svrn7Citizen and all other persistence cmdlets require the $SVRN7 driver
+# context. Initialize-Svrn7FederationDriver sets up a local driver backed by its own
+# LiteDB databases — no running TDA is needed.
+
+Write-Host "--- D1b.1 — Initialise the local Federation driver ---"
+Initialize-Svrn7FederationDriver -DbPath "./data-d1" -DidMethodName "drn" -Verbose
+
+# Expected verbose output:
+#
+# VERBOSE: Loaded: Svrn7.Core.dll
+# VERBOSE: Loaded: Svrn7.Crypto.dll
+# ...
+# VERBOSE: Svrn7.Federation ready. DbRoot: ./data-d1  Method: drn
+#
+# D1b.2 — Persist the DID Document
+#
+# Initialize-Svrn7Citizen registers the DidDocument produced in D1.2 and writes it
+# to the local svrn7-dids.db. The stored document is assigned Version=1,
+# Status=Active, and Role=Citizen.
+
+Write-Host "--- D1b.2 — Persist the DID Document ---"
+$reg = Initialize-Svrn7Citizen -DidDocument $didDoc -KeyPair $kp
+$reg | Format-List CitizenDid, Success, EndowmentSvrn7
+
+# Expected output:
+#
+# CitizenDid     : did:drn:bindloss.svrn7.net/citizen/1.0/a3d4e5f6...c3d4
+# Success        : True
+# EndowmentSvrn7 : 1000.000000
+
+# Verify the persisted DID Document:
+
+$result = Resolve-Svrn7Did -Did $didDoc.Did
+$result.Document | Format-List Did, Version, Status, Role
+$result.Document.VerificationMethod | Format-List
+$result.Document.DocumentJson | ConvertFrom-Json | ConvertTo-Json -Depth 5
+
+# Expected:
+#
+# Did     : did:drn:bindloss.svrn7.net/citizen/1.0/a3d4e5f6...c3d4
+# Version : 1
+# Status  : Active
+# Role    : Citizen
+#
+# ---
+#
+# Scenario D2 — Registering Federation, Society, or Citizen (TDA running)
+#
+# Registration is triggered by sending DIDComm messages to the running TDA. Key pairs are
+# generated from the PS CLI (D1.1); the public key hex is included in the message body.
+# The TDA calls New-Svrn7Did internally and persists the DidDocument to svrn7-dids.db.
+#
+# Include serviceEndpointUrl in the message body to embed the TDA's DIDComm endpoint
+# in the stored DidDocument so other TDAs can discover it via resolution.
+#
+# D2.0 — Register the Federation (one-time, idempotent)
+
+Write-Host "--- D2.0 — Register the Federation ---"
+$kp = New-Svrn7KeyPair   # D1.1 — from PS CLI
+
+$body = @{
+    federationName     = 'Web 7.0 Foundation'
+    publicKeyHex       = $kp.PublicKeyHex
+    serviceEndpointUrl = 'https://foundation.svrn7.net:8443/didcomm'
+} | ConvertTo-Json -Compress
+
+$msg = @{
+    typ  = 'application/didcomm-plain+json'
+    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
+    type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation'
+    from = 'did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>'
+    to   = @('did:drn:federation.svrn7.net/federation/1.0/<genesis-hash>')
+    body = $body
+} | ConvertTo-Json
+
+Send-LocalDIDCommMessage -Body $msg
+
+# Expected TDA log:
+#
+# [Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation)
+#         → Invoke-Web7FederationInit [Svrn7.Federation]
+# [Info]  Federation initialised: did:drn:federation.svrn7.net/federation/1.0/<genesis-hash> (Web 7.0 Foundation)
+#
+# D2.1 — Register a Society
+
+Write-Host "--- D2.1 — Register a Society ---"
+$kp = New-Svrn7KeyPair   # D1.1 — from PS CLI
+
+$body = @{
+    societyName          = 'bindloss'
+    societyDisplayName   = 'Bindloss Alberta'
+    publicKeyHex         = $kp.PublicKeyHex
+    serviceEndpointUrl   = 'https://bindloss.svrn7.net:8443/didcomm'
+    drawAmountGrana      = 1000000000000
+    overdraftCeilingGrana= 10000000000000
+} | ConvertTo-Json -Compress
+
+$msg = @{
+    typ  = 'application/didcomm-plain+json'
+    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
+    type = 'did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society'
+    from = 'did:drn:wanderer.svrn7.net/agent/1.0/<genesis-hash>'
+    to   = @('did:drn:federation.svrn7.net/federation/1.0/<genesis-hash>')
+    body = $body
+} | ConvertTo-Json
+
+Send-LocalDIDCommMessage -Body $msg
+
+# Expected TDA log:
+# [Info]  Society registered: did:drn:federation.svrn7.net/bindloss/1.0/<genesis-hash> (Bindloss Alberta)
+#
+# D2.2 — Register a Citizen
+
+Write-Host "--- D2.2 — Register a Citizen ---"
+$kp = New-Svrn7KeyPair   # D1.1 — from PS CLI
+# DID is derived by the Society from publicKeyHex during register-citizen processing
+$citizenDid = New-Svrn7Did -KeyPair $kp -Role 'Citizen' -SocietyName 'bindloss'
+
+$body = @{
+    publicKeyHex       = $kp.PublicKeyHex
+    displayName        = 'mwherman'
+    serviceEndpointUrl = 'https://mwherman.svrn7.net:8443/didcomm'
+} | ConvertTo-Json -Compress
+
+$msg = @{
+    typ  = 'application/didcomm-plain+json'
+    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
+    type = 'did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen'
+    from = $citizenDid.Did
+    to   = @('did:drn:federation.svrn7.net/bindloss/1.0/<genesis-hash>')
+    body = $body
+} | ConvertTo-Json
+
+Send-LocalDIDCommMessage -Body $msg
+
+# Expected TDA log:
+# [Info]  Citizen registered: did:drn:bindloss.svrn7.net/citizen/1.0/<genesis-hash>
+#
+# ---
+#
+# Scenario D3 — Inspect all W3C DIDDocument fields
+#
+# After registration the DidDocument stored in svrn7-dids.db contains all W3C DID
+# Core 1.0 properties as first-class typed fields.
+#
+# D3.1 — Verification methods
+
+Write-Host "--- D3.1 — Verification methods ---"
+$didDoc.VerificationMethod | Format-List
+
+# Expected:
+#
+# Id                : did:drn:3J98...#key-1
+# Type              : EcdsaSecp256k1VerificationKey2019
+# Controller        : did:drn:3J98...
+# PublicKeyHex      : 02a1b2c3d4...
+# PublicKeyMultibase:
+#
+# D3.2 — Verification relationships
+
+$didDoc.Authentication       # ['did:drn:3J98...#key-1']
+$didDoc.AssertionMethod      # ['did:drn:3J98...#key-1']
+$didDoc.KeyAgreement         # [] — empty at creation
+$didDoc.CapabilityInvocation # [] — empty at creation
+$didDoc.CapabilityDelegation # [] — empty at creation
+
+# Authentication and AssertionMethod are both populated with #key-1 at construction.
+#
+# D3.3 — Service endpoints
+
+$didDoc.ServiceEndpoints | Format-List
+
+# Expected (when -ServiceEndpointUrl was passed to New-Svrn7Did):
+#
+# Id              : did:drn:3J98...#didcomm-1
+# Type            : DIDCommMessaging
+# ServiceEndpoint : https://foundation.svrn7.net:8443/didcomm
+#
+# D3.4 — Controller and AlsoKnownAs
+
+$didDoc.Controller    # 'did:drn:3J98...' — same as Did at construction
+$didDoc.AlsoKnownAs   # [] — empty at construction
+
+# D3.5 — Proof (Data Integrity)
+
+$didDoc.Proof   # $null at construction — populated after signing
+
+# D3.6 — Canonical W3C JSON
+
+Write-Host "--- D3.6 — Canonical W3C JSON ---"
+$didDoc.DocumentJson | ConvertFrom-Json | ConvertTo-Json -Depth 5
+
+# Expected (with service endpoint):
+#
+# {
+#   "context": ["https://www.w3.org/ns/did/v1"],
+#   "id": "did:drn:3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",
+#   "verificationMethod": [
+#     {
+#       "id": "did:drn:3J98...#key-1",
+#       "type": "EcdsaSecp256k1VerificationKey2019",
+#       "controller": "did:drn:3J98...",
+#       "publicKeyHex": "02a1b2c3..."
+#     }
+#   ],
+#   "authentication": ["did:drn:3J98...#key-1"],
+#   "assertionMethod": ["did:drn:3J98...#key-1"],
+#   "service": [
+#     {
+#       "id": "did:drn:3J98...#didcomm-1",
+#       "type": "DIDCommMessaging",
+#       "serviceEndpoint": "https://foundation.svrn7.net:8443/didcomm"
+#     }
+#   ]
+# }
+#
+# D3.7 — Registry metadata
+
+$didDoc.Id            # LiteDB document PK (Guid, not the DID)
+$didDoc.Version       # 1
+$didDoc.Status        # Active
+$didDoc.CreatedAt
+$didDoc.UpdatedAt
+$didDoc.DeactivatedAt # $null while Active
+
+# ---
+#
+# Scenario D4 — DID resolution (TDA running)
+#
+# D4.1 — Resolve a DID to its full DIDDocument
+
+Write-Host "--- D4.1 — Resolve a DID to its full DIDDocument ---"
+$result = Resolve-Svrn7Did -Did $didDoc.Did
+$result.Found        # $true
+$result.Document     # DidDocument object
+$result.ErrorCode    # $null on success
+$result.ResolvedAt
+
+# Inspect the resolved document:
+
+$result.Document | Format-List Did, MethodName, Status, Version
+$result.Document.VerificationMethod | Format-List
+$result.Document.ServiceEndpoints | Format-List
+
+# D4.2 — Resolve a DID that does not exist
+
+Write-Host "--- D4.2 — Resolve a DID that does not exist ---"
+$result = Resolve-Svrn7Did -Did 'did:drn:doesnotexist'
+$result.Found      # $false
+$result.Document   # $null
+$result.ErrorCode  # 'notFound'
+
+# D4.3 — Test whether a DID is Active
+
+Write-Host "--- D4.3 — Test whether a DID is Active ---"
+Test-Svrn7DidActive -Did $didDoc.Did   # $true
+
+# ---
+#
+# Scenario D8 — DIDComm-based DID resolution (Identity LOBE, TDA running)
+#
+# | Direction | Protocol URI                                                                   |
+# |-----------|--------------------------------------------------------------------------------|
+# | Request   | did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request          |
+# | Response  | did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response         |
+#
+# D8.1 — Send a DID resolve request
+
+Write-Host "--- D8.1 — Send a DID resolve request ---"
+$requesterDid = 'did:drn:bindloss.svrn7.net/citizen/1.0/<genesis-hash>'
+$targetDid    = 'did:drn:sovronia.svrn7.net/citizen/1.0/<genesis-hash>'
+
+$body = @{ did = $targetDid; from = $requesterDid } | ConvertTo-Json -Compress
+
+$msg = @{
+    typ  = 'application/didcomm-plain+json'
+    id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
+    type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request'
+    from = $requesterDid
+    to   = @('did:drn:federation.svrn7.net/bindloss/1.0/<genesis-hash>')
+    body = $body
+} | ConvertTo-Json
+
+Send-LocalDIDCommMessage -Body $msg
+
+# Expected TDA log:
+#
+# [Info]  Switchboard: routing ... (type=did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request)
+#         → Resolve-Svrn7Did [Svrn7.Identity]
+# [Info]  Invoke-Svrn7DidResolveResponse: requestedDid='did:drn:sovronia.svrn7.net/citizen/1.0/<genesis-hash>' found=True
+#
+# D8.2 — Response payload
+#
+# {
+#   "from":         "did:drn:federation.svrn7.net/bindloss/1.0/<genesis-hash>",
+#   "to":           "did:drn:bindloss.svrn7.net/citizen/1.0/<genesis-hash>",
+#   "requestedDid": "did:drn:sovronia.svrn7.net/citizen/1.0/<genesis-hash>",
+#   "found":        true,
+#   "didDocument":  { ... },
+#   "resolvedAt":   "2026-06-05T..."
+# }
+#
+# D8.3 — Resolve a DID that is not found
+#
+# { "found": false, "didDocument": null, "requestedDid": "did:drn:doesnotexist" }
+#
+# ---
+#
+# DIDDocument persistence reference
+#
+# Initialize-Svrn7Federation / Initialize-Svrn7Society / Register-Svrn7Citizen
+#   → ISvrn7Driver.InitialiseFederationAsync / RegisterSocietyAsync / RegisterCitizenAsync
+#     → LiteDidDocumentRegistry.CreateAsync
+#       → svrn7-dids.db  (Documents + History collections)
+#
+# | Cmdlet                        | Driver method                          | Persists DidDocument |
+# |-------------------------------|----------------------------------------|:--------------------:|
+# | Initialize-Svrn7Federation    | InitialiseFederationAsync(DidDocument) | Yes                  |
+# | Initialize-Svrn7Society       | RegisterSocietyAsync(request)          | Yes                  |
+# | Register-Svrn7Citizen         | RegisterCitizenAsync(request)          | Yes                  |
+#
+# ---
+#
+# Quick-reference: all DID cmdlets
+#
+# | Cmdlet                   | Key parameters                                            | LOBE       | Requires TDA |
+# |--------------------------|-----------------------------------------------------------|------------|:------------:|
+# | New-Svrn7KeyPair         | —                                                         | Federation | No           |
+# | New-Svrn7Did             | -KeyPair -Role [-SocietyName] [-ServiceEndpointUrl] [-Svrn7Name] | Federation | No    |
+# | Initialize-Svrn7Federation | (reads Wanderer DIDDocument)                            | Federation | Yes          |
+# | Initialize-Svrn7Citizen  | -DidDocument -KeyPair                                     | Federation | Yes          |
+# | Register-Svrn7Citizen    | -DidDocument -KeyPair                                     | Society    | Yes          |
+# | Initialize-Svrn7Society  | -DidDocument -KeyPair -Name                               | Federation | Yes          |
+# | Resolve-Svrn7Did         | -Did                                                      | Federation | Yes          |
+# | Test-Svrn7DidActive      | -Did                                                      | Federation | Yes          |
+#
+# ---
+#
+# DIDDocument field reference
+#
+# | Field                | W3C DID Core      | Type                   | Notes                                                           |
+# |----------------------|-------------------|------------------------|-----------------------------------------------------------------|
+# | Did                  | id                | string                 | Required                                                        |
+# | Controller           | controller        | string?                | Defaults to Did at construction                                 |
+# | AlsoKnownAs          | alsoKnownAs       | List<string>           | Empty at construction                                           |
+# | VerificationMethod   | verificationMethod | List<DidVerificationMethod> | #key-1 added at construction                               |
+# | Authentication       | authentication    | List<string>           | [#key-1] at construction                                        |
+# | AssertionMethod      | assertionMethod   | List<string>           | [#key-1] at construction                                        |
+# | KeyAgreement         | keyAgreement      | List<string>           | Empty at construction                                           |
+# | CapabilityInvocation | capabilityInvocation | List<string>        | Empty at construction                                           |
+# | CapabilityDelegation | capabilityDelegation | List<string>        | Empty at construction                                           |
+# | ServiceEndpoints     | service           | List<DidServiceEndpoint> | Populated when -ServiceEndpointUrl is passed to New-Svrn7Did |
+# | Proof                | Data Integrity    | DidProof?              | $null until signed                                              |
+# | DocumentJson         | —                 | string                 | Canonical W3C JSON; registry-stored                             |
+# | MethodName           | —                 | string                 | SVRN7 registry key                                              |
+# | Role                 | role              | Svrn7Role?             | Wanderer / Citizen / Society / Federation                       |
+# | Svrn7Name            | svrn7Name         | string?                | Human-readable TDA name                                         |
+# | Version              | —                 | int                    | Monotonically increasing                                        |
+# | Status               | —                 | DidStatus              | Active / Suspended / Deactivated                                |
+# | CreatedAt            | —                 | DateTimeOffset         | Registry metadata                                               |
+# | UpdatedAt            | —                 | DateTimeOffset         | Registry metadata                                               |
+# | DeactivatedAt        | —                 | DateTimeOffset?        | Set on deactivation                                             |

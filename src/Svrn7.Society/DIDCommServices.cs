@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,9 +18,9 @@ namespace Svrn7.Society;
 /// All transfers — same-Society and cross-Society — arrive here after DIDComm unpack.
 ///
 /// Protocol URIs handled:
-///   transfer/1.0/request      — citizen-initiated transfer
-///   transfer/1.0/order        — cross-Society TransferOrderCredential from another Society
-///   transfer/1.0/order-receipt— settlement confirmation from receiving Society
+///   Svrn7.Society/0.8.0/transfer-request      — citizen-initiated transfer
+///   Svrn7.Society/0.8.0/transfer-order        — cross-Society TransferOrderCredential from another Society
+///   Svrn7.Society/0.8.0/transfer-order-receipt— settlement confirmation from receiving Society
 /// </summary>
 public sealed class DIDCommTransferHandler : IDIDCommTransferHandler
 {

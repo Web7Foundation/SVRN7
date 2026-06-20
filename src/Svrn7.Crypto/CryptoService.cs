@@ -54,6 +54,19 @@ public sealed class CryptoService : ICryptoService
         };
     }
 
+    public Svrn7KeyPair GenerateX25519KeyPair()
+    {
+        var algo = KeyAgreementAlgorithm.X25519;
+        using var key = NSec.Cryptography.Key.Create(algo,
+            new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextExport });
+        return new Svrn7KeyPair
+        {
+            PublicKeyHex    = Convert.ToHexString(key.PublicKey.Export(KeyBlobFormat.RawPublicKey)).ToLowerInvariant(),
+            PrivateKeyBytes = key.Export(KeyBlobFormat.RawPrivateKey),
+            Algorithm       = KeyAlgorithm.X25519
+        };
+    }
+
     // ── Signing / verification ────────────────────────────────────────────────
 
     public string SignSecp256k1(byte[] payload, byte[] privateKeyBytes)

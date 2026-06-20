@@ -18,8 +18,7 @@ public sealed class FederationLiteContext : IDisposable
     private readonly bool _ownsDatabase;
     private bool _disposed;
 
-    public const string ColFederation  = "FederationRecords";
-    public const string ColMethodReg   = "DidMethodRegistry";
+    public const string ColFederation = "FederationRecords";
 
     /// <summary>
     /// Opens a new exclusive LiteDB connection. Use only when no other context has the file open.
@@ -28,11 +27,8 @@ public sealed class FederationLiteContext : IDisposable
     {
         var mapper = new BsonMapper();
         mapper.Entity<FederationRecord>().Id(f => f.Did);
-        // SocietyDidMethodRecord has a synthetic Id property — LiteDB auto-maps it to _id.
         _db = new LiteDatabase(connectionString, mapper);
         _ownsDatabase = true;
-        _db.GetCollection<SocietyDidMethodRecord>(ColMethodReg)
-           .EnsureIndex(r => r.MethodName, unique: false);  // historical records — not unique
     }
 
     /// <summary>
@@ -45,12 +41,9 @@ public sealed class FederationLiteContext : IDisposable
     {
         _db = sharedDb;
         _ownsDatabase = false;
-        _db.GetCollection<SocietyDidMethodRecord>(ColMethodReg)
-           .EnsureIndex(r => r.MethodName, unique: false);  // historical records — not unique
     }
 
-    public ILiteCollection<FederationRecord>       Federation  => Get<FederationRecord>(ColFederation);
-    public ILiteCollection<SocietyDidMethodRecord> MethodReg   => Get<SocietyDidMethodRecord>(ColMethodReg);
+    public ILiteCollection<FederationRecord> Federation => Get<FederationRecord>(ColFederation);
 
     private ILiteCollection<T> Get<T>(string name)
     {
@@ -69,9 +62,7 @@ public sealed class FederationLiteContext : IDisposable
 // ── LiteFederationStore ───────────────────────────────────────────────────────
 
 /// <summary>
-/// IFederationStore implementation.
-/// Manages FederationRecord and the global DID method name registry.
-/// Method name dormancy is evaluated time-based — dormant records are never deleted.
+/// IFederationStore implementation. Manages the FederationRecord in svrn7.db.
 /// </summary>
 public sealed class LiteFederationStore : IFederationStore
 {
@@ -105,69 +96,6 @@ public sealed class LiteFederationStore : IFederationStore
         fed.TotalSupplyGrana = newTotalSupplyGrana;
         _ctx.Federation.Update(fed);
         return Task.CompletedTask;
-    }
-
-    public Task<DidMethodStatus> GetMethodStatusAsync(string methodName, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        // Find the most recent record for this method name
-        var record = _ctx.MethodReg
-            .Find(r => r.MethodName == methodName)
-            .OrderByDescending(r => r.RegisteredAt)
-            .FirstOrDefault();
-
-        if (record is null)
-            return Task.FromResult(DidMethodStatus.Active); // treat as Available — caller checks
-
-        if (record.Status == DidMethodStatus.Active)
-            return Task.FromResult(DidMethodStatus.Active);
-
-        // Dormant — check if dormancy period has expired
-        if (record.DormantUntil.HasValue && record.DormantUntil.Value <= DateTimeOffset.UtcNow)
-            return Task.FromResult(DidMethodStatus.Active); // Available — but we return Active as flag meaning "re-registerable"
-
-        return Task.FromResult(DidMethodStatus.Dormant);
-    }
-
-    public Task RegisterMethodAsync(SocietyDidMethodRecord record, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        _ctx.MethodReg.Insert(record);
-        return Task.CompletedTask;
-    }
-
-    public Task DeregisterMethodAsync(string methodName, DateTimeOffset dormantUntil, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        var record = _ctx.MethodReg
-            .Find(r => r.MethodName == methodName && r.Status == DidMethodStatus.Active)
-            .FirstOrDefault()
-            ?? throw new NotFoundException("DidMethodRecord", methodName);
-        record.Status        = DidMethodStatus.Dormant;
-        record.DeregisteredAt= DateTimeOffset.UtcNow;
-        record.DormantUntil  = dormantUntil;
-        _ctx.MethodReg.Update(record);
-        return Task.CompletedTask;
-    }
-
-    public Task<SocietyDidMethodRecord?> GetMethodRecordAsync(string methodName, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        var record = _ctx.MethodReg
-            .Find(r => r.MethodName == methodName && r.Status == DidMethodStatus.Active)
-            .FirstOrDefault();
-        return Task.FromResult<SocietyDidMethodRecord?>(record);
-    }
-
-    public Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllMethodsAsync(
-        string? societyDid = null, DidMethodStatus? statusFilter = null,
-        CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        var all = _ctx.MethodReg.FindAll();
-        if (societyDid    is not null) all = all.Where(r => r.SocietyDid == societyDid);
-        if (statusFilter  is not null) all = all.Where(r => r.Status     == statusFilter);
-        return Task.FromResult<IReadOnlyList<SocietyDidMethodRecord>>(all.ToList());
     }
 }
 

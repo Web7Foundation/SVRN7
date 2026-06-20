@@ -8,6 +8,7 @@ public interface ICryptoService
 {
     Svrn7KeyPair GenerateSecp256k1KeyPair();
     Svrn7KeyPair GenerateEd25519KeyPair();
+    Svrn7KeyPair GenerateX25519KeyPair();
     string  SignSecp256k1(byte[] payload, byte[] privateKeyBytes);   // returns CESR string
     string  SignEd25519(byte[] payload, byte[] privateKeyBytes);     // returns CESR string
     bool    VerifySecp256k1(byte[] payload, string cesrSignature, string publicKeyHex);
@@ -60,6 +61,7 @@ public interface IIdentityRegistry
 
     Task RegisterSocietyAsync(SocietyRecord society, CancellationToken ct = default);
     Task<SocietyRecord?> GetSocietyAsync(string did, CancellationToken ct = default);
+    Task<SocietyRecord?> GetSocietyByNameAsync(string societyName, CancellationToken ct = default);
     Task<IReadOnlyList<SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct = default);
     Task<bool> IsSocietyActiveAsync(string did, CancellationToken ct = default);
     Task SetSocietyActiveAsync(string did, bool active, CancellationToken ct = default);
@@ -225,13 +227,6 @@ public interface IFederationStore
     Task InitialiseAsync(FederationRecord record, CancellationToken ct = default);
     Task<FederationRecord?> GetAsync(CancellationToken ct = default);
     Task UpdateSupplyAsync(long newTotalSupplyGrana, CancellationToken ct = default);
-    Task<DidMethodStatus> GetMethodStatusAsync(string methodName, CancellationToken ct = default);
-    Task RegisterMethodAsync(SocietyDidMethodRecord record, CancellationToken ct = default);
-    Task DeregisterMethodAsync(string methodName, DateTimeOffset dormantUntil, CancellationToken ct = default);
-    Task<SocietyDidMethodRecord?> GetMethodRecordAsync(string methodName, CancellationToken ct = default);
-    Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllMethodsAsync(
-        string? societyDid = null, DidMethodStatus? statusFilter = null,
-        CancellationToken ct = default);
 }
 
 // ── Society membership store ──────────────────────────────────────────────────
@@ -300,6 +295,14 @@ public interface IInboxStore
     /// <summary>Returns the count of messages per status for monitoring.</summary>
     Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns up to <paramref name="limit"/> Processed messages whose
+    /// <see cref="InboxMessage.MessageType"/> starts with <paramref name="typePrefix"/>,
+    /// ordered newest-first. Used by LOBE cmdlets to satisfy list-query protocols.
+    /// </summary>
+    Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(
+        string typePrefix, int limit = 50, CancellationToken ct = default);
 }
 
 public interface ISocietyMembershipStore

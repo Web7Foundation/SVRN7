@@ -10,13 +10,13 @@
     "website":       "https://svrn7.net",
     "license":       "MIT",
     "epochRequired": 0,
-    "module":        "Pando.Diagnostics.psm1"
+    "module":        "Pando.Diagnostics.0.1.0.psm1"
   },
   "protocols": [
     {
-      "uri":           "did:drn:svrn7.net/protocols/diagnostics/1.0/date-query",
+      "uri":           "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query",
       "title":         "Diagnostics Date Query",
-      "description":   "Requests the current server UTC date/time from the target TDA. Delegates to Get-TDADate from Pando.Diagnostics.Impl.psm1. Body: no required fields. Optional: { replyEndpoint }.",
+      "description":   "Requests the current server UTC date/time from the target TDA. Delegates to Get-TDADate from Pando.Diagnostics.Impl.0.1.0.psm1. Body: no required fields. Optional: { replyEndpoint }.",
       "direction":     "inbound",
       "match":         "exact",
       "entrypoint":    "Invoke-PandoDiagnosticsDateQuery",
@@ -26,7 +26,7 @@
   "cmdlets": [
     {
       "name":        "Get-TDADate",
-      "description": "Returns the TDA server's current date and time as a DateTimeOffset (UTC). Defined in Pando.Diagnostics.Impl.psm1; re-exported for use by other LOBEs."
+      "description": "Returns the TDA server's current date and time as a DateTimeOffset (UTC). Defined in Pando.Diagnostics.Impl.0.1.0.psm1; re-exported for use by other LOBEs."
     }
   ],
   "dependencies": {

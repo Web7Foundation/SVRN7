@@ -419,14 +419,14 @@ public class LobeDescriptorTests
         d.Protocols.Should().HaveCount(2);
 
         var prefix = d.Protocols[0];
-        prefix.Uri.Should().Be("https://test.example/protocols/email/1.0/message");
+        prefix.Uri.Should().Be("https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail");
         prefix.Match.Should().Be("prefix");
         prefix.Entrypoint.Should().Be("Receive-TestEmail");
         prefix.Direction.Should().Be("inbound");
         prefix.EpochRequired.Should().Be(0);
 
         var exact = d.Protocols[1];
-        exact.Uri.Should().Be("https://test.example/protocols/email/1.0/receipt");
+        exact.Uri.Should().Be("https://test.example/protocols/Svrn7.Email.0.8.0/issue-receipt");
         exact.Match.Should().Be("exact");
         exact.Entrypoint.Should().Be("Receive-TestEmailReceipt");
     }
@@ -510,8 +510,8 @@ public class LobeDescriptorTests
         if (!File.Exists(path)) return;
 
         var d = LobeDescriptor.LoadFromFile(path)!;
-        d.Cmdlets.Should().Contain(c => c.Name == "Send-DIDCommMessage",
-            because: "Send-DIDCommMessage was added to Common and must appear in the LOBE descriptor");
+        d.Cmdlets.Should().Contain(c => c.Name == "Send-LocalDIDCommMessage",
+            because: "Send-LocalDIDCommMessage must appear in the Common LOBE descriptor");
     }
 
     [Theory]
@@ -589,9 +589,9 @@ public class LobeManagerRegistryTests : IDisposable
         var path = Path.Combine(_tmpDir, "Test.Email.lobe.json");
         _manager.RegisterFromDescriptor(path);
 
-        // Prefix match: "https://test.example/protocols/email/1.0/message" prefix
+        // Prefix match: "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail" prefix
         var reg = _manager.TryResolveProtocol(
-            "https://test.example/protocols/email/1.0/message");
+            "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail");
         reg.Should().NotBeNull();
         reg!.Entrypoint.Should().Be("Receive-TestEmail");
         reg.LobeName.Should().Be("Test.Email");
@@ -605,7 +605,7 @@ public class LobeManagerRegistryTests : IDisposable
         _manager.RegisterFromDescriptor(path);
 
         var reg = _manager.TryResolveProtocol(
-            "https://test.example/protocols/email/1.0/receipt");
+            "https://test.example/protocols/Svrn7.Email.0.8.0/issue-receipt");
         reg.Should().NotBeNull();
         reg!.Entrypoint.Should().Be("Receive-TestEmailReceipt");
         reg.Match.Should().Be("exact");
@@ -632,7 +632,7 @@ public class LobeManagerRegistryTests : IDisposable
 
         // Registry should still have exactly one entry per URI
         _manager.ExactRegistrations.Keys
-            .Count(k => k == "https://test.example/protocols/email/1.0/receipt")
+            .Count(k => k == "https://test.example/protocols/Svrn7.Email.0.8.0/issue-receipt")
             .Should().Be(1);
     }
 
@@ -667,11 +667,11 @@ public class LobeManagerRegistryTests : IDisposable
         _manager.RegisterFromDescriptor(Path.Combine(_tmpDir, "Test.Email.lobe.json"));
 
         // The receipt URI matches both:
-        //   prefix: "https://test.example/protocols/email/1.0/message" (prefix of receipt? no)
-        //   exact:  "https://test.example/protocols/email/1.0/receipt"
+        //   prefix: "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail" (prefix of receipt? no)
+        //   exact:  "https://test.example/protocols/Svrn7.Email.0.8.0/issue-receipt"
         // Exact should win
         var reg = _manager.TryResolveProtocol(
-            "https://test.example/protocols/email/1.0/receipt");
+            "https://test.example/protocols/Svrn7.Email.0.8.0/issue-receipt");
         reg!.Entrypoint.Should().Be("Receive-TestEmailReceipt");
     }
 
@@ -680,10 +680,10 @@ public class LobeManagerRegistryTests : IDisposable
     {
         _manager.RegisterFromDescriptor(Path.Combine(_tmpDir, "Test.Email.lobe.json"));
 
-        // The prefix "https://test.example/protocols/email/1.0/message" should match
+        // The prefix "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail" should match
         // any URI starting with that string
         var reg = _manager.TryResolveProtocol(
-            "https://test.example/protocols/email/1.0/message/extended");
+            "https://test.example/protocols/Svrn7.Email.0.8.0/Signal-PandoMail/extended");
         reg.Should().NotBeNull();
         reg!.Entrypoint.Should().Be("Receive-TestEmail");
     }
@@ -797,11 +797,12 @@ public class LobeManagerRegistryTests : IDisposable
 
         // Use a mock-by-hand approach — NullInboxStore and NullSocietyDriver
         return new Svrn7RunspaceContext(
-            driver:          new NullSocietyDriver(),
-            inbox:           new NullInboxStore(),
-            cache:           cache,
-            processedOrders: new NullProcessedOrderStore(),
-            initialEpoch:    0);
+            driver:             new NullSocietyDriver(),
+            inbox:              new NullInboxStore(),
+            cache:              cache,
+            processedOrders:    new NullProcessedOrderStore(),
+            pendingResolutions: new PendingResolutionStore(),
+            initialEpoch:       0);
     }
 
     public void Dispose()
@@ -822,6 +823,7 @@ internal sealed class NullInboxStore : Svrn7.Core.Interfaces.IInboxStore
     public Task MarkFailedAsync(string id, string err, bool retry = true, int max = Svrn7Constants.InboxMaxAttempts, CancellationToken ct = default) => Task.CompletedTask;
     public Task ResetStuckMessagesAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task<System.Collections.Generic.IReadOnlyDictionary<Svrn7.Core.Models.InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyDictionary<Svrn7.Core.Models.InboxMessageStatus, int>>(new System.Collections.Generic.Dictionary<Svrn7.Core.Models.InboxMessageStatus, int>());
+    public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboxMessage>>(System.Array.Empty<Svrn7.Core.Models.InboxMessage>());
 }
 
 internal sealed class NullProcessedOrderStore : Svrn7.Core.Interfaces.IProcessedOrderStore
@@ -839,13 +841,9 @@ internal sealed class NullSocietyDriver : Svrn7.Society.ISvrn7SocietyDriver
     public Task<Svrn7.Core.Models.OperationResult> RegisterCitizenInSocietyAsync(Svrn7.Core.Models.RegisterCitizenInSocietyRequest r, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<bool> IsMemberAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<System.Collections.Generic.IReadOnlyList<string>> GetMemberCitizenDidsAsync(CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> AddCitizenDidAsync(string citizenPrimaryDid, string methodName, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> TransferToExternalCitizenAsync(Svrn7.Core.Models.TransferRequest r, string targetSocietyDid, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> TransferToFederationAsync(string payerDid, long amountGrana, string nonce, string signature, string? memo = null, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<string> HandleIncomingTransferMessageAsync(string packedDIDCommMessage, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> RegisterSocietyDidMethodAsync(string methodName, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> DeregisterSocietyDidMethodAsync(string methodName, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.SocietyDidMethodRecord>> GetSocietyDidMethodsAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.SocietyRecord?> GetOwnSocietyAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OverdraftStatus> GetOverdraftStatusAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.SocietyOverdraftRecord?> GetOverdraftRecordAsync(CancellationToken ct = default) => throw new NotImplementedException();
@@ -862,15 +860,13 @@ internal sealed class NullSocietyDriver : Svrn7.Society.ISvrn7SocietyDriver
     public Task<bool> IsCitizenActiveAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.CitizenDidRecord>> GetAllDidsForCitizenAsync(string primaryDid, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<string?> ResolveCitizenPrimaryDidAsync(string anyDid, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<Svrn7.Core.Models.OperationResult> InitializeSocietyAsync(Svrn7.Core.Models.RegisterSocietyRequest r, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<Svrn7.Core.Models.OperationResult> RegisterSocietyInFederationAsync(string societyDid, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> RegisterSocietyAsync(Svrn7.Core.Models.RegisterSocietyRequest r, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.SocietyRecord?> GetSocietyAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<bool> IsSocietyActiveAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
     public Task DeactivateSocietyAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> RegisterAdditionalDidMethodAsync(string societyDid, string methodName, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> DeregisterDidMethodAsync(string societyDid, string methodName, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.DidMethodStatus> GetDidMethodStatusAsync(string methodName, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.SocietyDidMethodRecord>> GetAllDidMethodsAsync(string? societyDid = null, Svrn7.Core.Models.DidMethodStatus? statusFilter = null, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> TransferAsync(Svrn7.Core.Models.TransferRequest r, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.OperationResult>> BatchTransferAsync(System.Collections.Generic.IEnumerable<Svrn7.Core.Models.TransferRequest> requests, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<decimal> GetBalanceSvrn7Async(string did, CancellationToken ct = default) => throw new NotImplementedException();
@@ -878,7 +874,8 @@ internal sealed class NullSocietyDriver : Svrn7.Society.ISvrn7SocietyDriver
     public Task<Svrn7.Core.Models.BalanceResult> GetBalanceResultAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.FederationRecord?> GetFederationAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> UpdateFederationSupplyAsync(long newTotalSupplyGrana, string foundationSignature, string governanceRef, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<Svrn7.Core.Models.OperationResult> InitialiseFederationAsync(string federationDid, string federationName, string publicKeyHex, string primaryDidMethodName, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<Svrn7.Core.Models.OperationResult> InitialiseFederationAsync(Svrn7.Core.Models.DidDocument d, string n, CancellationToken ct = default) => throw new NotImplementedException();
+    public Svrn7.Core.Models.DidDocument CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7.Core.Models.Svrn7Role? role = null, string? svrn7Name = null, string? x25519PublicKeyHex = null) => throw new NotImplementedException();
     public Task CreateDidAsync(Svrn7.Core.Models.DidDocument document, CancellationToken ct = default) => throw new NotImplementedException();
     public Task UpdateDidAsync(Svrn7.Core.Models.DidDocument document, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.DidResolutionResult> ResolveDidAsync(string did, CancellationToken ct = default) => throw new NotImplementedException();
@@ -904,7 +901,8 @@ internal sealed class NullSocietyDriver : Svrn7.Society.ISvrn7SocietyDriver
     public Task<Svrn7.Core.Models.TreeHead?> GetLatestTreeHeadAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Svrn7.Core.Models.OperationResult> ErasePersonAsync(string did, string controllerSignature, DateTimeOffset requestTimestamp, CancellationToken ct = default) => throw new NotImplementedException();
     public Svrn7.Core.Models.Svrn7KeyPair GenerateSecp256k1KeyPair() => throw new NotImplementedException();
-    public Svrn7.Core.Models.Svrn7KeyPair GenerateEd25519KeyPair() => throw new NotImplementedException();
+    public Svrn7.Core.Models.Svrn7KeyPair GenerateEd25519KeyPair()   => throw new NotImplementedException();
+    public Svrn7.Core.Models.Svrn7KeyPair GenerateX25519KeyPair()    => throw new NotImplementedException();
     public string SignSecp256k1(byte[] payload, byte[] privateKeyBytes) => throw new NotImplementedException();
     public bool VerifySecp256k1(byte[] payload, string cesrSig, string publicKeyHex) => throw new NotImplementedException();
     public Task<string> Blake3HexAsync(byte[] data, CancellationToken ct = default) => throw new NotImplementedException();
@@ -943,6 +941,7 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
             opts,
             new StubDIDCommService("test/1.0/msg", """{"amount":500}"""),
             _inbox,
+            new WebSocketNotifyHub(NullLogger<WebSocketNotifyHub>.Instance),
             NullLogger<KestrelListenerService>.Instance);
     }
 
@@ -969,13 +968,37 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
         };
 
         var content  = new StringContent("packed-didcomm-body",
-            System.Text.Encoding.UTF8, "application/didcomm+json");
+            System.Text.Encoding.UTF8, "application/didcomm-encrypted+json");
         var response = await client.PostAsync("/didcomm", content);
 
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);
         _inbox.Messages.Should().ContainSingle(
             because: "a valid unpacked message must be enqueued");
         _inbox.Messages[0].Type.Should().Be("test/1.0/msg");
+    }
+
+    // ── 415 Unsupported Media Type: non-encrypted content type ───────────────
+
+    [Fact]
+    public async Task Post_PlaintextContentType_Returns415_DoesNotEnqueue()
+    {
+        AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+        using var handler = new SocketsHttpHandler();
+        using var client  = new HttpClient(handler)
+        {
+            BaseAddress           = new Uri($"http://localhost:{_port}"),
+            DefaultRequestVersion = new Version(2, 0),
+            DefaultVersionPolicy  = HttpVersionPolicy.RequestVersionOrHigher,
+        };
+
+        var response = await client.PostAsync("/didcomm",
+            new StringContent("plaintext-body",
+                System.Text.Encoding.UTF8, "application/didcomm-plain+json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.UnsupportedMediaType,
+            because: "POST /didcomm must reject non-encrypted content types");
+        _inbox.Messages.Should().BeEmpty(
+            because: "a rejected message must not be enqueued");
     }
 
     // ── 400 Bad Request: empty body ───────────────────────────────────────────
@@ -992,7 +1015,8 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
             DefaultVersionPolicy  = HttpVersionPolicy.RequestVersionOrHigher,
         };
 
-        var response = await client.PostAsync("/didcomm", new StringContent(""));
+        var response = await client.PostAsync("/didcomm",
+            new StringContent("", System.Text.Encoding.UTF8, "application/didcomm-encrypted+json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         _inbox.Messages.Should().BeEmpty();
@@ -1018,6 +1042,7 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
             }),
             new ThrowingDIDCommService(),
             inbox,
+            new WebSocketNotifyHub(NullLogger<WebSocketNotifyHub>.Instance),
             NullLogger<KestrelListenerService>.Instance);
 
         await badListener.StartAsync(CancellationToken.None);
@@ -1033,7 +1058,7 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
 
             var response = await client.PostAsync("/didcomm",
                 new StringContent("invalid-packed-body",
-                    System.Text.Encoding.UTF8, "application/didcomm+json"));
+                    System.Text.Encoding.UTF8, "application/didcomm-encrypted+json"));
 
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
             inbox.Messages.Should().BeEmpty(
@@ -1079,6 +1104,8 @@ internal sealed class RecordingInboxStore : IInboxStore
     public Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyDictionary<InboxMessageStatus, int>>(
             new Dictionary<InboxMessageStatus, int>());
+    public Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
 }
 
 /// <summary>Stub IDIDCommService: UnpackAsync always returns a pre-configured message.</summary>
@@ -1087,13 +1114,13 @@ internal sealed class StubDIDCommService(string type, string body) : IDIDCommSer
     public DIDCommMessageBuilder NewMessage() => new();
     public Task<string> PackPlaintextAsync(DIDCommMessage m, CancellationToken ct = default) =>
         Task.FromResult("{}");
-    public Task<string> PackSignedAsync(DIDCommMessage m, byte[] key, CancellationToken ct = default) =>
+    public Task<string> PackSignedAsync(DIDCommMessage m, byte[] key, bool secp256k1 = false, CancellationToken ct = default) =>
         Task.FromResult("{}");
     public Task<string> PackEncryptedAsync(DIDCommMessage m, byte[] recipKey, byte[] sendKey,
         DIDCommPackMode mode = DIDCommPackMode.SignThenEncrypt, CancellationToken ct = default) =>
         Task.FromResult("{}");
     public Task<string> PackSignedAndEncryptedAsync(DIDCommMessage m, byte[] recipKey, byte[] sendKey,
-        CancellationToken ct = default) => Task.FromResult("{}");
+        bool secp256k1 = false, CancellationToken ct = default) => Task.FromResult("{}");
     public Task<DIDCommUnpackedMessage> UnpackAsync(string packed,
         byte[]? recipientPrivateKey = null, CancellationToken ct = default) =>
         Task.FromResult(new DIDCommUnpackedMessage
@@ -1106,13 +1133,13 @@ internal sealed class ThrowingDIDCommService : IDIDCommService
     public DIDCommMessageBuilder NewMessage() => new();
     public Task<string> PackPlaintextAsync(DIDCommMessage m, CancellationToken ct = default) =>
         Task.FromResult("{}");
-    public Task<string> PackSignedAsync(DIDCommMessage m, byte[] key, CancellationToken ct = default) =>
+    public Task<string> PackSignedAsync(DIDCommMessage m, byte[] key, bool secp256k1 = false, CancellationToken ct = default) =>
         Task.FromResult("{}");
     public Task<string> PackEncryptedAsync(DIDCommMessage m, byte[] recipKey, byte[] sendKey,
         DIDCommPackMode mode = DIDCommPackMode.SignThenEncrypt, CancellationToken ct = default) =>
         Task.FromResult("{}");
     public Task<string> PackSignedAndEncryptedAsync(DIDCommMessage m, byte[] recipKey, byte[] sendKey,
-        CancellationToken ct = default) => Task.FromResult("{}");
+        bool secp256k1 = false, CancellationToken ct = default) => Task.FromResult("{}");
     public Task<DIDCommUnpackedMessage> UnpackAsync(string packed,
         byte[]? recipientPrivateKey = null, CancellationToken ct = default) =>
         throw new InvalidOperationException("Simulated DIDComm unpack failure.");
@@ -1373,15 +1400,18 @@ public class SwitchboardStartupTests : IDisposable
         var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(
             new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
         var ctx = new Svrn7RunspaceContext(
-            new NullSocietyDriver(), inbox, cache, new NullProcessedOrderStore(), 0);
+            new NullSocietyDriver(), inbox, cache, new NullProcessedOrderStore(),
+            new PendingResolutionStore(), initialEpoch: 0);
         var lobes = new LobeManager(
             Options.Create(tdaOpts), ctx, NullLogger<LobeManager>.Instance);
-        var pool = new RunspacePoolManager(
-            Options.Create(tdaOpts), lobes, ctx, NullLogger<RunspacePoolManager>.Instance);
+        var pool = new IsolatedRunspaceFactory(
+            Options.Create(tdaOpts), lobes, ctx, NullLogger<IsolatedRunspaceFactory>.Instance);
 
         return new DIDCommMessageSwitchboard(
             ctx, pool, inbox, outbox, lobes,
             new NullHttpClientFactory(),
+            new WebSocketNotifyHub(NullLogger<WebSocketNotifyHub>.Instance),
+            new StubDIDCommService("test/1.0/msg", "{}"),
             Options.Create(tdaOpts),
             NullLogger<DIDCommMessageSwitchboard>.Instance);
     }
@@ -1415,6 +1445,7 @@ public sealed class KestrelListenerRateLimitTests : IAsyncLifetime
             }),
             new StubDIDCommService("test/1.0/msg", "{}"),
             new RecordingInboxStore(),
+            new WebSocketNotifyHub(NullLogger<WebSocketNotifyHub>.Instance),
             NullLogger<KestrelListenerService>.Instance);
     }
 
@@ -1440,13 +1471,13 @@ public sealed class KestrelListenerRateLimitTests : IAsyncLifetime
 
         // First request — within the 1-req/sec permit limit.
         var first = await client.PostAsync("/didcomm",
-            new StringContent("packed-body", System.Text.Encoding.UTF8, "application/didcomm+json"));
+            new StringContent("packed-body", System.Text.Encoding.UTF8, "application/didcomm-encrypted+json"));
         first.StatusCode.Should().Be(HttpStatusCode.Accepted,
             because: "the first request in the rate-limit window should be accepted");
 
         // Second request — immediately after, same window, limit exceeded.
         var second = await client.PostAsync("/didcomm",
-            new StringContent("packed-body", System.Text.Encoding.UTF8, "application/didcomm+json"));
+            new StringContent("packed-body", System.Text.Encoding.UTF8, "application/didcomm-encrypted+json"));
         second.StatusCode.Should().Be(HttpStatusCode.TooManyRequests,
             because: "a second request within the same 1-second window should be rejected");
     }
@@ -1468,6 +1499,7 @@ public sealed class KestrelListenerRateLimitTests : IAsyncLifetime
             }),
             new StubDIDCommService("test/1.0/msg", "{}"),
             new RecordingInboxStore(),
+            new WebSocketNotifyHub(NullLogger<WebSocketNotifyHub>.Instance),
             NullLogger<KestrelListenerService>.Instance);
 
         await noLimit.StartAsync(CancellationToken.None);
@@ -1487,7 +1519,7 @@ public sealed class KestrelListenerRateLimitTests : IAsyncLifetime
             {
                 var resp = await client.PostAsync("/didcomm",
                     new StringContent("packed-body",
-                        System.Text.Encoding.UTF8, "application/didcomm+json"));
+                        System.Text.Encoding.UTF8, "application/didcomm-encrypted+json"));
                 resp.StatusCode.Should().Be(HttpStatusCode.Accepted,
                     because: $"request {i + 1} should succeed when rate limiting is disabled");
             }
@@ -1509,6 +1541,21 @@ public sealed class KestrelListenerRateLimitTests : IAsyncLifetime
     }
 }
 
+// ── DrnDirectory.BuildQueryLabel tests ───────────────────────────────────────
+
+public class DrnDirectoryLabelTests
+{
+    [Theory]
+    [InlineData("did:drn:federation.svrn7.net/federation/1.0/abc123", "federation.svrn7.net.drn.directory")]
+    [InlineData("did:drn:federation.svrn7.net/agent/1.0/abc123",      "federation.svrn7.net.drn.directory")]
+    [InlineData("did:drn:federation.svrn7.net",                        "federation.svrn7.net.drn.directory")]
+    [InlineData("federation.svrn7.net",                                "federation.svrn7.net.drn.directory")]
+    [InlineData("svrn7.net",                                           "federation.svrn7.net.drn.directory")]
+    [InlineData("DID:DRN:FEDERATION.SVRN7.NET/AGENT/1.0/ABC",         "FEDERATION.SVRN7.NET.drn.directory")]
+    public void BuildQueryLabel_VariousInputForms_ProducesCorrectLabel(string input, string expected)
+        => DrnDirectory.BuildQueryLabel(input).Should().Be(expected);
+}
+
 // ── Additional stubs ──────────────────────────────────────────────────────────
 
 /// <summary>IInboxStore stub that tracks whether ResetStuckMessagesAsync was called.</summary>
@@ -1522,6 +1569,7 @@ internal sealed class TrackingInboxStore : IInboxStore
     public Task MarkProcessedAsync(string id, CancellationToken ct = default) => Task.CompletedTask;
     public Task MarkFailedAsync(string id, string err, bool retry = true, int maxAttempts = Svrn7Constants.InboxMaxAttempts, CancellationToken ct = default) => Task.CompletedTask;
     public Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<InboxMessageStatus, int>>(new Dictionary<InboxMessageStatus, int>());
+    public Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
     public Task ResetStuckMessagesAsync(CancellationToken ct = default)
     {
         ResetStuckCalled = true;
@@ -1560,6 +1608,7 @@ internal sealed class ThrowingResetInboxStore : IInboxStore
     public Task MarkProcessedAsync(string id, CancellationToken ct = default) => Task.CompletedTask;
     public Task MarkFailedAsync(string id, string err, bool retry = true, int maxAttempts = Svrn7Constants.InboxMaxAttempts, CancellationToken ct = default) => Task.CompletedTask;
     public Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<InboxMessageStatus, int>>(new Dictionary<InboxMessageStatus, int>());
+    public Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
     public Task ResetStuckMessagesAsync(CancellationToken ct = default)
         => throw new InvalidOperationException("Simulated inbox store failure on reset.");
 }

@@ -113,7 +113,7 @@ public sealed class LobeMetadata
     public int EpochRequired   { get; init; } = 0;
 
     /// <summary>
-    /// PowerShell module file name (e.g., "Svrn7.Email.psm1").
+    /// PowerShell module file name (e.g., "Svrn7.Email.0.8.0.psm1").
     /// Resolved relative to the LOBE directory by LobeManager.
     /// </summary>
     [JsonPropertyName("module")]
@@ -156,7 +156,7 @@ public sealed class LobeProtocol
     /// <summary>
     /// PowerShell cmdlet name to invoke for this @type URI.
     /// The Switchboard opens a runspace from the pool and runs:
-    ///   Get-Web7Message -Did $messageDid | {Entrypoint} | Send-Web7Message
+    ///   Dequeue-Svrn7Message -Did $messageDid | {Entrypoint} | Enqueue-Svrn7Message
     /// </summary>
     [JsonPropertyName("entrypoint")]
     public string Entrypoint   { get; init; } = string.Empty;
@@ -178,7 +178,7 @@ public sealed class LobeProtocol
 /// </summary>
 public sealed class LobeCmdlet
 {
-    /// <summary>PowerShell cmdlet name (e.g., "Receive-Web7Email"). Unique within the LOBE.</summary>
+    /// <summary>PowerShell cmdlet name (e.g., "Dequeue-PandoMail"). Unique within the LOBE.</summary>
     [JsonPropertyName("name")]
     public string Name          { get; init; } = string.Empty;
 
@@ -218,7 +218,7 @@ public sealed class LobeCmdlet
 
     /// <summary>
     /// Illustrative pipeline usage string.
-    /// Example: "Get-Web7Message -Did $MessageDid | Receive-Web7Email"
+    /// Example: "Dequeue-Svrn7Message -Did $MessageDid | Dequeue-PandoMail"
     /// </summary>
     [JsonPropertyName("pipelineExample")]
     public string? PipelineExample { get; init; }
@@ -267,7 +267,7 @@ public sealed class LobeCmdletAnnotations
     /// Suggested position in a PowerShell pipeline.
     /// "source" = produces output, no pipeline input required.
     /// "transform" = receives pipeline input, produces pipeline output.
-    /// "sink" = receives pipeline input, no useful pipeline output (e.g., Send-Web7Message).
+    /// "sink" = receives pipeline input, no useful pipeline output (e.g., Enqueue-Svrn7Message).
     /// null = position not specified.
     /// </summary>
     [JsonPropertyName("pipelinePosition")]

@@ -4,11 +4,15 @@ namespace Svrn7.Core.Models;
 
 // ── Enumerations ──────────────────────────────────────────────────────────────
 
-public enum KeyAlgorithm   { Secp256k1, Ed25519 }
+public enum KeyAlgorithm   { Secp256k1, Ed25519, X25519 }
 public enum DidStatus      { Active, Suspended, Deactivated }
 public enum VcStatus       { Active, Suspended, Revoked, Expired }
 public enum OverdraftStatus{ Clean, Overdrawn, Ceiling }
-public enum DidMethodStatus{ Active, Dormant }   // Available = not in registry
+/// <summary>
+/// Functional role of a TDA instance in the Web 7.0 network.
+/// Stored on DidDocument to identify what role the owning TDA plays.
+/// </summary>
+public enum Svrn7Role { Federation, Society, Citizen, Wanderer, LOBEPackageManager, LOBEMarketplace }
 
 // ── Core monetary models ───────────────────────────────────────────────────────
 
@@ -152,32 +156,14 @@ public record CitizenDidRecord
 
 /// <summary>
 /// A registered society. Must be active to receive Epoch 0 transfers.
-/// PrimaryDidMethodName is immutable — cannot be deregistered.
 /// </summary>
 public record SocietyRecord
 {
-    public required string Did                 { get; set; }
-    public required string PublicKeyHex        { get; set; }
-    public required string SocietyName         { get; set; }
-    public required string PrimaryDidMethodName{ get; set; }  // immutable
-    public bool            IsActive            { get; set; } = true;
-    public DateTimeOffset  RegisteredAt        { get; set; } = DateTimeOffset.UtcNow;
-}
-
-/// <summary>
-/// Tracks a DID method name registered to a Society.
-/// Records are permanent — deregistered names are retained with status=Dormant.
-/// </summary>
-public record SocietyDidMethodRecord
-{
-    public string                  Id             { get; set; } = Guid.NewGuid().ToString("N");
-    public required string         SocietyDid     { get; set; }
-    public required string         MethodName     { get; set; }
-    public bool                    IsPrimary      { get; set; }
-    public DidMethodStatus         Status         { get; set;  } = DidMethodStatus.Active;
-    public DateTimeOffset          RegisteredAt   { get; set; } = DateTimeOffset.UtcNow;
-    public DateTimeOffset?         DeregisteredAt { get; set;  }
-    public DateTimeOffset?         DormantUntil   { get; set;  }
+    public required string Did          { get; set; }
+    public required string PublicKeyHex { get; set; }
+    public required string SocietyName  { get; set; }
+    public bool            IsActive     { get; set; } = true;
+    public DateTimeOffset  RegisteredAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
 /// <summary>
@@ -189,7 +175,6 @@ public record FederationRecord
     public required string Did                       { get; set; }
     public required string PublicKeyHex              { get; set; }
     public required string FederationName            { get; set; }
-    public required string PrimaryDidMethodName      { get; set; }
     public long            TotalSupplyGrana          { get; set;  }
     public long            EndowmentPerSocietyGrana  { get; set; }
     public bool            IsActive                  { get; set; } = true;
@@ -226,21 +211,67 @@ public record SocietyOverdraftRecord
 
 // ── DID Document models ────────────────────────────────────────────────────────
 
+/// <summary>W3C DID Core §5.2.1 verification method.</summary>
+public record DidVerificationMethod
+{
+    public required string  Id           { get; set; }  // e.g. "did:drn:abc#key-1"
+    public required string  Type         { get; set; }  // e.g. "EcdsaSecp256k1VerificationKey2019"
+    public required string  Controller   { get; set; }  // DID that controls this key
+    public string?          PublicKeyHex { get; set; }  // hex-encoded; set for Secp256k1/Ed25519
+    public string?          PublicKeyMultibase { get; set; }  // multibase-encoded alternative
+}
+
+/// <summary>W3C DID Core §5.4 service endpoint.</summary>
+public record DidServiceEndpoint
+{
+    public required string Id              { get; set; }  // e.g. "did:drn:abc#svc-1"
+    public required string Type            { get; set; }  // e.g. "DIDCommMessaging"
+    public required string ServiceEndpoint { get; set; }  // URI or object JSON
+}
+
+/// <summary>W3C Data Integrity proof attached to a DID Document.</summary>
+public record DidProof
+{
+    public required string         Type               { get; set; }  // e.g. "Ed25519Signature2020"
+    public required DateTimeOffset Created            { get; set; }
+    public required string         VerificationMethod { get; set; }  // key DID URL
+    public required string         ProofPurpose       { get; set; }  // e.g. "assertionMethod"
+    public required string         ProofValue         { get; set; }  // base58btc multibase
+}
+
 /// <summary>
 /// A W3C DID Document stored in the registry.
 /// Version is monotonically increasing. Deactivation is permanent.
+/// W3C DID Core 1.0 properties are first-class fields; DocumentJson holds the canonical serialization.
 /// </summary>
 public record DidDocument
 {
-    public string                 Id           { get; set; } = Guid.NewGuid().ToString("N");
-    public required string        Did          { get; set; }
-    public required string        MethodName   { get; set; }
-    public int                    Version      { get; set;  }
-    public DidStatus              Status       { get; set;  } = DidStatus.Active;
-    public required string        DocumentJson { get; set;  }
-    public DateTimeOffset         CreatedAt    { get; set; } = DateTimeOffset.UtcNow;
-    public DateTimeOffset         UpdatedAt    { get; set;  } = DateTimeOffset.UtcNow;
-    public DateTimeOffset?        DeactivatedAt{ get; set;  }
+    public string                           Id                     { get; set; } = Guid.NewGuid().ToString("N");
+    public required string                  Did                    { get; set; }  // W3C id
+    public required string                  MethodName             { get; set; }  // SVRN7 registry key
+    public string?                          Controller             { get; set; }  // W3C controller (single DID)
+    public List<string>                     AlsoKnownAs            { get; set; } = [];
+    public List<DidVerificationMethod>      VerificationMethod     { get; set; } = [];
+    public List<string>                     Authentication         { get; set; } = [];  // DID URLs referencing VerificationMethod
+    public List<string>                     AssertionMethod        { get; set; } = [];
+    public List<string>                     KeyAgreement           { get; set; } = [];
+    public List<string>                     CapabilityInvocation   { get; set; } = [];
+    public List<string>                     CapabilityDelegation   { get; set; } = [];
+    public List<DidServiceEndpoint>         ServiceEndpoints       { get; set; } = [];
+    public DidProof?                        Proof                  { get; set; }
+    /// <summary>
+    /// Role of the TDA that owns this DIDDocument. Set once at registration; treat as
+    /// immutable thereafter. Uses set (not init) for LiteDB compatibility.
+    /// </summary>
+    public Svrn7Role?                         Role                   { get; set; }
+    /// <summary>Human-readable name for this TDA (e.g. "Web 7.0 Foundation"). Set at Wanderer creation and carried forward to promoted-role DIDDocuments.</summary>
+    public string?                          Svrn7Name                { get; set; }
+    public int                              Version                { get; set; }
+    public DidStatus                        Status                 { get; set; } = DidStatus.Active;
+    public required string                  DocumentJson           { get; set; }  // canonical W3C JSON
+    public DateTimeOffset                   CreatedAt              { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset                   UpdatedAt              { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset?                  DeactivatedAt          { get; set; }
 }
 
 /// <summary>Result of a W3C DID Document Resolution.</summary>
@@ -387,9 +418,8 @@ public record OverdraftDrawReceipt
 
 public record RegisterCitizenRequest
 {
-    public required string        Did               { get; set; }
-    public required string        PublicKeyHex      { get; set; }
-    public required byte[]        PrivateKeyBytes   { get; set; }
+    public required DidDocument   DidDocument       { get; set; }
+    public byte[]                 PrivateKeyBytes   { get; set; } = [];
 }
 
 /// <summary>
@@ -398,21 +428,18 @@ public record RegisterCitizenRequest
 /// </summary>
 public record RegisterCitizenInSocietyRequest
 {
-    public required string        Did               { get; set; }
-    public required string        PublicKeyHex      { get; set; }
-    public required byte[]        PrivateKeyBytes   { get; set; }
-    public required string        SocietyDid        { get; set; }
-    public string?                PreferredMethodName{ get; set; }  // null = Society primary
+    public required DidDocument   DidDocument          { get; set; }
+    public byte[]                 PrivateKeyBytes      { get; set; } = [];
+    public required string        SocietyDid           { get; set; }
+    public string?                PreferredMethodName  { get; set; }  // null = Society primary
 }
 
 public record RegisterSocietyRequest
 {
-    public required string        Did               { get; set; }
-    public required string        PublicKeyHex      { get; set; }
-    public required byte[]        PrivateKeyBytes   { get; set; }
-    public required string        SocietyName       { get; set; }
-    public required string        PrimaryDidMethodName { get; set; }
-    public required long          DrawAmountGrana   { get; set; }
+    public required DidDocument   DidDocument           { get; set; }
+    public byte[]                 PrivateKeyBytes       { get; set; } = [];
+    public required string        SocietyName           { get; set; }
+    public required long          DrawAmountGrana       { get; set; }
     public required long          OverdraftCeilingGrana { get; set; }
 }
 

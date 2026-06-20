@@ -174,9 +174,19 @@ scalability with AI capability — see:
       +--------------+    +--------------+  +--------------+
 ```
 
-Each participant — Federation, Society, and Citizen — operates a TDA. A Society TDA manages
-the monetary layer and registry services. A Citizen TDA manages personal identity,
-communications, and value exchange.
+Each participant — Federation, Society, and Citizen — operates a TDA. Every TDA
+starts as a **Wanderer**: on first run it auto-generates a secp256k1 key pair, creates
+a `did:drn:wanderer.svrn7.net/agent/1.0/{genesis-hash}` DID and DIDDocument with
+`Svrn7Role=Wanderer`, and persists the identity to `{port}/mem/agent-identity.json`.
+Role is **additive** — promoting a Wanderer to Federation, Society, or Citizen creates
+an additional DID alongside the primary Wanderer DID. The only required startup
+parameter is `--port`.
+
+To start a local four-node dev network (all start as Wanderers):
+
+```powershell
+.\Initialize-Testnet.ps1   # Wanderer1:8441  Wanderer2:8442  Wanderer3:8443  Wanderer4:8444
+```
 
 ### Solution Structure
 
@@ -231,9 +241,113 @@ Derived from: "Citizen/Society TDA (Host)" — element type Host — DSA 0.24 Ep
   prevents read-modify-write races on shared financial state)
 → LOBE cmdlet pipeline (`IsolatedPipeline` — fresh `Runspace` per dispatch, disposed after; invocation timeout: 30s default)
 
-**Outbound**: LOBE returns `OutboundMessage { PeerEndpoint, PackedMessage, MessageType }`
+**Outbound**: LOBE returns `[Svrn7.TDA.OutboundMessage]::new(endpoint, envelope)`
 → `DIDCommMessageSwitchboard.EnqueueOutbound()`
 → `HttpClient` HTTP/2 POST to peer TDA endpoint; retries up to 3 times with exponential backoff (500ms, 1s, 2s)
+
+### C# ↔ PowerShell Layer Model
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  NETWORK                                                       │
+│  HTTP/2 + mTLS  POST /didcomm  (KestrelListenerService.cs)   │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ writes packed DIDComm payload
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  DURABLE INBOX  (IInboxStore → LiteDB: svrn7-inbox.db)       │
+│  InboxMessage { Id=DID URL, MessageType, PackedPayload, ... } │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ drain loop (sequential batch)
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  DIDCommMessageSwitchboard  (C#)                              │
+│  1. Epoch gate  — rejects types not permitted in CurrentEpoch │
+│  2. Idempotency — checks IProcessedOrderStore before routing  │
+│  3. Route       — LobeManager.TryResolveProtocol(@type)       │
+│  4. Dispatch    — InvokeCmdletPipelineAsync(entrypoint, did)  │
+│  5. Collect     — result?.BaseObject is OutboundMessage?      │
+│  6. Deliver     — HttpClient.PostAsync to peer TDA            │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ CreateIsolatedPipeline()
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  IsolatedRunspaceFactory  (C#)                                │
+│  · Per-invocation Runspace from shared InitialSessionState   │
+│  · Crash/timeout in one runspace cannot affect others        │
+│  · 60-second timer refreshes $SVRN7.CurrentEpoch             │
+│                                                              │
+│  LobeManager  (C#)                                           │
+│  · Reads lobes.config.json                                   │
+│  · ISS has eager LOBEs pre-imported + $SVRN7 + $SVRN7_JIT_* │
+│  · Protocol registry: exact-match + longest-prefix-match     │
+│  · JIT: Import-Module on first use (idempotent)              │
+│  · FileSystemWatcher: hot-adds new *.lobe.json at runtime    │
+└──────────────────────────┬───────────────────────────────────┘
+                           │
+          ════════ SEAM ═══════════════════════════════════════
+          C# → PS  injected session variables:
+            $SVRN7            = Svrn7RunspaceContext object
+            $SVRN7_JIT_LOBES  = string[] of .psm1 paths
+            $SVRN7_LOBES_DIR  = absolute lobes directory path
+          C# → PS  parameter:
+            -MessageDid       = TDA DID URL (pass-by-reference handle)
+          PS → C#  pipeline result:
+            [Svrn7.TDA.OutboundMessage]::new(endpoint, envelope)
+          ════════════════════════════════════════════════════
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  POWERSHELL RUNSPACE  (per invocation, isolated)              │
+│                                                              │
+│  Two dispatch patterns:                                      │
+│  a) LOBE cmdlet: Dequeue-Svrn7Message -Did $did                   │
+│                  | Invoke-{Lobe}Cmdlet -MessageDid $did      │
+│                                                              │
+│  b) Agent script: AgentN-Invoicing.ps1 -MessageDid $did      │
+│     (script orchestrates its own multi-step pipeline)        │
+│                                                              │
+│  EAGER LOBEs (in ISS at startup — all runspaces):            │
+│    Svrn7.Common, Svrn7.Federation, Svrn7.Society, Svrn7.UX  │
+│                                                              │
+│  JIT LOBEs (imported on first use per runspace):             │
+│    Svrn7.Email, Svrn7.Calendar, Svrn7.Presence,             │
+│    Svrn7.Notifications, Svrn7.Onboarding,                   │
+│    Svrn7.Invoicing, Svrn7.Identity                           │
+│                                                              │
+│  In every LOBE cmdlet:                                       │
+│    $msg = $SVRN7.GetMessageAsync($MessageDid)   ← hot cache  │
+│    $SVRN7.Driver.SomeMethodAsync(...)           ← C# driver  │
+│    [Svrn7.TDA.OutboundMessage]::new($ep, $env)  ← return     │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ $SVRN7.Driver.*  calls back into C#
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  ISvrn7SocietyDriver  (C#)                                    │
+│  Full monetary + identity stack:                             │
+│  Svrn7.Federation / Svrn7.Society / Svrn7.Store /            │
+│  Svrn7.Ledger / Svrn7.Identity / Svrn7.Crypto               │
+│  → LiteDB (svrn7.db, svrn7-dids.db, svrn7-vcs.db)           │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Three design rules enforced by this model:
+
+**1. Pass-by-reference, never by payload copy.**
+The Switchboard passes the message's DID URL string (`$MessageDid`) to the LOBE, not the
+payload. The LOBE calls `$SVRN7.GetMessageAsync()` which hits an in-process `IMemoryCache`
+(hot path) or LiteDB (cold path). No payload serialization crosses the C#/PS boundary.
+
+**2. Single return type across the seam.**
+The only way a LOBE puts work back into C# is `[Svrn7.TDA.OutboundMessage]::new(endpoint,
+envelope)`. The Switchboard checks `result?.BaseObject is OutboundMessage` — anything else
+(hashtable, PSCustomObject, `$null`) is silently dropped.
+
+**3. Isolation per invocation, not per pool slot.**
+Each dispatch gets its own `Runspace` opened fresh from the shared `InitialSessionState`.
+A crash, infinite loop, or `Set-StrictMode` violation in one cmdlet cannot corrupt another
+concurrent dispatch. The ISS is built once; the per-invocation runspace is opened and
+closed around a single `ps.Invoke()`.
 
 ### Message Identity — Pass-by-Reference
 
@@ -279,10 +393,10 @@ layer of the TDA. Every LOBE ships three files:
 |  5 | `Svrn7.Email`             | JIT     | email/1.0/*              | RFC 5322 over DIDComm       |
 |  6 | `Svrn7.Calendar`          | JIT     | calendar/1.0/*           | iCalendar over DIDComm      |
 |  7 | `Svrn7.Presence`          | JIT     | presence/1.0/*           | TDA availability status     |
-|  8 | `Svrn7.Notifications`     | JIT     | notification/1.0/*       | Typed alert dispatch        |
-|  9 | `Svrn7.Onboarding`        | JIT     | onboard/1.0/*            | Citizen registration        |
-| 10 | `Svrn7.Invoicing`         | JIT     | invoice/1.0/*            | Invoice-to-payment          |
-| 11 | `Svrn7.Identity`          | JIT     | did/1.0/*, vc/1.0/*      | DID Document + VC resolution|
+|  8 | `Svrn7.Notifications`     | JIT     | Svrn7.Notifications/0.8.0/*       | Typed alert dispatch        |
+|  9 | `Svrn7.Onboarding`        | JIT     | Svrn7.Onboarding/0.8.0/*            | Citizen registration        |
+| 10 | `Svrn7.Invoicing`         | JIT     | Svrn7.Invoicing/0.8.0/*            | Invoice-to-payment          |
+| 11 | `Svrn7.Identity`          | JIT     | did/1.0/*, Svrn7.Identity/0.8.0/vc-*      | DID Document + VC resolution|
 
 **Eager**: pre-loaded into `InitialSessionState` at TDA startup.
 **JIT**: imported on first inbound message of a matching `@type` via `LobeManager.EnsureLoadedAsync()`.
@@ -633,32 +747,32 @@ All SVRN7 `@type` URIs follow: `did:drn:svrn7.net/protocols/{family}/{version}/{
 
 | Constant             | URI                                                                    |
 |----------------------|------------------------------------------------------------------------|
-| `TransferRequest`    | `did:drn:svrn7.net/protocols/transfer/1.0/request`                    |
-| `TransferReceipt`    | `did:drn:svrn7.net/protocols/transfer/1.0/receipt`                    |
-| `TransferOrder`      | `did:drn:svrn7.net/protocols/transfer/1.0/order`                      |
-| `TransferOrderReceipt`| `did:drn:svrn7.net/protocols/transfer/1.0/order-receipt`             |
-| `OverdraftDrawRequest`| `did:drn:svrn7.net/protocols/endowment/1.0/overdraft-draw-request`   |
-| `OverdraftDrawReceipt`| `did:drn:svrn7.net/protocols/endowment/1.0/overdraft-draw-receipt`   |
-| `EndowmentTopUp`     | `did:drn:svrn7.net/protocols/endowment/1.0/top-up`                    |
-| `SupplyUpdate`       | `did:drn:svrn7.net/protocols/supply/1.0/update`                       |
-| `DidResolveRequest`  | `did:drn:svrn7.net/protocols/did/1.0/resolve-request`                 |
-| `DidResolveResponse` | `did:drn:svrn7.net/protocols/did/1.0/resolve-response`                |
-| `OnboardRequest`     | `did:drn:svrn7.net/protocols/onboard/1.0/request`                     |
-| `OnboardReceipt`     | `did:drn:svrn7.net/protocols/onboard/1.0/receipt`                     |
-| `InvoiceRequest`     | `did:drn:svrn7.net/protocols/invoice/1.0/request`                     |
-| `InvoiceReceipt`     | `did:drn:svrn7.net/protocols/invoice/1.0/receipt`                     |
+| `TransferRequest`    | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request`                    |
+| `TransferReceipt`    | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-receipt`                    |
+| `TransferOrder`      | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order`                      |
+| `TransferOrderReceipt`| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order-receipt`             |
+| `OverdraftDrawRequest`| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-draw-request`   |
+| `OverdraftDrawReceipt`| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-draw-receipt`   |
+| `EndowmentTopUp`     | `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/endowment-top-up`                    |
+| `SupplyUpdate`       | `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/supply-update`                       |
+| `DidResolveRequest`  | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request`                 |
+| `DidResolveResponse` | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response`                |
+| `OnboardRequest`     | `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen`                     |
+| `OnboardReceipt`     | `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/receipt`                     |
+| `InvoiceRequest`     | `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/request`                     |
+| `InvoiceReceipt`     | `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/receipt`                     |
 
 **LOBE protocol families** (declared in `.lobe.json` descriptors):
 
 | Family          | URI prefix                                      | LOBE                   |
 |-----------------|-------------------------------------------------|------------------------|
-| Email           | `did:drn:svrn7.net/protocols/email/1.0/`        | `Svrn7.Email`          |
-| Calendar        | `did:drn:svrn7.net/protocols/calendar/1.0/`     | `Svrn7.Calendar`       |
-| Presence        | `did:drn:svrn7.net/protocols/presence/1.0/`     | `Svrn7.Presence`       |
-| Notification    | `did:drn:svrn7.net/protocols/notification/1.0/` | `Svrn7.Notifications`  |
-| UX              | `did:drn:svrn7.net/protocols/ux/1.0/`           | `Svrn7.UX`             |
-| DID resolution  | `did:drn:svrn7.net/protocols/did/1.0/`          | `Svrn7.Identity`       |
-| VC resolution   | `did:drn:svrn7.net/protocols/vc/1.0/`           | `Svrn7.Identity`       |
+| Email           | `did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/`        | `Svrn7.Email`          |
+| Calendar        | `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/`     | `Svrn7.Calendar`       |
+| Presence        | `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/`     | `Svrn7.Presence`       |
+| Notification    | `did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/` | `Svrn7.Notifications`  |
+| UX              | `did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/`           | `Svrn7.UX`             |
+| DID resolution  | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-` | `Svrn7.Identity`       |
+| VC resolution   | `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/vc-`           | `Svrn7.Identity`       |
 
 ---
 

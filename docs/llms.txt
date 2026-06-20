@@ -97,32 +97,75 @@ DIDComm protocol URIs (all svrn7.net — not svrn7.io):
   did:drn:svrn7.net/protocols/society/1.0/citizen-did-add-result
   did:drn:svrn7.net/protocols/federation/1.0/federation-query
   did:drn:svrn7.net/protocols/federation/1.0/federation-query-result
-  did:drn:svrn7.net/protocols/federation/1.0/init
-  did:drn:svrn7.net/protocols/federation/1.0/init-result
+  did:drn:svrn7.net/protocols/federation/1.0/initialize-federation
+  did:drn:svrn7.net/protocols/federation/1.0/initialize-federation-result
   did:drn:svrn7.net/protocols/federation/1.0/register-society
   did:drn:svrn7.net/protocols/federation/1.0/register-society-result
 
 ---
 
-## Ecosystem Hierarchy
+## TDA Role Model — Wanderer-First, Additive
 
-Federation (1 per deployment)
+Every TDA starts as a Wanderer. Role is additive — promotion creates an additional
+DID alongside the primary Wanderer DID. The only required startup parameter is --port.
+
+Wanderer (every TDA, auto-bootstrapped on first run)
+  └── DID: did:drn:wanderer.svrn7.net/agent/1.0/{genesis-hash}
+  └── Svrn7Role = Wanderer
+  └── Svrn7Name = "TDA-{port}" (auto-generated)
+  └── Key pair: secp256k1, persisted to {port}/mem/agent-identity.json
+  └── Some Wanderers remain Wanderers permanently (valid terminal state)
+
+Federation (1 per deployment — Wanderer + Initialize-Svrn7Federation)
+  └── Adds a second DID with Svrn7Role=Federation
   └── ISvrn7Driver  [Svrn7.Federation]
   └── 3 databases: svrn7.db, svrn7-dids.db, svrn7-vcs.db
   └── 1 Merkle log (Federation-level events only)
 
-Society (1..N per Federation)
+Society (1..N per Federation — Wanderer + Society DID registered via DIDComm)
+  └── Adds a second DID with Svrn7Role=Society
   └── ISvrn7SocietyDriver : ISvrn7Driver  [Svrn7.Society]
   └── 3 databases: own svrn7.db, svrn7-dids.db, svrn7-vcs.db
   └── 1 Merkle log (Society-level events)
   └── Owns 1..N DID method names (primary method immutable)
 
-Citizen (1..N per Society)
+Citizen (1..N per Society — Wanderer + Citizen DID registered via DIDComm)
+  └── Adds a second DID with Svrn7Role=Citizen
   └── Has a primary DID (did:drn:{methodName}:{localId})
   └── May hold additional DIDs under other Society method names
   └── Receives 1,000 grana (0.001 SVRN7) endowment on registration (v0.8.0)
 
 Total Merkle logs = 1 Federation + N Societies (one per deployment instance)
+
+---
+
+## drn.directory — Federation Endpoint Discovery
+
+`drn.directory` is the Web 7.0 Foundation-controlled DNS zone for out-of-band bootstrap
+discovery of did:drn federation TDA DIDComm endpoints. It is the only use of DNS in the
+Web 7.0 Pando architecture.
+
+TXT record convention:
+  federation.<domain>.drn.directory  IN TXT  "<DIDComm endpoint URL>"
+
+Example (local dev — production MUST use https://):
+  federation.svrn7.net.drn.directory  IN TXT  "http://localhost:8441/didcomm"
+
+Resolution algorithm (given did:drn:federation.<domain>/agent/<key>):
+  1. Extract "federation.<domain>" from the DID
+  2. Construct query label: "federation.<domain>.drn.directory"
+  3. Query DNS TXT for that label
+  4. Use TXT value as DIDComm endpoint for all subsequent communication
+  DNS is used for endpoint discovery only; all messages after discovery are DIDComm v2.
+
+Epoch 0 permissioning:
+  Zone is Foundation-controlled. Permissioned onboarding only — no self-service registration.
+
+Implementation note (C# / .NET 8):
+  Use DnsClient.NET NuGet (LookupClient.QueryAsync(label, QueryType.TXT)).
+  Portable across Windows/Linux/macOS; no P/Invoke or platform conditionals required.
+
+Specification: draft-herman-did-w3c-drn-00 Section 5b.
 
 ---
 
@@ -154,7 +197,7 @@ Step 8: ValidateSocietyMembership — cross-Society Epoch 1 only
 ## Key Interfaces
 
 ISvrn7Driver (Svrn7.Federation, 45 members):
-  InitialiseFederationAsync(federationDid, federationName, publicKeyHex, primaryDidMethodName) → OperationResult
+  InitialiseFederationAsync(DidDocument, federationName) → OperationResult  // use Initialize-Svrn7Federation (no params) from PowerShell
   RegisterCitizenAsync(RegisterCitizenRequest) → OperationResult
   RegisterSocietyAsync(RegisterSocietyRequest) → OperationResult
   TransferAsync(TransferRequest) → OperationResult
@@ -326,7 +369,7 @@ Key classes:
                             (re-enqueue dead-lettered outbound messages from prior session);
                             TTL check: messages older than TdaOptions.MaxMessageAgeSeconds are dead-lettered
                             before processing begins (default 3600s = 1 hour; 0=disabled)
-  RunspacePoolManager     — Builds shared InitialSessionState (ISS) at startup; vends per-invocation
+  IsolatedRunspaceFactory     — Builds shared InitialSessionState (ISS) at startup; vends per-invocation
                             IsolatedPipeline (crash-isolated runspace per dispatch);
                             CreateIsolatedPipeline() opens a fresh Runspace from the ISS, disposed after invocation;
                             ISS is shared read-only; $SVRN7 (Svrn7RunspaceContext) is shared but thread-safe
@@ -367,27 +410,27 @@ InboxMessage fields (Svrn7.Core.Models):
 Generated by LiteInboxStore.EnqueueAsync(messageType, packedPayload, fromDid?, wireId?, ct).
 
 LOBE modules (lobes/ — per-LOBE subfolders, e.g. lobes/Svrn7.Common/):
-  Eager (pre-loaded): Svrn7.Common.psm1, Svrn7.Federation.psm1, Svrn7.Society.psm1, Svrn7.UX.psm1
-  JIT (on-demand):    Svrn7.Email.psm1, Svrn7.Calendar.psm1, Svrn7.Presence.psm1,
-                      Svrn7.Notifications.psm1, Svrn7.Onboarding.psm1, Svrn7.Invoicing.psm1
+  Eager (pre-loaded): Svrn7.Common.0.8.0.psm1, Svrn7.Federation.0.8.0.psm1, Svrn7.Society.0.8.0.psm1, Svrn7.UX.0.8.0.psm1
+  JIT (on-demand):    Svrn7.Email.0.8.0.psm1, Svrn7.Calendar.0.8.0.psm1, Svrn7.Presence.0.8.0.psm1,
+                      Svrn7.Notifications.0.8.0.psm1, Svrn7.Onboarding.0.8.0.psm1, Svrn7.Invoicing.0.8.0.psm1
 
 Agent scripts (lobes/):
-  Agent1-Coordinator.ps1 — JIT LOBE dispatch via Get-Web7Message / Send-Web7Message
+  Agent1-Coordinator.ps1 — JIT LOBE dispatch via Dequeue-Svrn7Message / Enqueue-Svrn7Message
   Agent2-Onboarding.ps1  — onboard/1.0/request pipeline → ConvertFrom-Web7OnboardRequest
   AgentN-Invoicing.ps1   — invoice/1.0/request pipeline → ConvertFrom-Web7InvoiceRequest
 
 LOBE cmdlet naming convention (v0.8.0):
   DIDComm handler cmdlets use the -Web7 infix: Invoke-Web7*, Receive-Web7*, Send-Web7*,
-  Get-Web7Message, Send-Web7Message, ConvertFrom-Web7*, Render-Web7*, etc.
+  Dequeue-Svrn7Message, Enqueue-Svrn7Message, ConvertFrom-Web7*, Render-Web7*, etc.
   Federation-specific handlers: Invoke-Web7FederationQuery, Invoke-Web7FederationInit,
     Invoke-Web7RegisterSociety.
   Society-specific handlers: Invoke-Web7SocietyQuery, Invoke-Web7MemberQuery,
     Invoke-Web7OverdraftQuery, Invoke-Web7DidMethodsQuery, Invoke-Web7DidMethodRegister,
     Invoke-Web7CitizenDidAdd.
-  Svrn7.Common.psm1 shared helpers: Get-ActiveSocietyDriver, Get-ActiveFederationDriver,
+  Svrn7.Common.0.8.0.psm1 shared helpers: Get-ActiveSocietyDriver, Get-ActiveFederationDriver,
     Resolve-SocietySenderEndpoint (TDA-aware: returns $SVRN7.Driver in TDA context,
     falls back to $Script:SocietyDriver / $Script:FederationDriver in standalone mode).
-  UX helper: New-Svrn7TransferIntent (Svrn7.UX.psm1).
+  UX helper: New-Svrn7TransferIntent (Svrn7.UX.0.8.0.psm1).
 
 Schema Registry (Society TDA Only — DSA 0.24 Conditional Component):
   SchemaLiteContext.cs    — svrn7-schemas.db
@@ -462,17 +505,17 @@ Elements 7, 8, 10 are Web 7.0 / SVRN7 specific (substitute equivalents for other
 
 | # | Module | Type | Protocol families |
 |---|---|---|---|
-| 1 | Svrn7.Common.psm1 | Eager | — (shared helpers) |
-| 2 | Svrn7.Federation.psm1 | Eager | federation/1.0/*, transfer/1.0/*, did/1.0/* |
-| 3 | Svrn7.Society.psm1 | Eager | transfer/1.0/*, onboard/1.0/*, society/1.0/* |
-| 4 | Svrn7.UX.psm1 | Eager | ux/1.0/* (balance-update, notification, registration-complete) |
-| 5 | Svrn7.Email.psm1 | JIT | did:drn:svrn7.net/protocols/email/1.0/* |
-| 6 | Svrn7.Calendar.psm1 | JIT | did:drn:svrn7.net/protocols/calendar/1.0/* |
-| 7 | Svrn7.Presence.psm1 | JIT | did:drn:svrn7.net/protocols/presence/1.0/* |
-| 8 | Svrn7.Notifications.psm1 | JIT | did:drn:svrn7.net/protocols/notification/1.0/* |
-| 9 | Svrn7.Onboarding.psm1 | JIT | did:drn:svrn7.net/protocols/onboard/1.0/* |
-|10 | Svrn7.Invoicing.psm1 | JIT | did:drn:svrn7.net/protocols/invoice/1.0/* |
-|11 | Svrn7.Identity.psm1 | JIT | did:drn:svrn7.net/protocols/did/1.0/*, vc/1.0/* |
+| 1 | Svrn7.Common.0.8.0.psm1 | Eager | — (shared helpers) |
+| 2 | Svrn7.Federation.0.8.0.psm1 | Eager | federation/1.0/*, transfer/1.0/*, did/1.0/* |
+| 3 | Svrn7.Society.0.8.0.psm1 | Eager | transfer/1.0/*, onboard/1.0/*, society/1.0/* |
+| 4 | Svrn7.UX.0.8.0.psm1 | Eager | ux/1.0/* (balance-update, notification, registration-complete) |
+| 5 | Svrn7.Email.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/email/1.0/* |
+| 6 | Svrn7.Calendar.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/calendar/1.0/* |
+| 7 | Svrn7.Presence.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/presence/1.0/* |
+| 8 | Svrn7.Notifications.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/notification/1.0/* |
+| 9 | Svrn7.Onboarding.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/onboard/1.0/* |
+|10 | Svrn7.Invoicing.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/invoice/1.0/* |
+|11 | Svrn7.Identity.0.8.0.psm1 | JIT | did:drn:svrn7.net/protocols/did/1.0/*, vc/1.0/* |
 
 Each LOBE ships .psm1 + .psd1 + .lobe.json (MCP-aligned descriptor) in its own subfolder under lobes/
   (e.g. lobes/Svrn7.Common/, lobes/Svrn7.Federation/, lobes/Svrn7.Email/, etc.).

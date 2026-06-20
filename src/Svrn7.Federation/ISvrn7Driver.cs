@@ -70,23 +70,19 @@ public interface ISvrn7Driver : IAsyncDisposable
     Task<string?> ResolveCitizenPrimaryDidAsync(string anyDid, CancellationToken ct = default);
 
     // ── Society lifecycle ──────────────────────────────────────────────────────
+    /// <summary>Creates the SocietyRecord, wallet, and DIDDocument locally. No Federation method registration.</summary>
+    Task<OperationResult> InitializeSocietyAsync(RegisterSocietyRequest request,
+        CancellationToken ct = default);
+    /// <summary>Registers the already-initialized Society's DID method with the Federation registry, issues VTC, and appends to Merkle log.</summary>
+    Task<OperationResult> RegisterSocietyInFederationAsync(string societyDid,
+        CancellationToken ct = default);
+    /// <summary>Convenience — calls InitializeSocietyAsync then RegisterSocietyInFederationAsync.</summary>
     Task<OperationResult> RegisterSocietyAsync(RegisterSocietyRequest request,
         CancellationToken ct = default);
     Task<SocietyRecord?> GetSocietyAsync(string did, CancellationToken ct = default);
     Task<IReadOnlyList<SocietyRecord>> GetAllSocietiesAsync(CancellationToken ct = default);
     Task<bool> IsSocietyActiveAsync(string did, CancellationToken ct = default);
     Task DeactivateSocietyAsync(string did, CancellationToken ct = default);
-
-    // ── DID method names ───────────────────────────────────────────────────────
-    Task<OperationResult> RegisterAdditionalDidMethodAsync(string societyDid,
-        string methodName, CancellationToken ct = default);
-    Task<OperationResult> DeregisterDidMethodAsync(string societyDid,
-        string methodName, CancellationToken ct = default);
-    Task<DidMethodStatus> GetDidMethodStatusAsync(string methodName,
-        CancellationToken ct = default);
-    Task<IReadOnlyList<SocietyDidMethodRecord>> GetAllDidMethodsAsync(
-        string? societyDid = null, DidMethodStatus? statusFilter = null,
-        CancellationToken ct = default);
 
     // ── Transfers ──────────────────────────────────────────────────────────────
     Task<OperationResult> TransferAsync(TransferRequest request,
@@ -106,10 +102,8 @@ public interface ISvrn7Driver : IAsyncDisposable
 
     // ── Federation initialisation (idempotent — no-op if record already exists) ──
     Task<OperationResult> InitialiseFederationAsync(
-        string federationDid,
+        DidDocument didDocument,
         string federationName,
-        string publicKeyHex,
-        string primaryDidMethodName,
         CancellationToken ct = default);
 
     // ── DID Document registry ─────────────────────────────────────────────────
@@ -153,10 +147,12 @@ public interface ISvrn7Driver : IAsyncDisposable
     // ── Crypto helpers ─────────────────────────────────────────────────────────
     Svrn7KeyPair GenerateSecp256k1KeyPair();
     Svrn7KeyPair GenerateEd25519KeyPair();
+    Svrn7KeyPair GenerateX25519KeyPair();
     string  SignSecp256k1(byte[] payload, byte[] privateKeyBytes);
     bool    VerifySecp256k1(byte[] payload, string cesrSig, string publicKeyHex);
     Task<string> Blake3HexAsync(byte[] data, CancellationToken ct = default);
     Task<string> Base58EncodeAsync(byte[] data, CancellationToken ct = default);
+    DidDocument  CreateDidDocument(string did, string publicKeyHex, string methodName, string? serviceEndpointUrl = null, Svrn7Role? role = null, string? tdaName = null, string? x25519PublicKeyHex = null);
 
     // ── Wallet admin ───────────────────────────────────────────────────────────
     Task<int> LiftAllWalletRestrictionsAsync(CancellationToken ct = default);

@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Import-Module "$PSScriptRoot/Pando.Diagnostics.Impl.psm1"
+Import-Module "$PSScriptRoot/Pando.Diagnostics.Impl.0.1.0.psm1"
 
 # ── Invoke-PandoDiagnosticsDateQuery ──────────────────────────────────────────
 
@@ -16,10 +16,10 @@ function Invoke-PandoDiagnosticsDateQuery {
     .PARAMETER MessageDid
         TDA resource DID URL of the inbox message.
     .OUTPUTS
-        Hashtable — { PeerEndpoint, PackedMessage, MessageType } or $null if no reply endpoint.
+        [Svrn7.TDA.OutboundMessage] or $null if no reply endpoint.
     #>
     [CmdletBinding()]
-    [OutputType([hashtable])]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
     param(
         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [string] $MessageDid
@@ -41,16 +41,23 @@ function Invoke-PandoDiagnosticsDateQuery {
             return
         }
 
-        return @{
-            PeerEndpoint  = $replyEndpoint
-            PackedMessage = (@{
-                serverUtc       = $now.UtcDateTime.ToString('o')
-                serverUtcOffset = '+00:00'
-                currentEpoch    = $SVRN7.CurrentEpoch
-                respondedAt     = [datetimeoffset]::UtcNow.ToString('o')
-            } | ConvertTo-Json -Compress)
-            MessageType   = 'did:drn:svrn7.net/protocols/diagnostics/1.0/date-result'
-        }
+        $payload = @{
+            serverUtc       = $now.UtcDateTime.ToString('o')
+            serverUtcOffset = '+00:00'
+            currentEpoch    = $SVRN7.CurrentEpoch
+            respondedAt     = [datetimeoffset]::UtcNow.ToString('o')
+        } | ConvertTo-Json -Compress
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-result'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($msg.FromDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($replyEndpoint, $envelope)
     }
 }
 

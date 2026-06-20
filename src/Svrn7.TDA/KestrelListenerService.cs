@@ -1,4 +1,5 @@
 using System.Net.Security;
+using System.Net.WebSockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Builder;
@@ -45,6 +46,7 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
     private readonly TdaOptions               _opts;
     private readonly IDIDCommService          _didComm;
     private readonly IInboxStore              _inbox;
+    private readonly WebSocketNotifyHub       _hub;
     private readonly ILogger<KestrelListenerService> _log;
 
     private WebApplication? _app;
@@ -53,11 +55,13 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         IOptions<TdaOptions>               opts,
         IDIDCommService                    didComm,
         IInboxStore                        inbox,
+        WebSocketNotifyHub                 hub,
         ILogger<KestrelListenerService>    log)
     {
         _opts    = opts.Value;
         _didComm = didComm;
         _inbox   = inbox;
+        _hub     = hub;
         _log     = log;
     }
 
@@ -128,15 +132,26 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         if (_opts.RateLimitRequestsPerSecond > 0)
             _app.UseRateLimiter();
 
-        // ── Single route: POST /didcomm ───────────────────────────────────────
+        // WebSocket support (RFC 8441 over HTTP/2 for the /didcomm-notify path).
+        _app.UseWebSockets();
+
+        // ── Single inbound route: POST /didcomm ───────────────────────────────
         var route = _app.MapPost("/didcomm", HandleInboundAsync);
         if (_opts.RateLimitRequestsPerSecond > 0)
             route.RequireRateLimiting(rateLimitPolicy);
+
+        // ── Local UI push channel: /didcomm-notify (WebSocket, localhost only) ─
+        // Not published in the TDA's DID Document; not rate-limited (local only).
+        _app.Map("/didcomm-notify", HandleWebSocketAsync);
 
         await _app.StartAsync(ct);
         _log.LogInformation(
             "KestrelListenerService: listening on port {Port} (mTLS={Mtls}).",
             _opts.ListenPort, _opts.RequireMutualTls);
+        _log.LogDebug(
+            "KestrelListenerService: POST /didcomm (HTTP/2 inbound) and " +
+            "GET /didcomm-notify (WebSocket RFC 8441) active on port {Port}.",
+            _opts.ListenPort);
     }
 
     public async Task StopAsync(CancellationToken ct)
@@ -149,16 +164,42 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
 
     /// <summary>
     /// Inbound DIDComm processing pipeline:
-    ///   1. Read packed JWE body.
-    ///   2. UnpackAsync (JWE decrypt + JWS verify) — security boundary.
-    ///   3. EnqueueAsync → svrn7-inbox.db (write-ahead log).
-    ///   4. Return 202 Accepted.
+    ///   1. Enforce content-type gate (P-008):
+    ///        application/didcomm-encrypted+json — full JWE decrypt + JWS verify path.
+    ///        application/didcomm-plain+json     — plaintext path; only DID discovery
+    ///                                             protocols are admitted; others → 403.
+    ///        anything else                       → 415.
+    ///   2. Read body.
+    ///   3. UnpackAsync — security boundary (decrypt+verify for JWE; parse-only for plaintext).
+    ///   4. EnqueueAsync → svrn7-inbox.db (write-ahead log).
+    ///   5. Return 202 Accepted.
     ///
-    /// If UnpackAsync fails: return 400, do not enqueue.
-    /// All subsequent processing is asynchronous via DIDCommMessageSwitchboard.
+    /// If content type is wrong: return 415. If plaintext @type not in discovery whitelist: 403.
+    /// If UnpackAsync fails: return 400. All subsequent processing is asynchronous.
     /// </summary>
     private async Task HandleInboundAsync(HttpContext http)
     {
+        var contentType = http.Request.ContentType;
+        bool isEncrypted = contentType is not null &&
+            contentType.StartsWith("application/didcomm-encrypted+json", StringComparison.OrdinalIgnoreCase);
+        bool isPlaintext = contentType is not null &&
+            contentType.StartsWith("application/didcomm-plain+json", StringComparison.OrdinalIgnoreCase);
+
+        if (!isEncrypted && !isPlaintext)
+        {
+            _log.LogWarning(
+                "KestrelListenerService: rejected message with unsupported Content-Type '{Ct}'.",
+                contentType);
+            http.Response.StatusCode = StatusCodes.Status415UnsupportedMediaType;
+            await http.Response.WriteAsync(
+                "POST /didcomm requires Content-Type: application/didcomm-encrypted+json " +
+                "for general DIDComm messages. Plaintext (application/didcomm-plain+json) " +
+                "is accepted only for DID discovery protocols (did-resolve-request/response). " +
+                "For localhost plaintext use ws://…/didcomm-notify.",
+                http.RequestAborted);
+            return;
+        }
+
         using var reader = new StreamReader(http.Request.Body);
         var packedBody = await reader.ReadToEndAsync(http.RequestAborted);
 
@@ -169,13 +210,50 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
             return;
         }
 
+        // Plaintext is only permitted for DID discovery protocols.
+        // Gate on @type before UnpackAsync so unauthorized plaintext is rejected without
+        // touching the inbox. Encrypted messages skip this block entirely.
+        if (isPlaintext)
+        {
+            string? messageType = null;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(packedBody);
+                if (doc.RootElement.TryGetProperty("type", out var typeEl))
+                    messageType = typeEl.GetString();
+            }
+            catch
+            {
+                http.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await http.Response.WriteAsync(
+                    "Plaintext DIDComm body is not valid JSON.", http.RequestAborted);
+                return;
+            }
+
+            if (messageType is null ||
+                !Svrn7.Core.Svrn7Constants.PlaintextDiscoveryProtocols.Contains(messageType))
+            {
+                _log.LogWarning(
+                    "KestrelListenerService: rejected plaintext message — @type '{Type}' is not a DID discovery protocol.",
+                    messageType ?? "(null)");
+                http.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await http.Response.WriteAsync(
+                    "Plaintext DIDComm is only permitted for DID discovery protocols (did-resolve-request/response). " +
+                    "All other messages require application/didcomm-encrypted+json.",
+                    http.RequestAborted);
+                return;
+            }
+        }
+
         // ── Pack/Unpack boundary (DIDComm V2 Messaging element — DSA 0.24) ───
+        // For encrypted messages: JWE decrypt + JWS verify.
+        // For plaintext bootstrap messages: parse-only (UnpackAsync handles both paths).
         DIDCommUnpackedMessage unpacked;
         try
         {
             unpacked = await _didComm.UnpackAsync(
                 packedBody,
-                _opts.SocietyMessagingPrivateKeyEd25519,
+                _opts.AgentKeyAgreementPrivateKey,
                 http.RequestAborted);
         }
         catch (Exception ex)
@@ -218,6 +296,119 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
         _log.LogDebug("KestrelListenerService: accepted message:\n{Json}", unpacked.ToFormattedJson());
 
         http.Response.StatusCode = StatusCodes.Status202Accepted;
+    }
+
+    // ── /didcomm-notify WebSocket handler ────────────────────────────────────
+
+    /// <summary>
+    /// Accepts a WebSocket connection from local PandoMail on /didcomm-notify.
+    /// Bidirectional: TDA pushes notifications; PandoMail sends requests (List-Emails,
+    /// Enqueue-PandoMail). Incoming messages go through the same UnpackAsync + EnqueueAsync
+    /// pipeline as POST /didcomm — the Switchboard routes them by @type to LOBEs.
+    /// LOBE responses with PeerEndpoint == WebSocketNotifyHub.LocalEndpoint are
+    /// delivered back over this socket by the Switchboard instead of via HTTP/2 POST.
+    /// </summary>
+    private async Task HandleWebSocketAsync(HttpContext http)
+    {
+        if (!http.WebSockets.IsWebSocketRequest)
+        {
+            http.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await http.Response.WriteAsync("Expected a WebSocket request.", http.RequestAborted);
+            return;
+        }
+
+        using var ws = await http.WebSockets.AcceptWebSocketAsync();
+        var clientId = _hub.Attach(ws);
+        _log.LogInformation(
+            "KestrelListenerService: local-UI WebSocket attached on /didcomm-notify (id={Id}).", clientId);
+
+        try
+        {
+            await ReceiveWebSocketLoopAsync(ws, http.RequestAborted);
+        }
+        finally
+        {
+            _hub.Detach(clientId);
+            _log.LogInformation(
+                "KestrelListenerService: local-UI WebSocket detached (id={Id}).", clientId);
+        }
+    }
+
+    private async Task ReceiveWebSocketLoopAsync(WebSocket ws, CancellationToken ct)
+    {
+        var buffer = new byte[64 * 1024];
+
+        while (ws.State == WebSocketState.Open && !ct.IsCancellationRequested)
+        {
+            using var ms = new MemoryStream();
+            WebSocketReceiveResult result;
+
+            do
+            {
+                result = await ws.ReceiveAsync(buffer, ct);
+                _log.LogDebug(
+                    "KestrelListenerService: WebSocket frame received — {Bytes} bytes, endOfMessage={Eom}.",
+                    result.Count, result.EndOfMessage);
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    _log.LogDebug("KestrelListenerService: WebSocket close frame received — closing.");
+                    if (ws.State == WebSocketState.Open || ws.State == WebSocketState.CloseReceived)
+                        await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, ct);
+                    return;
+                }
+                ms.Write(buffer, 0, result.Count);
+            }
+            while (!result.EndOfMessage);
+
+            _log.LogDebug(
+                "KestrelListenerService: WebSocket complete message assembled — {TotalBytes} bytes.",
+                ms.Length);
+            var json = System.Text.Encoding.UTF8.GetString(ms.ToArray());
+            _ = Task.Run(() => ProcessWebSocketMessageAsync(json, ct), ct);
+        }
+    }
+
+    private async Task ProcessWebSocketMessageAsync(string json, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return;
+
+        _log.LogDebug(
+            "KestrelListenerService: WebSocket processing message — length={Length}, preview='{Preview}'.",
+            json.Length, json.Length > 120 ? json[..120] : json);
+
+        DIDCommUnpackedMessage unpacked;
+        try
+        {
+            unpacked = await _didComm.UnpackAsync(
+                json,
+                _opts.AgentKeyAgreementPrivateKey,
+                ct);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "KestrelListenerService: WebSocket UnpackAsync failed — ignoring message.");
+            return;
+        }
+
+        _log.LogDebug(
+            "KestrelListenerService: WebSocket UnpackAsync OK — type='{Type}', from='{From}'.",
+            unpacked.Type, unpacked.From);
+
+        try
+        {
+            await _inbox.EnqueueAsync(
+                unpacked.Type,
+                unpacked.Body,
+                unpacked.From,
+                unpacked.Id,
+                json,
+                ct);
+            _log.LogDebug("KestrelListenerService: WebSocket message enqueued (type='{Type}').", unpacked.Type);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "KestrelListenerService: WebSocket inbox enqueue failed.");
+        }
     }
 
     // ── mTLS peer certificate validation ─────────────────────────────────────

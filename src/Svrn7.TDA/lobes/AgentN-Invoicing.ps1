@@ -5,22 +5,22 @@
     Web 7.0 TDA — Agent N Invoicing Runspace Script.
 
 .DESCRIPTION
-    Task runspace opened on demand by the Switchboard for invoice/1.0/request messages.
+    Task runspace opened on demand by the Switchboard for Svrn7.Invoicing/0.8.0/request messages.
     Returned to the RunspacePool after each task completes.
 
     Derived from: Agent N — Invoicing (PowerShell Runspace) — DSA 0.24 Epoch 0 (PPML).
 
 .NOTES
-    DIDComm protocol: did:drn:svrn7.net/protocols/invoice/1.0/request
+    DIDComm protocol: did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/request
     Routing: Switchboard → Invoke-AgentRunspace Invoicing $msgDid
 
     Full pipeline:
-        Get-Web7Message -Did $msgDid
-            | ConvertFrom-Web7InvoiceRequest     ← Svrn7.Invoicing.psm1 (JIT)
-            | Resolve-InvoiceAmount             ← Svrn7.Invoicing.psm1 (JIT)
-            | Invoke-Svrn7Transfer              ← Svrn7.Society.psm1 (eager, same-Society)
-            | New-Web7InvoiceReceipt             ← Svrn7.Invoicing.psm1 (JIT)
-            | Send-Web7Message
+        Dequeue-Svrn7Message -Did $msgDid
+            | ConvertFrom-Web7InvoiceRequest     ← Svrn7.Invoicing.0.8.0.psm1 (JIT)
+            | Resolve-InvoiceAmount             ← Svrn7.Invoicing.0.8.0.psm1 (JIT)
+            | Invoke-Svrn7Transfer              ← Svrn7.Society.0.8.0.psm1 (eager, same-Society)
+            | New-Web7InvoiceReceipt             ← Svrn7.Invoicing.0.8.0.psm1 (JIT)
+            | Enqueue-Svrn7Message
 
     Cross-Society invoices use Invoke-Svrn7ExternalTransfer instead.
     On failure: Send-Web7InvoiceError is called.
@@ -55,7 +55,7 @@ $invoiceId  = $null
 
 try {
     # Step 1: Resolve and parse the invoice request
-    $invoice = Get-Web7Message -Did $MessageDid |
+    $invoice = Dequeue-Svrn7Message -Did $MessageDid |
                ConvertFrom-Web7InvoiceRequest |
                Resolve-InvoiceAmount
 
@@ -129,25 +129,15 @@ try {
                "Transfer: $($transferResult.TransferId)" `
                -ForegroundColor Green
 
-    [PSCustomObject]@{
-        PeerEndpoint  = $outbound.PeerEndpoint
-        PackedMessage = $outbound.PackedMessage
-        MessageType   = $outbound.MessageType
-    }
+    $outbound
 
 } catch {
     Write-Error "Agent N / Invoicing: failed for $MessageDid — $_"
 
     if ($invoice -and (Get-Command Send-Web7InvoiceError -ErrorAction SilentlyContinue)) {
-        $errOutbound = Send-Web7InvoiceError `
+        Send-Web7InvoiceError `
             -PayerDid     $invoice.PayerDid `
             -InvoiceId    ($invoiceId ?? 'unknown') `
             -ErrorMessage $_.ToString()
-
-        [PSCustomObject]@{
-            PeerEndpoint  = $errOutbound.PeerEndpoint
-            PackedMessage = $errOutbound.PackedMessage
-            MessageType   = $errOutbound.MessageType
-        }
     }
 }

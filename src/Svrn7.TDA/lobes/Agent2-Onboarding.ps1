@@ -5,21 +5,21 @@
     Web 7.0 TDA — Agent 2 Onboarding Runspace Script.
 
 .DESCRIPTION
-    Task runspace opened on demand by the Switchboard for onboard/1.0/request messages.
+    Task runspace opened on demand by the Switchboard for Svrn7.Onboarding/0.8.0/register-citizen messages.
     Returned to the RunspacePool after each task completes.
 
     Derived from: Agent 2 — Onboarding (PowerShell Runspace) — DSA 0.24 Epoch 0 (PPML).
 
 .NOTES
-    DIDComm protocol: did:drn:svrn7.net/protocols/onboard/1.0/request
+    DIDComm protocol: did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/register-citizen
     Routing: Switchboard → Invoke-AgentRunspace Onboarding $msgDid
 
     Full pipeline:
-        Get-Web7Message -Did $msgDid
+        Dequeue-Svrn7Message -Did $msgDid
             | ConvertFrom-Web7OnboardRequest
-            | Register-Svrn7CitizenInSociety   ← Svrn7.Society.psm1 (eager)
-            | New-Web7OnboardReceipt             ← Svrn7.Onboarding.psm1 (JIT)
-            | Send-Web7Message
+            | Register-Svrn7CitizenInSociety   ← Svrn7.Society.0.8.0.psm1 (eager)
+            | New-Web7OnboardReceipt             ← Svrn7.Onboarding.0.8.0.psm1 (JIT)
+            | Enqueue-Svrn7Message
 
     On failure: Send-Web7OnboardError is called with the error message.
 
@@ -52,7 +52,7 @@ $citizenDid = $null
 
 try {
     # Step 1: Resolve and parse the onboard request
-    $request = Get-Web7Message -Did $MessageDid | ConvertFrom-Web7OnboardRequest
+    $request = Dequeue-Svrn7Message -Did $MessageDid | ConvertFrom-Web7OnboardRequest
     if (-not $request) {
         throw "ConvertFrom-Web7OnboardRequest returned null for $MessageDid"
     }
@@ -60,8 +60,8 @@ try {
     $citizenDid = $request.CitizenDid
     Write-Verbose "Agent 2 / Onboarding: registering citizen $citizenDid"
 
-    # Step 2: Register citizen in Society + endowment (Svrn7.Society.psm1 — eager)
-    # Register-Svrn7CitizenInSociety is an existing cmdlet in Svrn7.Society.psm1.
+    # Step 2: Register citizen in Society + endowment (Svrn7.Society.0.8.0.psm1 — eager)
+    # Register-Svrn7CitizenInSociety is an existing cmdlet in Svrn7.Society.0.8.0.psm1.
     # It calls ISvrn7SocietyDriver.RegisterCitizenInSocietyAsync internally.
     # Register-Svrn7CitizenInSociety requires a KeyPair PSCustomObject.
     # The Society stores the citizen's public key; private key is not transmitted.
@@ -89,25 +89,15 @@ try {
                -ForegroundColor Green
 
     # Return the OutboundMessage to the Switchboard pipeline
-    [PSCustomObject]@{
-        PeerEndpoint  = $outbound.PeerEndpoint
-        PackedMessage = $outbound.PackedMessage
-        MessageType   = $outbound.MessageType
-    }
+    $outbound
 
 } catch {
     Write-Error "Agent 2 / Onboarding: failed for $MessageDid — $_"
 
     # Send error receipt if we know the citizen DID
     if ($citizenDid -and (Get-Command Send-Web7OnboardError -ErrorAction SilentlyContinue)) {
-        $errOutbound = Send-Web7OnboardError `
+        Send-Web7OnboardError `
             -CitizenDid    $citizenDid `
             -ErrorMessage  $_.ToString()
-
-        [PSCustomObject]@{
-            PeerEndpoint  = $errOutbound.PeerEndpoint
-            PackedMessage = $errOutbound.PackedMessage
-            MessageType   = $errOutbound.MessageType
-        }
     }
 }

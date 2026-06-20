@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>Web7.SVRN7.Apps</RootNamespace>
+    <AssemblyName>PandoMail</AssemblyName>
+    <UseWindowsForms>true</UseWindowsForms>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <SupportedOSPlatformVersion>6.1</SupportedOSPlatformVersion>
+    <GenerateResourceWarnOnBinaryFormatterUse>false</GenerateResourceWarnOnBinaryFormatterUse>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2277.86" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Mail\Brian.htm" />
+    <EmbeddedResource Include="Mail\Chris.htm" />
+    <EmbeddedResource Include="Mail\Erick.htm" />
+    <EmbeddedResource Include="Mail\Harsh.htm" />
+    <EmbeddedResource Include="Mail\Hender.htm" />
+    <EmbeddedResource Include="Mail\Iain.htm" />
+    <EmbeddedResource Include="Mail\Inbox.xml" />
+    <EmbeddedResource Include="Mail\Jamie.htm" />
+    <EmbeddedResource Include="Mail\Jeff.htm" />
+    <EmbeddedResource Include="Mail\Laurie.htm" />
+    <EmbeddedResource Include="Mail\Mark.htm" />
+    <EmbeddedResource Include="Mail\Other.htm" />
+    <EmbeddedResource Include="Mail\Rideout.htm" />
+    <EmbeddedResource Include="Mail\Shawn.htm" />
+    <EmbeddedResource Include="Mail\Simon.htm" />
+    <EmbeddedResource Include="Mail\Steve.htm" />
+    <EmbeddedResource Include="Mail\VoiceMail.htm" />
+  </ItemGroup>
+
+</Project>

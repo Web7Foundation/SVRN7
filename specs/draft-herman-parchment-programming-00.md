@@ -440,21 +440,21 @@ Visual:     Large rounded rectangle (landscape or portrait).
 - **Semantic class** *(Web 7.0 / SVRN7 specific)*: A PowerShell RunspacePool — the
   managed pool of PowerShell runspaces from which agent runspaces are allocated.
   Represents both the pool infrastructure and the shared InitialSessionState.
-- **Derivation rule**: One RunspacePoolManager class, one InitialSessionState construction
+- **Derivation rule**: One IsolatedRunspaceFactory class, one InitialSessionState construction
   method, one lobes.config.json (or equivalent), and one configuration entry specifying
   minimum and maximum runspace counts.
 - **Implementation note (DSA 0.24 / v0.8.0)**: The PPML element type name "Runspace Pool"
   is retained (renaming would require a PP-5 diagram-first change). The implementation has
-  been refined: `RunspacePoolManager` no longer opens a `RunspacePool`. Instead, it builds
+  been refined: `IsolatedRunspaceFactory` no longer opens a `RunspacePool`. Instead, it builds
   one shared `InitialSessionState` (ISS) at startup, and each LOBE dispatch calls
-  `RunspacePoolManager.CreateIsolatedPipeline()`, which opens a fresh `Runspace` from the
+  `IsolatedRunspaceFactory.CreateIsolatedPipeline()`, which opens a fresh `Runspace` from the
   ISS via `RunspaceFactory.CreateRunspace(iss)`. The fresh runspace (wrapped in
   `IsolatedPipeline`) is disposed after each invocation. This gives complete blast-radius
   isolation between concurrent dispatches. The derivation rule artefact is unchanged:
-  `RunspacePoolManager.cs` + `IsolatedPipeline.cs`.
+  `IsolatedRunspaceFactory.cs` + `IsolatedPipeline.cs`.
 - **Adopter note**: For non-PowerShell architectures, substitute the equivalent pool or
   thread-pool manager element type, updating the name and derivation rule accordingly.
-- **Web 7.0 example instances**: "PowerShell Runspace Pool" → RunspacePoolManager.cs + IsolatedPipeline.cs.
+- **Web 7.0 example instances**: "PowerShell Runspace Pool" → IsolatedRunspaceFactory.cs + IsolatedPipeline.cs.
 
 ---
 
@@ -643,8 +643,8 @@ This zone structure directly generates the layered implementation specification:
 - Layer 0: Host process (.NET console app, Generic Host)
 - Layer 1: Transport (Kestrel HTTP/2 + mTLS, POST /didcomm, HttpClient)
 - Layer 2: DIDComm Pack/Unpack boundary (DIDCommPackingService)
-- Layer 3: LOBEs (PowerShell modules: Svrn7.Federation.psm1, Svrn7.Society.psm1, ...)
-- Layer 4: Runspace Pool and agents (RunspacePoolManager, agent scripts, Switchboard)
+- Layer 3: LOBEs (PowerShell modules: Svrn7.Federation.0.8.0.psm1, Svrn7.Society.0.8.0.psm1, ...)
+- Layer 4: Runspace Pool and agents (IsolatedRunspaceFactory, agent scripts, Switchboard)
 - Layer 5: Storage (Data Storage databases: svrn7.db, svrn7-dids.db, svrn7-vcs.db, svrn7-inbox.db)
 
 ---
@@ -689,7 +689,7 @@ cross-references the Legend element type number from Section 5.2.2.
 | 4 | Device                    | One platform-specific UX module or adapter.                                              | Module                          |
 | 5 | Data Storage              | One LiteDB context class, one or more collection definitions, one IXxxStore interface.  | Store, Interface, Class         |
 | 6 | Data Access               | One IXxxResolver or IXxxRegistry interface, one or more implementations.                | Interface, Class, Cache         |
-| 7 | Runspace Pool             | One RunspacePoolManager class, one InitialSessionState builder, one IsolatedPipeline class, one config entry. | Class, Configuration |
+| 7 | Runspace Pool             | One IsolatedRunspaceFactory class, one InitialSessionState builder, one IsolatedPipeline class, one config entry. | Class, Configuration |
 | 8 | Switchboard               | One router class, one protocol registry (ConcurrentDictionary), one outbound queue.     | Class, Service                  |
 | 9 | Host                      | One OS process entry point, one DI container, one hosted service per background component.| Process, Service, Configuration |
 |10 | PowerShell Runspace       | One agent script (.ps1), one protocol registry entry in the Switchboard.                | Module, Configuration           |
@@ -721,7 +721,7 @@ Layered derivation order for the DSA TDA:
 2. **Layer 1 — Transport**: Derive the Kestrel endpoint and HttpClient outbound sender.
 3. **Layer 2 — Protocol**: Derive the IDIDCommService interface and DIDCommPackingService.
 4. **Layer 3 — LOBEs**: Derive each PowerShell module and its exported cmdlets.
-5. **Layer 4 — Runspace Pool and Agents**: Derive RunspacePoolManager, IsolatedPipeline, and agent scripts.
+5. **Layer 4 — Runspace Pool and Agents**: Derive IsolatedRunspaceFactory, IsolatedPipeline, and agent scripts.
 6. **Layer 5 — Storage**: Derive Data Storage databases (LiteDB context classes), collection schemas, and store interfaces.
 
 ### 6.4 Derivation of Connections
@@ -794,15 +794,15 @@ between diagram and implementation explicitly visible and measurable.
 |---------------------------|----------------|----------------------------|----------|
 | HTTP Listener/Sender      | Protocol       | KestrelListenerService.cs  | ✓ Done   |
 | Switchboard (hosted svc)  | Switchboard    | SwitchboardHostedService   | ✓ Done   |
-| Runspace Pool (outer box) | Runspace Pool  | RunspacePoolManager.cs + IsolatedPipeline.cs | ✓ Done |
+| Runspace Pool (outer box) | Runspace Pool  | IsolatedRunspaceFactory.cs + IsolatedPipeline.cs | ✓ Done |
 | LobeManager               | LOBE (implied) | LobeManager.cs             | ✓ Done   |
 | Svrn7RunspaceContext      | (Host service) | Svrn7RunspaceContext.cs    | ✓ Done   |
-| Svrn7.Email.psm1          | LOBE           | Svrn7.Email.psm1           | ✓ Done   |
-| Svrn7.Calendar.psm1       | LOBE           | Svrn7.Calendar.psm1        | ✓ Done   |
-| Svrn7.Presence.psm1       | LOBE           | Svrn7.Presence.psm1        | ✓ Done   |
-| Svrn7.Notifications.psm1  | LOBE           | Svrn7.Notifications.psm1   | ✓ Done   |
-| Svrn7.Onboarding.psm1     | LOBE           | Svrn7.Onboarding.psm1      | ✓ Done   |
-| Svrn7.Invoicing.psm1      | LOBE           | Svrn7.Invoicing.psm1       | ✓ Done   |
+| Svrn7.Email.0.8.0.psm1          | LOBE           | Svrn7.Email.0.8.0.psm1           | ✓ Done   |
+| Svrn7.Calendar.0.8.0.psm1       | LOBE           | Svrn7.Calendar.0.8.0.psm1        | ✓ Done   |
+| Svrn7.Presence.0.8.0.psm1       | LOBE           | Svrn7.Presence.0.8.0.psm1        | ✓ Done   |
+| Svrn7.Notifications.0.8.0.psm1  | LOBE           | Svrn7.Notifications.0.8.0.psm1   | ✓ Done   |
+| Svrn7.Onboarding.0.8.0.psm1     | LOBE           | Svrn7.Onboarding.0.8.0.psm1      | ✓ Done   |
+| Svrn7.Invoicing.0.8.0.psm1      | LOBE           | Svrn7.Invoicing.0.8.0.psm1       | ✓ Done   |
 | Agent 1 coordinator       | PS Runspace    | Agent1-Coordinator.ps1     | ✓ Done   |
 | Agent 2 onboarding        | PS Runspace    | Agent2-Onboarding.ps1      | ✓ Done   |
 | Agent N invoicing         | PS Runspace    | AgentN-Invoicing.ps1       | ✓ Done   |
@@ -1066,14 +1066,14 @@ Applying the Legend produces the following element instance classification (sele
 | Element Instance Label             | Element Type       | Derivation Target              |
 |------------------------------------|--------------------|--------------------------------|
 | Citizen/Society TDA (Host)         | Host               | Program.cs console app + DI   |
-| PowerShell Runspace Pool           | Runspace Pool      | RunspacePoolManager + IsolatedPipeline (shared ISS + per-invocation runspace) |
+| PowerShell Runspace Pool           | Runspace Pool      | IsolatedRunspaceFactory + IsolatedPipeline (shared ISS + per-invocation runspace) |
 | Agent 1 Runspace                   | PowerShell Runspace| Agent 1 coordinator script    |
 | Agent 2 — LOBE A                   | PowerShell Runspace| LOBE A agent script (generic)  |
 | Agent N — LOBE Z                   | PowerShell Runspace| LOBE Z agent script (generic)  |
 | DIDComm Message Switchboard        | Switchboard        | DIDCommMessageSwitchboard.cs   |
-| UX LOBE                            | LOBE               | Svrn7.UX.psm1                  |
-| SVRN7 LOBE                         | LOBE               | Svrn7.Federation.psm1 +        |
-|                                    |                    | Svrn7.Society.psm1             |
+| UX LOBE                            | LOBE               | Svrn7.UX.0.8.0.psm1                  |
+| SVRN7 LOBE                         | LOBE               | Svrn7.Federation.0.8.0.psm1 +        |
+|                                    |                    | Svrn7.Society.0.8.0.psm1             |
 | DIDComm V2 Messaging               | Protocol           | DIDCommPackingService.cs       |
 | HTTP Listener/Sender (HTTPClient)  | Protocol           | KestrelListenerService.cs +    |
 |                                    |                    | HttpClient (named "didcomm")   |
@@ -1101,13 +1101,13 @@ Derivation rule: Protocol -> implements IDIDCommService; provides UnpackAsync/Pa
 Derived from: "Long-Term Message Memory (LiteDB)" — element type Data Storage — DSA 0.24 Epoch 0.
 Derivation rule: Data Storage database -> LiteDB context class; one collection per entity type.
 
-**Svrn7.Federation.psm1** (lobes/Svrn7.Federation.psm1)
+**Svrn7.Federation.0.8.0.psm1** (lobes/Svrn7.Federation.0.8.0.psm1)
 Derived from: "SVRN7 LOBE" — element type LOBE — DSA 0.24 Epoch 0.
 Derivation rule: LOBE -> PowerShell module (.psm1); exports named cmdlets (35 cmdlets).
 
-**Register-Svrn7CitizenInSociety** (cmdlet in Svrn7.Society.psm1)
-Derived from: "SVRN7 LOBE" (-> Svrn7.Society.psm1) and the Switchboard routing rule for
-"onboard/1.0/request" -> Agent 2 Onboarding -> Register-Svrn7CitizenInSociety pipeline.
+**Register-Svrn7CitizenInSociety** (cmdlet in Svrn7.Society.0.8.0.psm1)
+Derived from: "SVRN7 LOBE" (-> Svrn7.Society.0.8.0.psm1) and the Switchboard routing rule for
+"Svrn7.Onboarding/0.8.0/register-citizen" -> Agent 2 Onboarding -> Register-Svrn7CitizenInSociety pipeline.
 
 ### 11.4 The Parchment Programming Loop: One Iteration
 
@@ -1155,27 +1155,26 @@ a single element type (LOBE) producing multiple artefact categories (Module + Pr
 
 | LOBE Instance       | Module File             | DIDComm Protocol URIs                     |
 |---------------------|-------------------------|-------------------------------------------|
-| Common LOBE         | Svrn7.Common.psm1       | — (shared helpers, eager)                 |
-| Federation LOBE     | Svrn7.Federation.psm1   | did:drn:svrn7.net/protocols/transfer/1.0/*|
-|                     |                         | did:drn:svrn7.net/protocols/did/1.0/*     |
-| Society LOBE        | Svrn7.Society.psm1      | did:drn:svrn7.net/protocols/transfer/1.0/*|
-|                     |                         | did:drn:svrn7.net/protocols/onboard/1.0/* |
-| UX LOBE             | Svrn7.UX.psm1           | did:drn:svrn7.net/protocols/ux/1.0/*      |
-| Email LOBE          | Svrn7.Email.psm1        | did:drn:svrn7.net/protocols/email/1.0/*   |
-| Calendar LOBE       | Svrn7.Calendar.psm1     | did:drn:svrn7.net/protocols/calendar/1.0/*|
-| Presence LOBE       | Svrn7.Presence.psm1     | did:drn:svrn7.net/protocols/presence/1.0/*|
-| Notifications LOBE  | Svrn7.Notifications.psm1| did:drn:svrn7.net/protocols/notification/1.0/*|
-| Onboarding LOBE     | Svrn7.Onboarding.psm1   | did:drn:svrn7.net/protocols/onboard/1.0/* |
-| Invoicing LOBE      | Svrn7.Invoicing.psm1    | did:drn:svrn7.net/protocols/invoice/1.0/* |
-| Identity LOBE       | Svrn7.Identity.psm1     | did:drn:svrn7.net/protocols/did/1.0/*     |
-|                     |                         | did:drn:svrn7.net/protocols/vc/1.0/*      |
+| Common LOBE         | Svrn7.Common.0.8.0.psm1       | — (shared helpers, eager)                 |
+| Federation LOBE     | Svrn7.Federation.0.8.0.psm1   | did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/*|
+| Society LOBE        | Svrn7.Society.0.8.0.psm1      | did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-*|
+|                     |                         | did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/* |
+| UX LOBE             | Svrn7.UX.0.8.0.psm1           | did:drn:svrn7.net/protocols/Svrn7.UX.0.8.0/*      |
+| Email LOBE          | Svrn7.Email.0.8.0.psm1        | did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/*   |
+| Calendar LOBE       | Svrn7.Calendar.0.8.0.psm1     | did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/*|
+| Presence LOBE       | Svrn7.Presence.0.8.0.psm1     | did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/*|
+| Notifications LOBE  | Svrn7.Notifications.0.8.0.psm1| did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/*|
+| Onboarding LOBE     | Svrn7.Onboarding.0.8.0.psm1   | did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/* |
+| Invoicing LOBE      | Svrn7.Invoicing.0.8.0.psm1    | did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/* |
+| Identity LOBE       | Svrn7.Identity.0.8.0.psm1     | did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-*|
+|                     |                         | did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/vc-*|
 
 Each LOBE either defines a net-new DIDComm protocol or tunnels an existing industry standard
 inside a DIDComm envelope:
 
 - **Net-new**: Presence (presence/1.0/status, presence/1.0/subscribe), Notifications
-  (notification/1.0/alert), Onboarding (onboard/1.0/request, onboard/1.0/receipt), Invoicing
-  (invoice/1.0/request, invoice/1.0/receipt).
+  (Svrn7.Notifications/0.8.0/alert), Onboarding (Svrn7.Onboarding/0.8.0/register-citizen, Svrn7.Onboarding/0.8.0/receipt), Invoicing
+  (Svrn7.Invoicing/0.8.0/request, Svrn7.Invoicing/0.8.0/receipt).
 - **Tunneling**: Email LOBE tunnels RFC 5322 (email message format) inside a DIDComm body.
   Calendar LOBE tunnels iCalendar (RFC 5545) inside a DIDComm body.
 

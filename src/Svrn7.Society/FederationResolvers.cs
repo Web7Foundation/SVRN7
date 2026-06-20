@@ -11,45 +11,25 @@ namespace Svrn7.Society;
 // ── FederationDidDocumentResolver ─────────────────────────────────────────────
 
 /// <summary>
-/// Routes DID Document resolution by method name.
+/// Routes did:drn DID Document resolution.
 ///
-/// Local method names (configured in Svrn7SocietyOptions.DidMethodNames, defaulting
-/// to the single DidMethodName value) are resolved directly from the local
-/// IDidDocumentRegistry without any network hop.
+/// Tries the local <see cref="IDidDocumentRegistry"/> first. If the DID is cached
+/// locally the result is returned immediately without a network hop.
 ///
-/// Foreign method names are resolved by:
-///   1. Looking up the owning Society in the Federation method registry.
-///   2. Dispatching a DIDComm resolve-request plaintext message to the owning Society.
-///   3. Checking the local registry for a cached copy (populated by DIDCommMessageProcessorService).
-///
-/// If the document is not in the local cache and no transport delivers the response
-/// within FederationRoundTripTimeout, the resolution returns errorCode="notFound".
-/// Callers should retry; the DIDCommMessageProcessorService will populate the cache
-/// asynchronously when the response arrives.
-///
-/// This design follows P10 (partial availability is better than total unavailability):
-/// the resolver never blocks indefinitely — it either returns data or a typed error
-/// that tells the caller exactly why resolution did not succeed.
+/// On a local miss, returns <c>notFound</c> — the Identity LOBE
+/// (<c>Resolve-Svrn7Did</c>) owns the async DIDComm escalation and correlated
+/// relay pattern. See DIDRESOLUTION.md for the full flow.
 /// </summary>
 public sealed class FederationDidDocumentResolver : IDidDocumentResolver
 {
     private readonly IDidDocumentRegistry _localRegistry;
-    private readonly IFederationStore     _fedStore;
-    private readonly IDIDCommService      _didComm;
-    private readonly Svrn7SocietyOptions  _opts;
     private readonly ILogger<FederationDidDocumentResolver> _log;
 
     public FederationDidDocumentResolver(
         IDidDocumentRegistry localRegistry,
-        IFederationStore fedStore,
-        IDIDCommService didComm,
-        IOptions<Svrn7SocietyOptions> opts,
         ILogger<FederationDidDocumentResolver> log)
     {
         _localRegistry = localRegistry;
-        _fedStore      = fedStore;
-        _didComm       = didComm;
-        _opts          = opts.Value;
         _log           = log;
     }
 
@@ -59,70 +39,16 @@ public sealed class FederationDidDocumentResolver : IDidDocumentResolver
         if (parts.Length < 3 || parts[0] != "did")
             return Error(did, "invalidDid");
 
-        var methodName = parts[1];
-
-        // ── Local resolution ──────────────────────────────────────────────────
-        // Use configured DidMethodNames list if populated; fall back to single DidMethodName.
-        var localMethods = _opts.DidMethodNames.Count > 0
-            ? _opts.DidMethodNames
-            : new List<string> { _opts.DidMethodName };
-
-        if (localMethods.Contains(methodName, StringComparer.OrdinalIgnoreCase))
-            return await _localRegistry.ResolveAsync(did, ct);
-
-        // ── Remote resolution via DIDComm ─────────────────────────────────────
-        var methodRecord = await _fedStore.GetMethodRecordAsync(methodName, ct);
-        if (methodRecord is null)
-        {
-            _log.LogDebug(
-                "No Society registered for DID method '{Method}' — cannot resolve '{Did}'",
-                methodName, did);
+        if (!string.Equals(parts[1], "drn", StringComparison.OrdinalIgnoreCase))
             return Error(did, "methodNotSupported");
-        }
 
-        _log.LogDebug(
-            "Routing DID resolve-request for '{Did}' (method '{Method}') to Society '{Society}'",
-            did, methodName, methodRecord.SocietyDid);
+        // Try local registry — covers all locally registered DID Documents
+        var local = await _localRegistry.ResolveAsync(did, ct);
+        if (local.Found) return local;
 
-        // Dispatch DIDComm resolve-request (plaintext — transport handles delivery)
-        var requestMsg = _didComm.NewMessage()
-            .Type(Svrn7Constants.Protocols.DidResolveRequest)
-            .From(_opts.SocietyDid)
-            .To(methodRecord.SocietyDid)
-            .Body(new { did, requestedAt = DateTimeOffset.UtcNow })
-            .Build();
-
-        // Pack as plaintext — encryption is the transport adapter's responsibility
-        _ = await _didComm.PackPlaintextAsync(requestMsg, ct);
-
-        // Apply round-trip timeout for local-cache check
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(_opts.FederationRoundTripTimeout);
-
-        try
-        {
-            // Check whether the document is already in the local cache.
-            // In a fully connected deployment the DIDCommMessageProcessorService receives
-            // the response from the owning Society and caches it before this check runs.
-            var cached = await _localRegistry.ResolveAsync(did, cts.Token);
-            if (cached.Found)
-                return cached;
-
-            // Not in cache yet — inform the caller to retry.
-            _log.LogInformation(
-                "DID '{Did}' not in local cache. Resolve-request dispatched to Society '{Society}'. " +
-                "Resolution will succeed after DIDComm response is processed by inbox service.",
-                did, methodRecord.SocietyDid);
-
-            return Error(did, "notFound");
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-        {
-            _log.LogWarning(
-                "Timeout resolving DID '{Did}' from Society '{Society}' after {Timeout}s",
-                did, methodRecord.SocietyDid, _opts.FederationRoundTripTimeout.TotalSeconds);
-            return Error(did, "resolutionTimeout");
-        }
+        // DID not cached locally — LOBE layer handles DIDComm escalation
+        _log.LogDebug("Foreign DID '{Did}': local miss — escalation handled by Resolve-Svrn7Did", did);
+        return Error(did, "notFound");
     }
 
     private static DidResolutionResult Error(string did, string errorCode) =>
@@ -146,7 +72,7 @@ public sealed class FederationDidDocumentResolver : IDidDocumentResolver
 public sealed class FederationVcDocumentResolver : IVcDocumentResolver
 {
     private readonly IVcDocumentResolver  _local;
-    private readonly IFederationStore     _fedStore;
+    private readonly IIdentityRegistry    _registry;
     private readonly IDIDCommService      _didComm;
     private readonly Svrn7SocietyOptions  _opts;
     private readonly ILogger<FederationVcDocumentResolver> _log;
@@ -155,13 +81,13 @@ public sealed class FederationVcDocumentResolver : IVcDocumentResolver
 
     public FederationVcDocumentResolver(
         IVcDocumentResolver local,
-        IFederationStore fedStore,
+        IIdentityRegistry registry,
         IDIDCommService didComm,
         IOptions<Svrn7SocietyOptions> opts,
         ILogger<FederationVcDocumentResolver> log)
     {
         _local    = local;
-        _fedStore = fedStore;
+        _registry = registry;
         _didComm  = didComm;
         _opts     = opts.Value;
         _log      = log;
@@ -224,14 +150,12 @@ public sealed class FederationVcDocumentResolver : IVcDocumentResolver
     {
         var effectiveTimeout = timeout ?? DefaultFanOutTimeout;
 
-        // Discover all active Societies from the Federation registry
-        var allMethods = await _fedStore.GetAllMethodsAsync(
-            statusFilter: DidMethodStatus.Active, ct: ct);
+        // Discover all active Societies from the identity registry
+        var allSocieties = await _registry.GetAllSocietiesAsync(ct);
 
-        var remoteSocieties = allMethods
-            .Select(m => m.SocietyDid)
-            .Distinct()
-            .Where(s => s != _opts.SocietyDid)
+        var remoteSocieties = allSocieties
+            .Where(s => s.IsActive && s.Did != _opts.SocietyDid)
+            .Select(s => s.Did)
             .ToList();
 
         // Always include local results (no timeout risk)
@@ -291,7 +215,7 @@ public sealed class FederationVcDocumentResolver : IVcDocumentResolver
         {
             // Build and dispatch DIDComm vc-resolve-request
             var requestMsg = _didComm.NewMessage()
-                .Type("did:drn:svrn7.net/protocols/vc/1.0/resolve-by-subject-request")
+                .Type("did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/vc-resolve-by-subject-request")
                 .From(_opts.SocietyDid)
                 .To(societyDid)
                 .Body(new { subjectDid, requestedAt = DateTimeOffset.UtcNow })

@@ -14,6 +14,7 @@ out/
 .vscode/launch.json
 
 ## NuGet
+dist/
 *.nupkg
 *.snupkg
 packages/
@@ -23,7 +24,6 @@ artifacts/
 
 ## Test results
 TestResults/
-coverage/
 *.trx
 *.coverage
 *.coveragexml

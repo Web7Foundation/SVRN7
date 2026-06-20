@@ -12,12 +12,13 @@ namespace Svrn7.TDA;
 
 /// <summary>
 /// Deserialised representation of <c>lobes.config.json</c>.
-/// Lists eager and JIT LOBEs by module filename.
+/// Lists only the LOBEs that should be pre-loaded at TDA startup (eager).
+/// All other LOBEs present in the lobes directory are JIT — auto-discovered
+/// from their <c>*.lobe.json</c> descriptor files; no explicit listing required.
 /// </summary>
 public sealed class LobeConfig
 {
     public string[] Eager { get; init; } = [];
-    public string[] Jit   { get; init; } = [];
 }
 
 // ── LobeManager ───────────────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ public sealed class LobeManager : IDisposable
     private InitialSessionState? _iss;
     private LobeConfig?          _config;
     private FileSystemWatcher?   _watcher;
+    private FileSystemWatcher?   _configWatcher;
     private bool                 _disposed;
 
     private string LobeBaseDir =>
@@ -79,15 +81,14 @@ public sealed class LobeManager : IDisposable
     /// <summary>
     /// Reads lobes.config.json, imports eager LOBEs, injects session variables,
     /// scans all *.lobe.json descriptors, and starts the FileSystemWatcher.
-    /// Called once by RunspacePoolManager at startup.
+    /// Called once by IsolatedRunspaceFactory at startup.
     /// </summary>
     public InitialSessionState BuildInitialSessionState()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         _config = LoadLobeConfig();
-        _log.LogInformation("LobeManager: {Eager} eager LOBE(s), {Jit} JIT LOBE(s).",
-            _config.Eager.Length, _config.Jit.Length);
+        _log.LogInformation("LobeManager: {Eager} eager LOBE(s) configured.", _config.Eager.Length);
 
         // CreateDefault2() is minimal — built-in cmdlets like Write-Verbose are registered
         // but deferred to auto-import from $PSHOME, which doesn't exist in a NuGet-hosted
@@ -103,8 +104,8 @@ public sealed class LobeManager : IDisposable
 
         iss.Variables.Add(new SessionStateVariableEntry(
             "SVRN7_JIT_LOBES",
-            _config.Jit.Select(ResolveLobePath).ToArray(),
-            "Array of JIT LOBE module paths for on-demand Import-Module.",
+            ScanJitModulePaths(_config),
+            "Array of JIT LOBE module paths (all LOBEs present on disk that are not eager).",
             ScopedItemOptions.ReadOnly | ScopedItemOptions.AllScope));
 
         iss.Variables.Add(new SessionStateVariableEntry(
@@ -230,9 +231,10 @@ public sealed class LobeManager : IDisposable
 
         ps.Commands.Clear();
         ps.AddCommand("Import-Module")
-          .AddParameter("Name",   modulePath)
-          .AddParameter("Force",  false)
-          .AddParameter("Global", true);  // must be global-scope so subsequent pipeline commands see it
+          .AddParameter("Name",                modulePath)
+          .AddParameter("Force",               !isEager)  // JIT: re-exec .psm1 on every call to pick up hot-updates; Eager: idempotent
+          .AddParameter("Global",              true)      // must be global-scope so subsequent pipeline commands see it
+          .AddParameter("DisableNameChecking", true);     // suppress unapproved-verb warnings (e.g. Dequeue, Enqueue)
 
         await Task.Run(() => ps.Invoke(), ct);
 
@@ -300,6 +302,32 @@ public sealed class LobeManager : IDisposable
 
         _log.LogInformation(
             "LobeManager: FileSystemWatcher started — watching '{Dir}' for *.lobe.json.", LobeBaseDir);
+
+        StartConfigWatcher();
+    }
+
+    private void StartConfigWatcher()
+    {
+        var configPath = Path.GetFullPath(_opts.LobesConfigPath);
+        var configDir  = Path.GetDirectoryName(configPath) ?? LobeBaseDir;
+        var configFile = Path.GetFileName(configPath);
+
+        if (!Directory.Exists(configDir))
+        {
+            _log.LogWarning("LobeManager: config directory '{Dir}' not found — " +
+                            "lobes.config.json watcher not started.", configDir);
+            return;
+        }
+
+        _configWatcher = new FileSystemWatcher(configDir, configFile)
+        {
+            NotifyFilter        = NotifyFilters.LastWrite | NotifyFilters.Size,
+            EnableRaisingEvents = true
+        };
+        _configWatcher.Changed += OnConfigChanged;
+
+        _log.LogInformation(
+            "LobeManager: config watcher started — watching '{Path}'.", configPath);
     }
 
     private void OnDescriptorChanged(object sender, FileSystemEventArgs e)
@@ -342,10 +370,51 @@ public sealed class LobeManager : IDisposable
         });
     }
 
+    private void OnConfigChanged(object sender, FileSystemEventArgs e)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(200);  // let writer finish flushing
+
+                var freshConfig = LoadLobeConfig();
+                var prevEager   = _config?.Eager ?? [];
+                var newEager    = freshConfig.Eager
+                    .Except(prevEager, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                _config = freshConfig;
+
+                if (newEager.Length == 0)
+                {
+                    _log.LogDebug("LobeManager: lobes.config.json updated — no new eager entries.");
+                    return;
+                }
+
+                // New/updated eager LOBEs require a TDA restart: the ISS is built once at
+                // startup and cannot be rebuilt without restarting. Warn and take no action.
+                _log.LogWarning(
+                    "LobeManager: {N} new eager LOBE(s) added to lobes.config.json ({Lobes}). " +
+                    "Restart the TDA to apply eager loading.",
+                    newEager.Length, string.Join(", ", newEager));
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "LobeManager: failed to process lobes.config.json change.");
+            }
+        });
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void ScanDescriptors()
     {
+        if (!Directory.Exists(LobeBaseDir))
+        {
+            _log.LogWarning("LobeManager: LOBE directory '{Dir}' not found — no descriptors scanned.", LobeBaseDir);
+            return;
+        }
         var files = Directory.GetFiles(LobeBaseDir, "*.lobe.json", SearchOption.AllDirectories);
         _log.LogInformation("LobeManager: scanning {N} descriptor(s) under '{Dir}'.",
             files.Length, LobeBaseDir);
@@ -372,17 +441,51 @@ public sealed class LobeManager : IDisposable
     }
 
     // Legacy: kept for agent script compatibility.
-    public string? ResolveJitLobe(string moduleName)
-    {
-        if (_config is null) return null;
-        var match = _config.Jit.FirstOrDefault(p =>
+    // Returns the module path for a JIT LOBE by name, using the live protocol registry.
+    public string? ResolveJitLobe(string moduleName) =>
+        JitLobePaths.FirstOrDefault(p =>
             Path.GetFileNameWithoutExtension(p)
                 .Equals(moduleName, StringComparison.OrdinalIgnoreCase));
-        return match is null ? null : ResolveLobePath(match);
-    }
 
+    // All unique module paths currently registered that are not pre-loaded as eager.
+    // Live — updated whenever RegisterFromDescriptor runs (FSW hot-load, startup scan).
     public IReadOnlyList<string> JitLobePaths =>
-        _config?.Jit.Select(ResolveLobePath).ToArray() ?? Array.Empty<string>();
+        _exactRegistry.Values
+            .Concat(_prefixRegistry.Values)
+            .Select(r => r.ModulePath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(p => !_importedModules.ContainsKey(p))
+            .ToArray();
+
+    // Scans the lobes directory for all *.lobe.json files and returns their resolved module
+    // paths, excluding any path already in the eager list. Used to seed $SVRN7_JIT_LOBES
+    // at startup before the protocol registry is populated.
+    private string[] ScanJitModulePaths(LobeConfig config)
+    {
+        if (!Directory.Exists(LobeBaseDir)) return [];
+
+        var eagerResolved = new HashSet<string>(
+            config.Eager.Select(ResolveLobePath),
+            StringComparer.OrdinalIgnoreCase);
+
+        var paths = new List<string>();
+        foreach (var descriptorPath in Directory.GetFiles(LobeBaseDir, "*.lobe.json", SearchOption.AllDirectories))
+        {
+            try
+            {
+                var d = LobeDescriptor.LoadFromFile(descriptorPath);
+                if (d is null) continue;
+                var dir        = Path.GetDirectoryName(descriptorPath) ?? LobeBaseDir;
+                var modulePath = Path.IsPathRooted(d.Lobe.Module)
+                    ? d.Lobe.Module
+                    : Path.GetFullPath(Path.Combine(dir, d.Lobe.Module));
+                if (!eagerResolved.Contains(modulePath))
+                    paths.Add(modulePath);
+            }
+            catch { /* skip descriptors that fail to parse */ }
+        }
+        return [.. paths];
+    }
 
     // ── Built-in cmdlet loader ────────────────────────────────────────────────
 
@@ -442,6 +545,7 @@ public sealed class LobeManager : IDisposable
         if (_disposed) return;
         _disposed = true;
         _watcher?.Dispose();
+        _configWatcher?.Dispose();
         _iss = null;
     }
 }

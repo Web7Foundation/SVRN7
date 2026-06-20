@@ -30,15 +30,33 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B0000001-000
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{B0000002-0000-0000-0000-000000000002}"
 	ProjectSection(SolutionItems) = preProject
+		gen-keypairs.ps1 = gen-keypairs.ps1
+		Initialize-Testnet.ps1 = Initialize-Testnet.ps1
+		Initialize-Testnet2.ps1 = Initialize-Testnet2.ps1
+		Invoke-SetStaticKeypairs.ps1 = Invoke-SetStaticKeypairs.ps1
+		run-testnet.ps1 = run-testnet.ps1
 		tests\Svrn7.Lobes.Tests.ps1 = tests\Svrn7.Lobes.Tests.ps1
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
 	ProjectSection(SolutionItems) = preProject
+		CLAUDE.md = CLAUDE.md
 		docs\DEBUG.md = docs\DEBUG.md
 		docs\disambiguation.md = docs\disambiguation.md
 		docs\SVRN7_Comprehensive_Prompt.md = docs\SVRN7_Comprehensive_Prompt.md
 	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{842588EC-833A-4EF0-9ACA-4DE56C45F995}"
+	ProjectSection(SolutionItems) = preProject
+		tools\Build-LOBEPackages.ps1 = tools\Build-LOBEPackages.ps1
+		tools\gen-keypairs.ps1 = tools\gen-keypairs.ps1
+		tools\Initialize-TDA-8443.ps1 = tools\Initialize-TDA-8443.ps1
+		tools\Initialize-Testnet.ps1 = tools\Initialize-Testnet.ps1
+		tools\Invoke-SetStaticKeypairs.ps1 = tools\Invoke-SetStaticKeypairs.ps1
+		tools\Pando.Packaging.psm1 = tools\Pando.Packaging.psm1
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PandoMail", "src\Web7.SVRN7.Apps.PandoMail\C#\OLAF\PandoMail.csproj", "{2CFFCA13-B00A-4605-B6A4-D49A616CFCB4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -94,6 +112,10 @@ Global
 		{A1B2C3D4-0012-0000-0000-000000000012}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A1B2C3D4-0012-0000-0000-000000000012}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A1B2C3D4-0012-0000-0000-000000000012}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2CFFCA13-B00A-4605-B6A4-D49A616CFCB4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2CFFCA13-B00A-4605-B6A4-D49A616CFCB4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2CFFCA13-B00A-4605-B6A4-D49A616CFCB4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2CFFCA13-B00A-4605-B6A4-D49A616CFCB4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -111,6 +133,7 @@ Global
 		{A1B2C3D4-0009-0000-0000-000000000009} = {B0000002-0000-0000-0000-000000000002}
 		{A1B2C3D4-0010-0000-0000-000000000010} = {B0000002-0000-0000-0000-000000000002}
 		{A1B2C3D4-0012-0000-0000-000000000012} = {B0000002-0000-0000-0000-000000000002}
+		{2CFFCA13-B00A-4605-B6A4-D49A616CFCB4} = {B0000001-0000-0000-0000-000000000001}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4971CB3C-8CDD-4887-8750-664911974772}

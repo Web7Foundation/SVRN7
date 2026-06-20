@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Svrn7.Core.Interfaces;
+using Svrn7.Core.Models;
 using Svrn7.DIDComm;
 using Svrn7.Society;
 
@@ -21,11 +22,22 @@ namespace Svrn7.TDA;
 /// </summary>
 public sealed class TdaOptions
 {
+    // ── Role ──────────────────────────────────────────────────────────────────
+
+    /// <summary>Functional role of this TDA instance. Always Wanderer at startup.</summary>
+    public Svrn7Role Role { get; set; } = Svrn7Role.Wanderer;
+
     // ── Society identity ──────────────────────────────────────────────────────
 
-    /// <summary>Society DID — e.g., "did:drn:alpha.svrn7.net".</summary>
-    [Required]
+    /// <summary>Society DID — e.g., "did:drn:alpha.svrn7.net". Empty until Society role is initialized.</summary>
     public string SocietyDid { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The local TDA's DID regardless of role — read from agent-identity.json.
+    /// Set by Program.cs after first-run bootstrap, before host.StartAsync().
+    /// Falls back to SocietyDid when agent-identity.json is absent.
+    /// </summary>
+    public string LocalDid { get; set; } = string.Empty;
 
     /// <summary>
     /// Society Ed25519 messaging private key (raw 32 bytes).
@@ -33,6 +45,12 @@ public sealed class TdaOptions
     /// </summary>
     [Required]
     public byte[] SocietyMessagingPrivateKeyEd25519 { get; set; } = [];
+
+    /// <summary>X25519 key agreement private key (raw 32 bytes). Used by KestrelListenerService for JWE decryption in UnpackAsync.</summary>
+    public byte[] AgentKeyAgreementPrivateKey { get; set; } = [];
+
+    /// <summary>secp256k1 signing private key (raw 32 bytes). Used by DIDCommMessageSwitchboard for SignThenEncrypt on outbound HTTP messages.</summary>
+    public byte[] AgentSigningPrivateKey { get; set; } = [];
 
     // ── Network ───────────────────────────────────────────────────────────────
 
@@ -98,6 +116,49 @@ public sealed class TdaOptions
     /// </summary>
     public int RateLimitRequestsPerSecond { get; set; } = 100;
 
+    // ── DID Resolution escalation ─────────────────────────────────────────────
+
+    /// <summary>
+    /// DID of the parent tier — Society DID for Citizen TDAs, Federation DID for Society TDAs.
+    /// Empty for Wanderer and Federation TDAs (no escalation path).
+    /// Configured via <c>Tda:ParentTdaDid</c>.
+    /// </summary>
+    public string ParentTdaDid { get; set; } = string.Empty;
+
+    /// <summary>
+    /// DIDComm endpoint URL of the parent tier — e.g., <c>http://localhost:8442/didcomm</c>.
+    /// Empty for Wanderer and Federation TDAs.
+    /// Configured via <c>Tda:ParentTdaEndpointUrl</c>.
+    /// </summary>
+    public string ParentTdaEndpointUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Full DIDComm endpoint URL of this TDA (e.g., <c>http://localhost:8443/didcomm</c>).
+    /// Set by Program.cs from --url and --port. Exposed as <c>$SVRN7.ServiceEndpointUrl</c>.
+    /// </summary>
+    public string ServiceEndpointUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Absolute path to agent-identity.json for this TDA instance.
+    /// Set by Program.cs; used by <see cref="Svrn7RunspaceContext.SetParentTda"/> to persist
+    /// parent TDA wiring across restarts.
+    /// </summary>
+    public string AgentIdentityPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Domain used to discover the Federation TDA endpoint via drn.directory DNS TXT lookup.
+    /// Example: "svrn7.net" → queries "federation.svrn7.net.drn.directory".
+    /// Configured via <c>Tda:FederationDomain</c> or <c>--federationdomain</c>.
+    /// </summary>
+    public string FederationDomain { get; set; } = string.Empty;
+
+    /// <summary>
+    /// DIDComm endpoint URL of the Federation TDA, discovered at startup via drn.directory.
+    /// Populated by Program.cs when <see cref="FederationDomain"/> is set.
+    /// Exposed as <c>$SVRN7.FederationEndpointUrl</c> in all LOBE runspaces.
+    /// </summary>
+    public string FederationEndpointUrl { get; set; } = string.Empty;
+
     // ── Data Storage databases ────────────────────────────────────────────────
 
     /// <summary>Path to svrn7-inbox.db (Long-Term Message Memory).</summary>
@@ -119,7 +180,7 @@ public sealed class TdaOptions
 public sealed class SwitchboardHostedService : BackgroundService
 {
     private readonly DIDCommMessageSwitchboard         _switchboard;
-    private readonly RunspacePoolManager               _pool;
+    private readonly IsolatedRunspaceFactory               _pool;
     private readonly ILogger<SwitchboardHostedService> _log;
 
     // Delay before restarting the drain loop after an unexpected fault.
@@ -127,7 +188,7 @@ public sealed class SwitchboardHostedService : BackgroundService
 
     public SwitchboardHostedService(
         DIDCommMessageSwitchboard          switchboard,
-        RunspacePoolManager                pool,
+        IsolatedRunspaceFactory                pool,
         ILogger<SwitchboardHostedService>  log)
     {
         _switchboard = switchboard;
@@ -173,7 +234,7 @@ public sealed class SwitchboardHostedService : BackgroundService
 ///   2.  IMemoryCache (in-process hot cache — Data Access element — DSA 0.24)
 ///   3.  Svrn7RunspaceContext ($SVRN7 session variable — all runspaces)
 ///   4.  LobeManager (LOBE loader — eager + JIT)
-///   5.  RunspacePoolManager (PowerShell Runspace Pool lifecycle)
+///   5.  IsolatedRunspaceFactory (PowerShell Runspace Pool lifecycle)
 ///   6.  DIDCommMessageSwitchboard (sole inbox reader + outbound queue)
 ///   7.  SwitchboardHostedService (drain loop BackgroundService)
 ///   8.  KestrelListenerService (POST /didcomm, HTTP/2 + mTLS)
@@ -197,34 +258,55 @@ public static class TdaServiceCollectionExtensions
         services.AddSingleton<IMemoryCache>(
             _ => new MemoryCache(new MemoryCacheOptions()));
 
+        // 2b. PendingResolutionStore — in-memory DID resolution correlation (correlated async relay).
+        services.AddSingleton<PendingResolutionStore>();
+
         // 3. Svrn7RunspaceContext ($SVRN7)
         // Derived from: "$SVRN7 session variable" — DSA 0.24 Epoch 0.
         services.AddSingleton<Svrn7RunspaceContext>(sp =>
         {
-            var opts   = sp.GetRequiredService<IOptions<TdaOptions>>().Value;
-            var driver = sp.GetRequiredService<ISvrn7SocietyDriver>();
-            var inbox  = sp.GetRequiredService<IInboxStore>();
-            var cache  = sp.GetRequiredService<IMemoryCache>();
-            var orders = sp.GetRequiredService<IProcessedOrderStore>();
-            return new Svrn7RunspaceContext(driver, inbox, cache, orders,
-                initialEpoch: Svrn7.Core.Svrn7Constants.Epochs.Endowment);
+            var opts    = sp.GetRequiredService<IOptions<TdaOptions>>().Value;
+            var driver  = sp.GetRequiredService<ISvrn7SocietyDriver>();
+            var inbox   = sp.GetRequiredService<IInboxStore>();
+            var cache   = sp.GetRequiredService<IMemoryCache>();
+            var orders  = sp.GetRequiredService<IProcessedOrderStore>();
+            var pending = sp.GetRequiredService<PendingResolutionStore>();
+            return new Svrn7RunspaceContext(driver, inbox, cache, orders, pending,
+                initialEpoch:          Svrn7.Core.Svrn7Constants.Epochs.Endowment,
+                role:                  opts.Role,
+                agentDid:              opts.LocalDid,
+                parentTdaDid:          opts.ParentTdaDid,
+                parentTdaEndpointUrl:  opts.ParentTdaEndpointUrl,
+                serviceEndpointUrl:    opts.ServiceEndpointUrl,
+                agentIdentityPath:     opts.AgentIdentityPath,
+                federationEndpointUrl: opts.FederationEndpointUrl);
         });
+
+        // 4a. WebSocketNotifyHub — local PandoMail push channel singleton.
+        services.AddSingleton<WebSocketNotifyHub>();
 
         // 4. LobeManager
         // Derived from: "LobeManager" (LOBE layer) — DSA 0.24 Epoch 0.
         services.AddSingleton<LobeManager>();
 
-        // 5. RunspacePoolManager
+        // 5. IsolatedRunspaceFactory
         // Derived from: "PowerShell Runspace Pool" — DSA 0.24 Epoch 0.
-        services.AddSingleton<RunspacePoolManager>();
+        services.AddSingleton<IsolatedRunspaceFactory>();
 
         // 6. HttpClient (named "didcomm") — outbound DIDComm delivery to peer TDAs.
         // Derived from: "HTTP Listener/Sender (HTTPClient)" outbound path — DSA 0.24.
         // Polly retry: exponential backoff, 3 attempts, 500ms base delay.
+        //
+        // RequestVersionExact: prevents silent fallback to HTTP/1.1 on http:// (h2c)
+        // URLs. With the default RequestVersionOrLower, SocketsHttpHandler downgrades
+        // to HTTP/1.1 for cleartext connections, producing 400 from a Http2-only Kestrel
+        // endpoint. RequestVersionExact enforces HTTP/2 end-to-end (same approach used
+        // by Send-LocalDIDCommMessage in Svrn7.Common.0.8.0.psm1).
         services.AddHttpClient("didcomm", client =>
         {
             client.DefaultRequestVersion = new System.Version(2, 0);
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultVersionPolicy  = System.Net.Http.HttpVersionPolicy.RequestVersionExact;
+            client.Timeout               = TimeSpan.FromSeconds(30);
         });
 
         // IOutboxStore — dead-letter outbox for failed outbound messages.
@@ -238,11 +320,13 @@ public static class TdaServiceCollectionExtensions
         services.AddSingleton<DIDCommMessageSwitchboard>(sp =>
             new DIDCommMessageSwitchboard(
                 sp.GetRequiredService<Svrn7RunspaceContext>(),
-                sp.GetRequiredService<RunspacePoolManager>(),
+                sp.GetRequiredService<IsolatedRunspaceFactory>(),
                 sp.GetRequiredService<IInboxStore>(),
                 sp.GetRequiredService<Svrn7.Core.Interfaces.IOutboxStore>(),
                 sp.GetRequiredService<LobeManager>(),
                 sp.GetRequiredService<IHttpClientFactory>(),
+                sp.GetRequiredService<WebSocketNotifyHub>(),
+                sp.GetRequiredService<Svrn7.DIDComm.IDIDCommService>(),
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TdaOptions>>(),
                 sp.GetRequiredService<ILogger<DIDCommMessageSwitchboard>>()));
 

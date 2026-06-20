@@ -24,7 +24,7 @@
 
 | Field | Value |
 |---|---|
-| URI | `did:drn:svrn7.net/protocols/diagnostics/1.0/date-query` |
+| URI | `did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query` |
 | Title | Diagnostics Date Query |
 | Description | Requests the current server UTC date/time from the target TDA. Adapter calls the pre-existing `Get-TDADate` cmdlet unchanged. No required body fields. Optional: `replyEndpoint`. |
 | Direction | `inbound` |
@@ -86,7 +86,7 @@ Pando-aware piece of code; all business logic is delegated to the existing cmdle
 
 | Field | Value |
 |---|---|
-| URI | `did:drn:svrn7.net/protocols/diagnostics/1.0/date-result` |
+| URI | `did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-result` |
 | Title | Diagnostics Date Result |
 
 ### Reply body fields
@@ -108,7 +108,7 @@ Pando-aware piece of code; all business logic is delegated to the existing cmdle
 
 | Dependency | Reason |
 |---|---|
-| `Pando.Diagnostics.Impl.psm1` (existing PS module) | Provides `Get-TDADate`. Loaded at the top of the LOBE `.psm1` with `Import-Module "$PSScriptRoot/Pando.Diagnostics.Impl.psm1"`. Not a SVRN7 LOBE dependency — a standard PowerShell module import. |
+| `Pando.Diagnostics.Impl.0.1.0.psm1` (existing PS module) | Provides `Get-TDADate`. Loaded at the top of the LOBE `.psm1` with `Import-Module "$PSScriptRoot/Pando.Diagnostics.Impl.0.1.0.psm1"`. Not a SVRN7 LOBE dependency — a standard PowerShell module import. |
 
 Eager LOBEs (Common, Federation, Society, UX) are always available in the runspace.
 No JIT LOBE dependencies.
@@ -119,7 +119,7 @@ No JIT LOBE dependencies.
 
 | Cmdlet name | Origin | Description |
 |---|---|---|
-| `Get-TDADate` | Pre-existing — `Pando.Diagnostics.Impl.psm1` | Returns the TDA server's current date and time as a `[datetimeoffset]` (UTC). Not modified for Pando. Other LOBEs may call it directly as a shared authoritative time source. |
+| `Get-TDADate` | Pre-existing — `Pando.Diagnostics.Impl.0.1.0.psm1` | Returns the TDA server's current date and time as a `[datetimeoffset]` (UTC). Not modified for Pando. Other LOBEs may call it directly as a shared authoritative time source. |
 
 ---
 
@@ -129,7 +129,7 @@ No JIT LOBE dependencies.
 |---|---|
 | No reply endpoint resolvable (`replyEndpoint` absent and `FromDid` has no DIDComm service entry) | `Write-Warning` and bare `return` — `Get-TDADate` succeeded; only delivery is skipped. Inbound message is marked Processed. |
 | `ConvertFrom-Json` parse failure on body | Terminating error; Switchboard retries up to `NonTransactionalMaxAttempts` then dead-letters. |
-| `Get-TDADate` throws (e.g. `Pando.Diagnostics.Impl.psm1` not found) | Terminating error propagates to Switchboard; message is retried then dead-lettered. |
+| `Get-TDADate` throws (e.g. `Pando.Diagnostics.Impl.0.1.0.psm1` not found) | Terminating error propagates to Switchboard; message is retried then dead-lettered. |
 
 ---
 
@@ -138,13 +138,13 @@ No JIT LOBE dependencies.
 ### Adapter code sketch
 
 ```powershell
-# Pando.Diagnostics.psm1 — Pando adapter only; Get-TDADate is in the existing module
+# Pando.Diagnostics.0.1.0.psm1 — Pando adapter only; Get-TDADate is in the existing module
 
-Import-Module "$PSScriptRoot/Pando.Diagnostics.Impl.psm1"   # pre-existing module; not modified
+Import-Module "$PSScriptRoot/Pando.Diagnostics.Impl.0.1.0.psm1"   # pre-existing module; not modified
 
 function Invoke-PandoDiagnosticsDateQuery {
     [CmdletBinding()]
-    [OutputType([hashtable])]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
     param(
         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [string] $MessageDid
@@ -167,16 +167,23 @@ function Invoke-PandoDiagnosticsDateQuery {
             return
         }
 
-        return @{
-            PeerEndpoint  = $replyEndpoint
-            PackedMessage = (@{
-                serverUtc       = $now.UtcDateTime.ToString('o')
-                serverUtcOffset = '+00:00'
-                currentEpoch    = $SVRN7.CurrentEpoch
-                respondedAt     = [datetimeoffset]::UtcNow.ToString('o')
-            } | ConvertTo-Json -Compress)
-            MessageType   = 'did:drn:svrn7.net/protocols/diagnostics/1.0/date-result'
-        }
+        $payload = @{
+            serverUtc       = $now.UtcDateTime.ToString('o')
+            serverUtcOffset = '+00:00'
+            currentEpoch    = $SVRN7.CurrentEpoch
+            respondedAt     = [datetimeoffset]::UtcNow.ToString('o')
+        } | ConvertTo-Json -Compress
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-result'
+            from = $SVRN7.Driver.SocietyDid
+            to   = @($msg.FromDid)
+            body = $payload
+        } | ConvertTo-Json -Compress
+
+        [Svrn7.TDA.OutboundMessage]::new($replyEndpoint, $envelope)
     }
 }
 
@@ -187,7 +194,7 @@ Export-ModuleMember -Function @('Invoke-PandoDiagnosticsDateQuery')
 
 ```json
 {
-  "@type": "did:drn:svrn7.net/protocols/diagnostics/1.0/date-query",
+  "@type": "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query",
   "replyEndpoint": "http://client-tda.example.net:8443/didcomm"
 }
 ```
@@ -196,7 +203,7 @@ Script-tool variant (no reply expected — omit `replyEndpoint`):
 
 ```json
 {
-  "@type": "did:drn:svrn7.net/protocols/diagnostics/1.0/date-query"
+  "@type": "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query"
 }
 ```
 
@@ -214,25 +221,25 @@ Script-tool variant (no reply expected — omit `replyEndpoint`):
 ### Sample PowerShell send (script tool, TDA running locally)
 
 ```powershell
-Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.psm1
+Import-Module .\lobes\Svrn7.Federation\Svrn7.Federation.0.8.0.psm1
 
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/diagnostics/1.0/date-query"
+    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query"
     from = "did:drn:foundation.svrn7.net"
     to   = @("did:drn:bindloss.svrn7.net")
     body = "{}"
 } | ConvertTo-Json
 
-Send-DIDCommMessage -Body $msg
+Send-LocalDIDCommMessage -Body $msg
 ```
 
 Expected TDA log (LogLevel.Information):
 
 ```
 Switchboard: routing did:drn:bindloss.svrn7.net/inbox/msg/<id>
-    (type=did:drn:svrn7.net/protocols/diagnostics/1.0/date-query)
+    (type=did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query)
     → Invoke-PandoDiagnosticsDateQuery [Pando.Diagnostics]
 [PS Verbose] Pando.Diagnostics: serverUtc=2026-05-29T22:47:13.4521830Z epoch=0
 [PS Warning] Pando.Diagnostics: no reply endpoint — result not delivered.
@@ -252,11 +259,11 @@ Switchboard: routing did:drn:bindloss.svrn7.net/inbox/msg/<id>
 ### `Get-TDADate` is internal to this LOBE
 
 `Get-TDADate` is specific to `Pando.Diagnostics` and is not intended for use by other
-LOBEs.  `Pando.Diagnostics.psm1` therefore exports only `Invoke-PandoDiagnosticsDateQuery`
+LOBEs.  `Pando.Diagnostics.0.1.0.psm1` therefore exports only `Invoke-PandoDiagnosticsDateQuery`
 in its `Export-ModuleMember` list.  `Get-TDADate` is loaded into the runspace via
-`Import-Module "$PSScriptRoot/Pando.Diagnostics.Impl.psm1"` but is not re-exported.
+`Import-Module "$PSScriptRoot/Pando.Diagnostics.Impl.0.1.0.psm1"` but is not re-exported.
 If a future LOBE needs a shared authoritative time source, the function should be moved
-to `Svrn7.Common.psm1` at that point.
+to `Svrn7.Common.0.8.0.psm1` at that point.
 
 ### `Export-ModuleMember` and cross-LOBE visibility
 

@@ -6,7 +6,7 @@
 
 .DESCRIPTION
     These tests cover the PowerShell LOBE layer independently of the C# test suite.
-    They deliberately avoid loading the Svrn7 .NET assemblies (no Initialize-Svrn7Federation
+    They deliberately avoid loading the Svrn7 .NET assemblies (no Initialize-Svrn7FederationDriver
     call), so they run without a compiled solution and without a live TDA.
 
     Requires Pester 5+. Install if needed:
@@ -18,71 +18,62 @@
 
 BeforeAll {
     $LobesDir      = Join-Path $PSScriptRoot '..\src\Svrn7.TDA\lobes'
-    $CommonPsm1    = Join-Path $LobesDir 'Svrn7.Common\Svrn7.Common.psm1'
-    $FederationPsm1 = Join-Path $LobesDir 'Svrn7.Federation\Svrn7.Federation.psm1'
-    $SocietyPsm1   = Join-Path $LobesDir 'Svrn7.Society\Svrn7.Society.psm1'
+    $CommonPsm1    = Join-Path $LobesDir 'Svrn7.Common\Svrn7.Common.0.8.0.psm1'
+    $FederationPsm1 = Join-Path $LobesDir 'Svrn7.Federation\Svrn7.Federation.0.8.0.psm1'
+    $SocietyPsm1   = Join-Path $LobesDir 'Svrn7.Society\Svrn7.Society.0.8.0.psm1'
 
     # Load Common helpers directly into this script's scope via the scriptblock pattern.
     # This is the same mechanism Federation and Society use — avoids .psm1 extension scoping.
     . ([scriptblock]::Create([System.IO.File]::ReadAllText($CommonPsm1)))
 }
 
-# ── Send-DIDCommMessage: exported by Federation ───────────────────────────────
+# ── Send-LocalDIDCommMessage: exported by Federation ─────────────────────────
 
-Describe 'Send-DIDCommMessage exported by Svrn7.Federation' {
+Describe 'Send-LocalDIDCommMessage exported by Svrn7.Federation' {
     BeforeAll {
         # Import without $SVRN7_LOBES_DIR so Common is loaded into Federation's scope.
         $LobesDir = Join-Path $PSScriptRoot '..\src\Svrn7.TDA\lobes'
-        Import-Module (Join-Path $LobesDir 'Svrn7.Federation\Svrn7.Federation.psm1') -Force -WarningAction SilentlyContinue
+        Import-Module (Join-Path $LobesDir 'Svrn7.Federation\Svrn7.Federation.0.8.0.psm1') -Force -WarningAction SilentlyContinue
     }
 
     AfterAll {
         Remove-Module Svrn7.Federation -ErrorAction SilentlyContinue
     }
 
-    It 'Send-DIDCommMessage is callable after importing Svrn7.Federation' {
-        Get-Command Send-DIDCommMessage -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
+    It 'Send-LocalDIDCommMessage is callable after importing Svrn7.Federation' {
+        Get-Command Send-LocalDIDCommMessage -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
     }
 
-    It 'Send-DIDCommMessage -Body is mandatory' {
-        $cmd = Get-Command Send-DIDCommMessage
+    It 'Send-LocalDIDCommMessage -Body is mandatory' {
+        $cmd = Get-Command Send-LocalDIDCommMessage
         $bodyAttr = $cmd.Parameters['Body'].Attributes |
             Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
             Select-Object -First 1
         $bodyAttr.Mandatory | Should -BeTrue
     }
 
-    It 'Send-DIDCommMessage -Uri has default http://localhost:8443/didcomm' {
-        # Inspect default via script text — parameter defaults live in the AST.
-        # Note: [regex]::Escape(...) must be wrapped in parens; Pester treats a bare
-        # method-call argument as a positional -Because string.
-        $cmd = Get-Command Send-DIDCommMessage
+    It 'Send-LocalDIDCommMessage -Port has default 8443' {
+        $cmd = Get-Command Send-LocalDIDCommMessage
         $scriptText = $cmd.ScriptBlock.ToString()
-        $scriptText | Should -Match ([regex]::Escape('http://localhost:8443/didcomm'))
-    }
-
-    It 'Send-DIDCommMessage -ContentType has default application/didcomm-plain+json' {
-        $cmd = Get-Command Send-DIDCommMessage
-        $scriptText = $cmd.ScriptBlock.ToString()
-        $scriptText | Should -Match ([regex]::Escape('application/didcomm-plain+json'))
+        $scriptText | Should -Match '8443'
     }
 }
 
-# ── Send-DIDCommMessage: exported by Svrn7.Society ────────────────────────────
+# ── Send-LocalDIDCommMessage: exported by Svrn7.Society ──────────────────────
 
-Describe 'Send-DIDCommMessage exported by Svrn7.Society' {
+Describe 'Send-LocalDIDCommMessage exported by Svrn7.Society' {
     BeforeAll {
         $LobesDir = Join-Path $PSScriptRoot '..\src\Svrn7.TDA\lobes'
         # Society loads Common in standalone mode too — import without TDA context.
-        Import-Module (Join-Path $LobesDir 'Svrn7.Society\Svrn7.Society.psm1') -Force -WarningAction SilentlyContinue
+        Import-Module (Join-Path $LobesDir 'Svrn7.Society\Svrn7.Society.0.8.0.psm1') -Force -WarningAction SilentlyContinue
     }
 
     AfterAll {
         Remove-Module Svrn7.Society -ErrorAction SilentlyContinue
     }
 
-    It 'Send-DIDCommMessage is callable after importing Svrn7.Society' {
-        Get-Command Send-DIDCommMessage -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
+    It 'Send-LocalDIDCommMessage is callable after importing Svrn7.Society' {
+        Get-Command Send-LocalDIDCommMessage -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
     }
 }
 

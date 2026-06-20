@@ -264,6 +264,84 @@ chosen local identifier visible in the DID URL. In a future epoch, the key segme
 replaced with an anonymised form (Blake3 hash, GUID, or salted hash) to decouple the
 human-readable local id from the locator. See [DRN-RESOURCE] Section 9.
 
+## 5b. Web 7.0 Federation Endpoint Discovery — drn.directory
+
+### 5b.1 Overview
+
+The `drn.directory` zone is a Web 7.0 Foundation-controlled DNS registry that provides
+out-of-band bootstrap discovery for `did:drn` federation TDA DIDComm endpoints. It is
+the **only** use of DNS in the Web 7.0 Pando architecture.
+
+A potential new Citizen or Society only needs to know two things to begin onboarding:
+
+1. The domain portion of the target federation's DID (e.g., `svrn7.net`).
+2. The name of the Society they wish to join.
+
+`drn.directory` resolves (1) to a DIDComm endpoint URL without any prior DIDComm state
+or pre-shared configuration.
+
+### 5b.2 TXT Record Convention
+
+A federation endpoint is published as a DNS TXT record of the form:
+
+```
+federation.<domain>.drn.directory  IN TXT  "<DIDComm endpoint URL>"
+```
+
+Where `<domain>` is the domain portion of the federation's `did:drn` identity.
+
+Development / testnet example:
+```
+federation.svrn7.net.drn.directory  IN TXT  "http://localhost:8441/didcomm"
+```
+
+Production example:
+```
+federation.svrn7.net.drn.directory  IN TXT  "https://tda.svrn7.net:8441/didcomm"
+```
+
+### 5b.3 Resolution Algorithm
+
+Given a `did:drn` federation DID of the form `did:drn:federation.<domain>/agent/<key>`,
+a resolver implementing `drn.directory` discovery MUST:
+
+1. Parse the method-specific identifier to extract the label `federation.<domain>`.
+2. Construct the DNS query label: `federation.<domain>.drn.directory`
+3. Issue a DNS TXT query for that label.
+4. Use the returned TXT value as the DIDComm endpoint URL for that federation TDA.
+5. Conduct all subsequent communication with the federation via DIDComm v2 over the
+   discovered endpoint. DNS is used for the endpoint discovery step only.
+
+### 5b.4 Architectural Constraints
+
+- **DNS is addressing layer only.** After endpoint discovery, all messages are DIDComm v2
+  over HTTPS (production). No naked HTTP communication occurs.
+- **`http://` endpoints are development/testnet only.** A resolver MUST NOT use an
+  `http://` endpoint value in production contexts; the TDA's DIDComm endpoint in
+  production MUST be HTTPS.
+- **No TTL bypass.** Resolvers MUST NOT cache `drn.directory` TXT records beyond their
+  DNS TTL.
+- **One service per record.** Each `federation.<domain>.drn.directory` TXT record holds
+  exactly one DIDComm endpoint URL. No sub-fields or structured values.
+
+### 5b.5 Relationship to Mode 3 — Discovery-Enhanced Resolution
+
+The `drn.directory` mechanism is a specific, named instance of Mode 3 — Discovery-Enhanced
+Resolution (Section 7.3), which permits "external discovery (DNS-SD, HTTPS well-known,
+IPFS)." The `drn.directory` convention uses DNS TXT as the discovery transport. Consistent
+with Mode 3, resolvers SHOULD validate the discovered endpoint against locally-held
+information (e.g., a known DID Document) before use where such information is available.
+
+### 5b.6 Epoch 0 Permissioning
+
+During Epoch 0 (Endowment Phase) the `drn.directory` zone is administered exclusively by
+the Web 7.0 Foundation. No self-service registration is permitted. Only
+Foundation-approved federation endpoints are discoverable via `drn.directory` during
+the controlled bootstrapping phase of the ecosystem. Epoch 1 may introduce a governance
+protocol for Society-level or Federation-level self-registration in the zone.
+
+---
+
 ## 6. Core Properties
 
 ### 6.1 Determinism
@@ -463,6 +541,7 @@ Resolved DID Document (Modes 1 + 2 + service endpoint):
 - [W3C.DID-RESOLUTION] Sabadello, M. DID Resolution v0.3. W3C Working Group Note, 2023.
 
 ### Informative
+- [RFC1035] Mockapetris, P. Domain Names - Implementation and Specification. November 1987.
 - [W3C.DID-SPEC-REGISTRIES] Sporny, Steele. DID Specification Registries. 2023.
 - [W3C.VC-DATA-MODEL] Sporny et al. VC Data Model v2.0. W3C CR, 2024.
 - [WEB70-DRN] Herman, M. SDO: W3C DRN DID Method. March 2026. https://hyperonomy.com/2026/03/24/sdo-web-7-0-decentralized-resource-name-drn-did-method/

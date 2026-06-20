@@ -59,7 +59,6 @@ Fields present in the JSON body of the inbound DIDComm message.
 
 | Field name (camelCase) | Type | Default | Description |
 |---|---|---|---|
-| `replyEndpoint` | string (URL) | *(none)* | DIDComm HTTP endpoint for the reply. Include when calling from a TDA; omit from script tools. |
 | `memo` | string | `null` | Free-text memo, max 256 characters. |
 | *(add rows)* | | | |
 
@@ -112,16 +111,7 @@ Complete this section only if the LOBE sends a response back to the caller.
 
 ### Reply endpoint resolution
 
-Choose the strategy that fits this protocol:
-
-- [ ] **`replyEndpoint` in body** — the sender includes its endpoint in the message.
-      Use for TDA-to-TDA calls where the federation DID may not yet have a DID Document.
-- [ ] **DID Document lookup** — resolve the sender's DIDComm service entry via
-      `Resolve-SocietySenderEndpoint -Did $msg.FromDid`.
-      Use when the caller is guaranteed to be a registered TDA peer.
-- [ ] **Both with fallback** — try `replyEndpoint` first, fall back to DID Document
-      lookup, warn and return if neither yields an endpoint.
-      Use when callers may be either script tools or live TDAs.
+- [ ] Resolve via `Resolve-SocietySenderEndpoint -Did $msg.FromDid`; warn and return `$null` if not found.
 
 ---
 
@@ -172,8 +162,7 @@ Describe any domain-specific exceptions and the expected handler behaviour.
 {
   "@type": "did:drn:svrn7.net/protocols/{domain}/{version}/{action}",
   "payerDid": "did:drn:example",
-  "amountGrana": 1000000,
-  "replyEndpoint": "https://peer-tda.example.net:8443"
+  "amountGrana": 1000000
 }
 ```
 

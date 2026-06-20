@@ -131,7 +131,9 @@ public static class SocietyServiceCollectionExtensions
                 sp.GetRequiredService<Svrn7LiteContext>(),
                 sp.GetRequiredService<ICryptoService>()));
         services.TryAddSingleton<IDidDocumentRegistry>(sp =>
-            new LiteDidDocumentRegistry(sp.GetRequiredService<DidRegistryLiteContext>()));
+            new LiteDidDocumentRegistry(
+                sp.GetRequiredService<DidRegistryLiteContext>(),
+                sp.GetRequiredService<ILogger<LiteDidDocumentRegistry>>()));
         services.TryAddSingleton<IVcRegistry>(sp =>
             new LiteVcRegistry(sp.GetRequiredService<VcRegistryLiteContext>()));
         services.TryAddSingleton<IFederationStore>(sp =>
@@ -165,7 +167,8 @@ public static class SocietyServiceCollectionExtensions
         });
 
         // 4. DIDComm services
-        services.TryAddSingleton<IDIDCommService, DIDCommPackingService>();
+        services.TryAddSingleton<IDIDCommService>(sp =>
+            new DIDCommPackingService(sp.GetService<IDidDocumentResolver>()));
 
         // 5. Federation-aware resolvers (replace base LocalDidDocumentResolver)
         // These are registered as concrete types AND as interfaces so they can be
@@ -173,15 +176,12 @@ public static class SocietyServiceCollectionExtensions
         services.AddSingleton<FederationDidDocumentResolver>(sp =>
             new FederationDidDocumentResolver(
                 sp.GetRequiredService<IDidDocumentRegistry>(),
-                sp.GetRequiredService<IFederationStore>(),
-                sp.GetRequiredService<IDIDCommService>(),
-                sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>(),
                 sp.GetRequiredService<ILogger<FederationDidDocumentResolver>>()));
 
         services.AddSingleton<FederationVcDocumentResolver>(sp =>
             new FederationVcDocumentResolver(
                 new LiteVcDocumentResolver(sp.GetRequiredService<IVcRegistry>()),
-                sp.GetRequiredService<IFederationStore>(),
+                sp.GetRequiredService<IIdentityRegistry>(),
                 sp.GetRequiredService<IDIDCommService>(),
                 sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>(),
                 sp.GetRequiredService<ILogger<FederationVcDocumentResolver>>()));

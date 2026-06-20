@@ -139,7 +139,7 @@ NOT RECOMMENDED, MAY, and OPTIONAL are to be interpreted as described in BCP 14 
   and resolves LOBE dependency graphs.
 
 - **Option A special case**: The Switchboard idempotency check for SVRN7 transfer
-  protocols (`transfer/1.0/order`) that is implemented directly in the Switchboard
+  protocols (`Svrn7.Society/0.8.0/transfer-order`) that is implemented directly in the Switchboard
   rather than in the LOBE, because transfer idempotency is a correctness invariant.
 
 - **Pass-by-reference**: The TDA pattern in which the Switchboard passes an inbox message
@@ -184,7 +184,7 @@ directory is configured via `TdaOptions.LobesConfigPath` and defaults to `./lobe
 
 Examples:
 ```
-Svrn7.Email.psm1
+Svrn7.Email.0.8.0.psm1
 Svrn7.Email.psd1
 Svrn7.Email.lobe.json
 ```
@@ -321,14 +321,14 @@ entry with a protocol prefix covers all message subtypes in a protocol family:
 
 ```json
 {
-  "uri":       "did:drn:svrn7.net/protocols/email/1.0/",
+  "uri":       "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/",
   "match":     "prefix",
-  "entrypoint":"Receive-Web7Email"
+  "entrypoint":"Dequeue-PandoMail"
 }
 ```
 
 This routes `email/1.0/message`, `email/1.0/receipt`, and any future `email/1.0/*`
-subtypes to `Receive-Web7Email`.
+subtypes to `Dequeue-PandoMail`.
 
 ### 6.2 `match: "exact"`
 
@@ -336,9 +336,9 @@ When `match` is `"exact"`, only an exact string match routes to the entry. Use w
 different subtypes within a protocol family require different entry-point cmdlets:
 
 ```json
-{ "uri": "did:drn:svrn7.net/protocols/calendar/1.0/invite",
+{ "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/invite",
   "match": "exact", "entrypoint": "Receive-Web7MeetingRequest" },
-{ "uri": "did:drn:svrn7.net/protocols/calendar/1.0/",
+{ "uri": "did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/",
   "match": "prefix", "entrypoint": "Import-Web7CalendarEvent" }
 ```
 
@@ -361,7 +361,7 @@ register URIs in namespaces they do not control.
 The SVRN7 transfer protocols include an idempotency requirement that is implemented as
 a Switchboard special case rather than in the LOBE:
 
-- `did:drn:svrn7.net/protocols/transfer/1.0/order` — cross-Society TransferOrder
+- `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order` — cross-Society TransferOrder
   MUST be checked against `IProcessedOrderStore` before routing. If a receipt already
   exists, the stored receipt is returned without re-invoking the LOBE cmdlet.
 
@@ -376,7 +376,7 @@ payment-adjacent LOBE to re-implement the same check, creating a fragile contrac
 **Option B (not chosen):** Idempotency is the LOBE's responsibility. Rejected because
 it creates a developer obligation that is easy to overlook and catastrophic to violate.
 
-The Svrn7.Society.lobe.json descriptor DOES declare `transfer/1.0/order` in its
+The Svrn7.Society.lobe.json descriptor DOES declare `Svrn7.Society/0.8.0/transfer-order` in its
 `protocols` array, and its `entrypoint` is correct. The Switchboard performs the
 idempotency check BEFORE routing; the LOBE entry-point cmdlet does not perform it.
 
@@ -447,7 +447,7 @@ pool context.
 Because PowerShell's `Import-Module` imports a module into the calling runspace (not
 into the shared `InitialSessionState`, which is frozen after startup), a JIT LOBE
 is available only in the `IsolatedPipeline` runspace that imported it. Because each
-dispatch opens a fresh runspace from the ISS template via `RunspacePoolManager.CreateIsolatedPipeline()`,
+dispatch opens a fresh runspace from the ISS template via `IsolatedRunspaceFactory.CreateIsolatedPipeline()`,
 a JIT LOBE is imported once per `IsolatedPipeline` invocation. The import cost is
 therefore incurred on every dispatch for JIT LOBEs.
 
@@ -492,8 +492,8 @@ the following dispatch protocol:
      Mark Failed ("epoch {n} required for {type}").
      Return.
 
-4. OPTION A CHECK (transfer/1.0/order only):
-   If @type == "did:drn:svrn7.net/protocols/transfer/1.0/order":
+4. OPTION A CHECK (Svrn7.Society/0.8.0/transfer-order only):
+   If @type == "did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order":
      Check IProcessedOrderStore.GetReceiptAsync(msg.Id).
      If receipt found: Mark Processed. Return.
 
@@ -505,9 +505,9 @@ the following dispatch protocol:
    Call LobeManager.EnsureLoadedAsync(registration.ModuleName).
 
 7. PIPELINE INVOCATION:
-   Call RunspacePoolManager.CreateIsolatedPipeline() to open a fresh Runspace from the
+   Call IsolatedRunspaceFactory.CreateIsolatedPipeline() to open a fresh Runspace from the
    shared ISS template. Execute within the IsolatedPipeline:
-     Get-Web7Message -Did $msg.Id | {registration.Entrypoint} | Send-Web7Message
+     Dequeue-Svrn7Message -Did $msg.Id | {registration.Entrypoint} | Enqueue-Svrn7Message
    (Pass-by-reference: msg.Id is the DID URL, not the payload.)
    The IsolatedPipeline is disposed after the invocation completes or times out.
    Invocation timeout: TdaOptions.LobeInvocationTimeoutSeconds (default 30s); exceeded → ps.Stop().
@@ -538,12 +538,12 @@ the LOBE entry-point cmdlet, not the message payload. This is the pass-by-refere
 pattern mandated by DSA 0.24:
 
 ```powershell
-Get-Web7Message -Did "did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678" |
-    Receive-Web7Email |
-    Send-Web7Message
+Dequeue-Svrn7Message -Did "did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678" |
+    Dequeue-PandoMail |
+    Enqueue-Svrn7Message
 ```
 
-The `Get-Web7Message` cmdlet (defined in `Agent1-Coordinator.ps1`) resolves the message
+The `Dequeue-Svrn7Message` cmdlet (defined in `Agent1-Coordinator.ps1`) resolves the message
 from `IMemoryCache` (hot path) or `IInboxStore` (cold path) via
 `$SVRN7.GetMessageAsync($messageDid)`.
 
@@ -640,16 +640,16 @@ tooling can identify descriptors that were authored with the MCP-alignment desig
 read verbatim by an AI developer constructing a pipeline. They SHOULD describe:
 
 - Which cmdlet to use for a specific task.
-- Which cmdlets chain naturally (piping `Receive-Web7Email` output to `Send-Web7Email`).
+- Which cmdlets chain naturally (piping `Dequeue-PandoMail` output to `Enqueue-PandoMail`).
 - Which cmdlets should NOT be chained (fire-and-forget cmdlets that return `$null`).
 - Important precedence or ordering constraints.
 - When to prefer one cmdlet over another.
 
 Example:
 ```
-"Chain Receive-Web7Email after Get-Web7Message for any pipeline handling email/1.0/* types."
+"Chain Dequeue-PandoMail after Dequeue-Svrn7Message for any pipeline handling email/1.0/* types."
 "SenderDid in the returned record is authoritative — not the RFC 5322 From header."
-"Receive-Web7Email is idempotent: processing the same MessageDid twice is safe."
+"Dequeue-PandoMail is idempotent: processing the same MessageDid twice is safe."
 ```
 
 ### 11.4 `inputSchema` and `outputSchema` Guidelines
@@ -707,20 +707,20 @@ The following nine LOBEs are shipped with the SVRN7 TDA Host v0.8.0.
 
 | LOBE              | Module                 | Purpose                                          |
 |-------------------|------------------------|--------------------------------------------------|
-| Svrn7.Common      | Svrn7.Common.psm1      | Shared helpers. No protocol handlers.            |
-| Svrn7.Federation  | Svrn7.Federation.psm1  | DID generation, key pairs, base registry.        |
-| Svrn7.Society     | Svrn7.Society.psm1     | Citizen registration, transfers, membership, society/1.0/* query and admin protocols. |
+| Svrn7.Common      | Svrn7.Common.0.8.0.psm1      | Shared helpers. No protocol handlers.            |
+| Svrn7.Federation  | Svrn7.Federation.0.8.0.psm1  | DID generation, key pairs, base registry.        |
+| Svrn7.Society     | Svrn7.Society.0.8.0.psm1     | Citizen registration, transfers, membership, society/1.0/* query and admin protocols. |
 
 ### 12.2 JIT LOBEs (on-demand import)
 
 | LOBE                   | Module                      | Protocols Handled                          |
 |------------------------|-----------------------------|--------------------------------------------|
-| Svrn7.Email            | Svrn7.Email.psm1            | email/1.0/*                                |
-| Svrn7.Calendar         | Svrn7.Calendar.psm1         | calendar/1.0/*                             |
-| Svrn7.Presence         | Svrn7.Presence.psm1         | presence/1.0/*                             |
-| Svrn7.Notifications    | Svrn7.Notifications.psm1    | notification/1.0/*                         |
-| Svrn7.Onboarding       | Svrn7.Onboarding.psm1       | onboard/1.0/*                              |
-| Svrn7.Invoicing        | Svrn7.Invoicing.psm1        | invoice/1.0/*                              |
+| Svrn7.Email            | Svrn7.Email.0.8.0.psm1            | email/1.0/*                                |
+| Svrn7.Calendar         | Svrn7.Calendar.0.8.0.psm1         | calendar/1.0/*                             |
+| Svrn7.Presence         | Svrn7.Presence.0.8.0.psm1         | presence/1.0/*                             |
+| Svrn7.Notifications    | Svrn7.Notifications.0.8.0.psm1    | Svrn7.Notifications/0.8.0/*                         |
+| Svrn7.Onboarding       | Svrn7.Onboarding.0.8.0.psm1       | Svrn7.Onboarding/0.8.0/*                              |
+| Svrn7.Invoicing        | Svrn7.Invoicing.0.8.0.psm1        | Svrn7.Invoicing/0.8.0/*                              |
 
 ### 12.3 Option A Protocols (Switchboard special case)
 
@@ -729,33 +729,33 @@ handling in the Switchboard before being routed to the registered cmdlet:
 
 | Protocol URI                                        | Special Case                        |
 |-----------------------------------------------------|-------------------------------------|
-| `did:drn:svrn7.net/protocols/transfer/1.0/order`   | Idempotency check via IProcessedOrderStore |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order`   | Idempotency check via IProcessedOrderStore |
 
 ### 12.4 Standard Protocol URI Registry
 
 | @type URI prefix                                              | LOBE                | Entrypoint                    | Epoch |
 |---------------------------------------------------------------|---------------------|-------------------------------|-------|
-| `did:drn:svrn7.net/protocols/federation/1.0/federation-query`| Svrn7.Federation    | Invoke-Web7FederationQuery    | 0     |
-| `did:drn:svrn7.net/protocols/federation/1.0/init`            | Svrn7.Federation    | Invoke-Web7FederationInit     | 0     |
-| `did:drn:svrn7.net/protocols/federation/1.0/register-society`| Svrn7.Federation    | Invoke-Web7RegisterSociety    | 0     |
-| `did:drn:svrn7.net/protocols/transfer/1.0/request`           | Svrn7.Society       | Invoke-Svrn7IncomingTransfer  | 0     |
-| `did:drn:svrn7.net/protocols/transfer/1.0/order`             | Svrn7.Society       | Invoke-Svrn7IncomingTransfer  | 1     |
-| `did:drn:svrn7.net/protocols/transfer/1.0/order-receipt`     | Svrn7.Society       | Confirm-Svrn7Settlement       | 1     |
-| `did:drn:svrn7.net/protocols/onboard/1.0/`                   | Svrn7.Onboarding    | ConvertFrom-Web7OnboardRequest| 0     |
-| `did:drn:svrn7.net/protocols/email/1.0/`                     | Svrn7.Email         | Receive-Web7Email             | 0     |
-| `did:drn:svrn7.net/protocols/calendar/1.0/invite`            | Svrn7.Calendar      | Receive-Web7MeetingRequest    | 0     |
-| `did:drn:svrn7.net/protocols/calendar/1.0/`                  | Svrn7.Calendar      | Import-Web7CalendarEvent      | 0     |
-| `did:drn:svrn7.net/protocols/presence/1.0/subscribe`         | Svrn7.Presence      | Add-Web7PresenceSubscription  | 0     |
-| `did:drn:svrn7.net/protocols/presence/1.0/`                  | Svrn7.Presence      | Update-Web7Presence           | 0     |
-| `did:drn:svrn7.net/protocols/notification/1.0/`              | Svrn7.Notifications | Invoke-Web7Notification       | 0     |
-| `did:drn:svrn7.net/protocols/invoice/1.0/`                   | Svrn7.Invoicing     | ConvertFrom-Web7InvoiceRequest| 0     |
-| `did:drn:svrn7.net/protocols/did/1.0/resolve-request`        | Svrn7.Society       | Resolve-Svrn7Did              | 0     |
-| `did:drn:svrn7.net/protocols/society/1.0/society-query`      | Svrn7.Society       | Invoke-Web7SocietyQuery       | 0     |
-| `did:drn:svrn7.net/protocols/society/1.0/member-query`       | Svrn7.Society       | Invoke-Web7MemberQuery        | 0     |
-| `did:drn:svrn7.net/protocols/society/1.0/overdraft-query`    | Svrn7.Society       | Invoke-Web7OverdraftQuery     | 0     |
-| `did:drn:svrn7.net/protocols/society/1.0/did-methods-query`  | Svrn7.Society       | Invoke-Web7DidMethodsQuery    | 0     |
-| `did:drn:svrn7.net/protocols/society/1.0/did-method-register`| Svrn7.Society       | Invoke-Web7DidMethodRegister  | 0     |
-| `did:drn:svrn7.net/protocols/society/1.0/citizen-did-add`    | Svrn7.Society       | Invoke-Web7CitizenDidAdd      | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/federation-query`| Svrn7.Federation    | Invoke-Web7FederationQuery    | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/initialize-federation`            | Svrn7.Federation    | Invoke-Web7FederationInit     | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Federation.0.8.0/register-society`| Svrn7.Federation    | Invoke-Web7RegisterSociety    | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-request`           | Svrn7.Society       | Invoke-Svrn7IncomingTransfer  | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order`             | Svrn7.Society       | Invoke-Svrn7IncomingTransfer  | 1     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/transfer-order-receipt`     | Svrn7.Society       | Confirm-Svrn7Settlement       | 1     |
+| `did:drn:svrn7.net/protocols/Svrn7.Onboarding.0.8.0/`                   | Svrn7.Onboarding    | ConvertFrom-Web7OnboardRequest| 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/`                     | Svrn7.Email         | Dequeue-PandoMail             | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/invite`            | Svrn7.Calendar      | Receive-Web7MeetingRequest    | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Calendar.0.8.0/`                  | Svrn7.Calendar      | Import-Web7CalendarEvent      | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/subscribe`         | Svrn7.Presence      | Add-Web7PresenceSubscription  | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Presence.0.8.0/`                  | Svrn7.Presence      | Update-Web7Presence           | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Notifications.0.8.0/`              | Svrn7.Notifications | Invoke-Web7Notification       | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Invoicing.0.8.0/`                   | Svrn7.Invoicing     | ConvertFrom-Web7InvoiceRequest| 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request`        | Svrn7.Society       | Resolve-Svrn7Did              | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/society-query`      | Svrn7.Society       | Invoke-Web7SocietyQuery       | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/member-query`       | Svrn7.Society       | Invoke-Web7MemberQuery        | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/overdraft-query`    | Svrn7.Society       | Invoke-Web7OverdraftQuery     | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-methods-query`  | Svrn7.Society       | Invoke-Web7DidMethodsQuery    | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/did-method-register`| Svrn7.Society       | Invoke-Web7DidMethodRegister  | 0     |
+| `did:drn:svrn7.net/protocols/Svrn7.Society.0.8.0/citizen-did-add`    | Svrn7.Society       | Invoke-Web7CitizenDidAdd      | 0     |
 
 ---
 
@@ -826,7 +826,7 @@ hypothetical health domain extension developed by an independent third party.
         }
       },
       "outputSchema": null,
-      "pipelineExample": "Get-Web7Message -Did $MessageDid | Receive-HealthPrescriptionRequest"
+      "pipelineExample": "Dequeue-Svrn7Message -Did $MessageDid | Receive-HealthPrescriptionRequest"
     }
   ],
   "dependencies": {
@@ -956,7 +956,7 @@ registering LOBE is a standard SVRN7 LOBE (identified by `lobe.id` prefix `svrn7
 ### 14.3 IsolatedPipeline Isolation
 
 Each LOBE dispatch runs in its own `IsolatedPipeline` — a fresh `Runspace` opened from
-the shared `InitialSessionState` template via `RunspacePoolManager.CreateIsolatedPipeline()`.
+the shared `InitialSessionState` template via `IsolatedRunspaceFactory.CreateIsolatedPipeline()`.
 The `IsolatedPipeline` is disposed after each dispatch. This provides complete blast-radius
 isolation: a crash or runaway in one dispatch cannot affect any other.
 
