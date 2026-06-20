@@ -4,6 +4,8 @@ using System.Collections;
 using System.ComponentModel;
 using System.Drawing;
 using System.Data;
+using System.Net;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 using System.Reflection;
@@ -48,6 +50,7 @@ namespace Web7.SVRN7.Apps
 		private MessageStore _store = null;
 		private MailMessage _message = null;
 		private string _pendingHtml = null;
+		private TdaMailClient _tdaClient = null;
 
 		public RightSpine()
 		{
@@ -283,6 +286,11 @@ namespace Web7.SVRN7.Apps
 		#endregion
 
 		#region Properties
+		public void SetTdaClient(TdaMailClient client)
+		{
+			_tdaClient = client;
+		}
+
 		[DefaultValue(null)]
 		private MailMessage Message
 		{
@@ -313,21 +321,9 @@ namespace Web7.SVRN7.Apps
 						this.repliedLabel.Text = " You have not responded to this message";
 					}
 
-                    if (null != _assembly)
+                    if (_tdaClient != null && !string.IsNullOrEmpty(_message.Path))
                     {
-                        Stream doc = _assembly.GetManifestResourceStream(_namePrefix + _message.Path);
-
-                        if (null != doc)
-                        {
-                            string html;
-                            using (var reader = new StreamReader(doc))
-                                html = reader.ReadToEnd();
-
-                            if (webView1.CoreWebView2 != null)
-                                webView1.NavigateToString(html);
-                            else
-                                _pendingHtml = html;
-                        }
+                        _ = FetchAndDisplayBodyAsync(_message.Path);
                     }
 				}
 				else
@@ -344,6 +340,30 @@ namespace Web7.SVRN7.Apps
 			}
 		}
 		#endregion
+
+		private async Task FetchAndDisplayBodyAsync(string messageDid)
+		{
+			try
+			{
+				EmailBody emailBody = await _tdaClient.GetEmailBodyAsync(messageDid);
+				string html = string.IsNullOrEmpty(emailBody.BodyText)
+					? "<html><body></body></html>"
+					: "<html><body><pre style=\"font-family:Arial,sans-serif;font-size:13px;white-space:pre-wrap\">"
+					  + WebUtility.HtmlEncode(emailBody.BodyText)
+					  + "</pre></body></html>";
+
+				if (!this.IsHandleCreated) return;
+				BeginInvoke(new System.Windows.Forms.MethodInvoker(() =>
+				{
+					if (_message?.Path != messageDid) return;
+					if (webView1.CoreWebView2 != null)
+						webView1.NavigateToString(html);
+					else
+						_pendingHtml = html;
+				}));
+			}
+			catch { }
+		}
 
 		#region Event Handlers
 		protected override void OnPaint(PaintEventArgs e)

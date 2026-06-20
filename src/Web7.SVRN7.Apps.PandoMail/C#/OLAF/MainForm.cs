@@ -67,6 +67,7 @@ namespace Web7.SVRN7.Apps
 				await _tdaClient.ConnectAsync();
 				_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
 				_tdaClient.Disconnected += OnTdaDisconnected;
+				rightSpine1.SetTdaClient(_tdaClient);
 			}
 			catch
 			{
@@ -110,6 +111,7 @@ namespace Web7.SVRN7.Apps
 					await _tdaClient.ConnectAsync();
 					_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
 					_tdaClient.Disconnected += OnTdaDisconnected;
+					rightSpine1.SetTdaClient(_tdaClient);
 					await UpdateTitleAsync();
 				}
 				catch

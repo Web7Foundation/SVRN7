@@ -372,6 +372,85 @@ function Get-TdaDid {
     }
 }
 
+# ── Invoke-Svrn7EmailGetEmailBody ─────────────────────────────────────────────
+
+function Invoke-Svrn7EmailGetEmailBody {
+    <#
+    .SYNOPSIS
+        Returns the full RFC 5322 body of a specific stored email message.
+
+    .DESCRIPTION
+        Handles a Get-EmailBody request from TdaMailClient. Looks up the target
+        email in the inbox by its DID, extracts the RFC 5322 body and plain-text
+        content, and replies via the WebSocket push channel.
+
+        Protocol (inbound):  did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Get-EmailBody
+        Protocol (outbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Reply-EmailBody
+
+    .PARAMETER MessageDid
+        The TDA resource DID URL of the inbox message containing the request.
+
+    .OUTPUTS
+        [Svrn7.TDA.OutboundMessage] delivering Reply-EmailBody to the WebSocket hub,
+        or $null if the target message cannot be found.
+    #>
+    [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) {
+            Write-Warning "Email LOBE: Get-EmailBody request message $MessageDid not found."
+            return $null
+        }
+
+        $body          = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+        $correlationId = Get-BodyField $body 'correlationId' ''
+        $targetDid     = Get-BodyField $body 'messageDid' ''
+
+        if (-not $targetDid) {
+            Write-Warning "Email LOBE: Get-EmailBody $MessageDid missing messageDid field."
+            return $null
+        }
+
+        $emailMsg = $SVRN7.GetMessageAsync($targetDid).GetAwaiter().GetResult()
+        if (-not $emailMsg) {
+            Write-Warning "Email LOBE: Get-EmailBody target message $targetDid not found."
+            return $null
+        }
+
+        $emailBody = $emailMsg.PackedPayload | ConvertFrom-Json -ErrorAction SilentlyContinue
+        $rfc5322   = Get-BodyField $emailBody 'rfc5322Body' ''
+
+        # Extract plain-text body — everything after the first blank line in RFC 5322.
+        $bodyText = ''
+        if ($rfc5322) {
+            $parts = $rfc5322 -split "`r?`n`r?`n", 2
+            if ($parts.Count -ge 2) { $bodyText = $parts[1].Trim() }
+        }
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Reply-EmailBody'
+            from = $SVRN7.LocalDid
+            to   = @($SVRN7.LocalDid)
+            body = [ordered]@{
+                correlationId = $correlationId
+                messageDid    = $targetDid
+                rfc5322Body   = $rfc5322
+                bodyText      = $bodyText
+            }
+        } | ConvertTo-Json -Compress -Depth 3
+
+        [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $envelope)
+    }
+}
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Get-Rfc5322Header {
@@ -386,5 +465,6 @@ Export-ModuleMember -Function @(
     'Enqueue-PandoMail',
     'Invoke-PandoMailList',
     'Invoke-PandoMailSend',
-    'Get-TdaDid'
+    'Get-TdaDid',
+    'Invoke-Svrn7EmailGetEmailBody'
 )

@@ -20,6 +20,12 @@ namespace Web7.SVRN7.Apps
         string   ToHeader,
         DateTime ReceivedAt);
 
+    public sealed record EmailBody(
+        string CorrelationId,
+        string MessageDid,
+        string Rfc5322Body,
+        string BodyText);
+
     /// <summary>
     /// PandoMail ↔ local Citizen TDA transport over WebSocket (ws://localhost:{port}/didcomm-notify).
     /// All outbound messages (Enqueue-PandoMail, List-Emails requests) go over the WebSocket.
@@ -135,6 +141,34 @@ namespace Web7.SVRN7.Apps
 
                 string replyJson = await tcs.Task;
                 return ParseEmailList(replyJson);
+            }
+            finally
+            {
+                _pending.TryRemove(correlationId, out _);
+            }
+        }
+
+        // ── Inbound: Request full body of a single email ──────────────────────────
+
+        public async Task<EmailBody> GetEmailBodyAsync(string messageDid, CancellationToken ct = default)
+        {
+            string correlationId = Guid.NewGuid().ToString("N");
+            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pending[correlationId] = tcs;
+
+            try
+            {
+                string msgBody = JsonSerializer.Serialize(new { correlationId, messageDid });
+                await SendEnvelopeAsync(
+                    "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Get-EmailBody",
+                    msgBody, ct);
+
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeout.CancelAfter(TimeSpan.FromSeconds(15));
+                timeout.Token.Register(() => tcs.TrySetCanceled());
+
+                string replyJson = await tcs.Task;
+                return ParseEmailBody(replyJson);
             }
             finally
             {
@@ -266,6 +300,12 @@ namespace Web7.SVRN7.Apps
                         }
                     }
                 }
+                else if (type.EndsWith("/Reply-EmailBody", StringComparison.Ordinal))
+                {
+                    string cid = ExtractCorrelationId(root);
+                    if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
+                        tcs.TrySetResult(json);
+                }
                 else if (type.EndsWith("/new-message", StringComparison.Ordinal) ||
                          type.Contains("Email-Notify", StringComparison.OrdinalIgnoreCase))
                 {
@@ -351,6 +391,31 @@ namespace Web7.SVRN7.Apps
             }
             catch { }
             return result;
+        }
+
+        private static EmailBody ParseEmailBody(string envelopeJson)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(envelopeJson);
+                JsonElement root = doc.RootElement;
+                if (!root.TryGetProperty("body", out JsonElement bodyEl))
+                    return new EmailBody(string.Empty, string.Empty, string.Empty, string.Empty);
+
+                JsonElement resolved = bodyEl;
+                if (bodyEl.ValueKind == JsonValueKind.String)
+                {
+                    using JsonDocument inner = JsonDocument.Parse(bodyEl.GetString()!);
+                    resolved = inner.RootElement.Clone();
+                }
+
+                return new EmailBody(
+                    CorrelationId: GetStr(resolved, "correlationId"),
+                    MessageDid:    GetStr(resolved, "messageDid"),
+                    Rfc5322Body:   GetStr(resolved, "rfc5322Body"),
+                    BodyText:      GetStr(resolved, "bodyText"));
+            }
+            catch { return new EmailBody(string.Empty, string.Empty, string.Empty, string.Empty); }
         }
 
         private static string GetStr(JsonElement el, string name) =>

@@ -57,6 +57,15 @@
       "match": "exact",
       "entrypoint": "Get-TdaDid",
       "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Get-EmailBody",
+      "title": "Get Email Body",
+      "description": "Request for the full RFC 5322 body of a specific stored email message. Body: { messageDid: string, correlationId?: string }. Replies with Reply-EmailBody over WebSocket.",
+      "direction": "inbound",
+      "match": "exact",
+      "entrypoint": "Invoke-Svrn7EmailGetEmailBody",
+      "epochRequired": 0
     }
   ],
   "cmdlets": [
