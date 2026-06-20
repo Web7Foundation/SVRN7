@@ -520,7 +520,19 @@ function Invoke-PandoMailResolveDid {
         $didDoc = $SVRN7.Driver.ResolveDidAsync($requestedDid).GetAwaiter().GetResult()
         if ($null -ne $didDoc) {
             Write-Verbose "Email LOBE: Resolve-PandoDid LOCAL HIT '$requestedDid'"
-            $svrn7Name = if ($didDoc.PSObject.Properties['Svrn7Name'] -and $didDoc.Svrn7Name) { $didDoc.Svrn7Name } else { '' }
+            # Use GetDidDocumentJson round-trip to read Svrn7Name — same pattern as Get-TdaDid.
+            # Direct C# property access may return null if the field was absent when stored.
+            $svrn7Name = ''
+            try {
+                $docJson = $SVRN7.GetDidDocumentJson($requestedDid)
+                if ($docJson) {
+                    $doc = $docJson | ConvertFrom-Json -ErrorAction SilentlyContinue
+                    if ($null -ne $doc -and $doc.PSObject.Properties['Svrn7Name'] -and $doc.Svrn7Name) {
+                        $svrn7Name = $doc.Svrn7Name
+                    }
+                }
+            } catch { }
+            Write-Verbose "Email LOBE: Resolve-PandoDid svrn7Name='$svrn7Name'"
             $replyEnvelope = [ordered]@{
                 typ  = 'application/didcomm-plain+json'
                 id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))

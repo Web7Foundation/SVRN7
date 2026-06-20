@@ -295,7 +295,7 @@ namespace Web7.SVRN7.Apps
                     while (!result.EndOfMessage);
 
                     var recvJson = Encoding.UTF8.GetString(ms.ToArray());
-                    Debug.WriteLine($"[TdaMailClient] WS RECV {ms.Length} bytes preview='{(recvJson.Length > 120 ? recvJson[..120] : recvJson)}'");
+                    Debug.WriteLine($"[TdaMailClient] WS RECV {ms.Length} bytes: {recvJson}");
                     DispatchReceived(recvJson);
                 }
             }
@@ -351,6 +351,7 @@ namespace Web7.SVRN7.Apps
                 else if (type.EndsWith("/Reply-DidDocument", StringComparison.Ordinal))
                 {
                     string cid = ExtractCorrelationId(root);
+                    Debug.WriteLine($"[TdaMailClient] Reply-DidDocument correlationId={cid} pendingCount={_pending.Count} matched={(!string.IsNullOrEmpty(cid) && _pending.ContainsKey(cid))}");
                     if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
                         tcs.TrySetResult(json);
                 }
