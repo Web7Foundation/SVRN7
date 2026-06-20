@@ -26,6 +26,11 @@ namespace Web7.SVRN7.Apps
         string Rfc5322Body,
         string BodyText);
 
+    public sealed record DidResolutionResult(
+        bool   Found,
+        string RequestedDid,
+        string Svrn7Name);
+
     /// <summary>
     /// PandoMail ↔ local Citizen TDA transport over WebSocket (ws://localhost:{port}/didcomm-notify).
     /// All outbound messages (Enqueue-PandoMail, List-Emails requests) go over the WebSocket.
@@ -50,6 +55,9 @@ namespace Web7.SVRN7.Apps
 
         /// <summary>The connected TDA's agent DID, populated after GetTdaDidAsync() completes.</summary>
         public string TdaDid { get; private set; } = string.Empty;
+
+        /// <summary>The connected TDA's Svrn7Name, populated after GetTdaDidAsync() completes.</summary>
+        public string TdaName { get; private set; } = string.Empty;
 
         /// <summary>True when the WebSocket connection to the TDA is open.</summary>
         public bool IsConnected => _ws.State == WebSocketState.Open;
@@ -107,9 +115,10 @@ namespace Web7.SVRN7.Apps
         // ── Outbound: Send a composed email ────────────────────────────────────
 
         public async Task SendAsync(string recipientDid, string subject, string bodyText,
+            string senderDisplay = "", string recipientDisplay = "",
             CancellationToken ct = default)
         {
-            string msgBody = JsonSerializer.Serialize(new { recipientDid, subject, bodyText });
+            string msgBody = JsonSerializer.Serialize(new { recipientDid, subject, bodyText, senderDisplay, recipientDisplay });
             await SendEnvelopeAsync(
                 "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Enqueue-PandoMail",
                 msgBody, ct);
@@ -176,6 +185,38 @@ namespace Web7.SVRN7.Apps
             }
         }
 
+        // ── Inbound: Resolve a DID Document ────────────────────────────────────────
+
+        public async Task<DidResolutionResult> ResolveDidAsync(string did, CancellationToken ct = default)
+        {
+            string correlationId = Guid.NewGuid().ToString("N");
+            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pending[correlationId] = tcs;
+
+            try
+            {
+                string msgBody = JsonSerializer.Serialize(new { correlationId, requestedDid = did });
+                await SendEnvelopeAsync(
+                    "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Resolve-PandoDid",
+                    msgBody, ct);
+
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeout.CancelAfter(TimeSpan.FromSeconds(10));
+                timeout.Token.Register(() => tcs.TrySetCanceled());
+
+                string replyJson = await tcs.Task;
+                return ParseDidResolution(replyJson);
+            }
+            catch (OperationCanceledException)
+            {
+                return new DidResolutionResult(false, did, null);
+            }
+            finally
+            {
+                _pending.TryRemove(correlationId, out _);
+            }
+        }
+
         // ── Query: TDA's own DID ────────────────────────────────────────────────
 
         public async Task<string> GetTdaDidAsync(CancellationToken ct = default)
@@ -199,7 +240,8 @@ namespace Web7.SVRN7.Apps
                 timeout.Token.Register(() => tcs.TrySetCanceled());
 
                 string replyJson = await tcs.Task;
-                TdaDid = ParseTdaDid(replyJson);
+                TdaDid  = ParseTdaDid(replyJson);
+                TdaName = ParseTdaName(replyJson);
                 return TdaDid;
             }
             finally
@@ -253,7 +295,7 @@ namespace Web7.SVRN7.Apps
                     while (!result.EndOfMessage);
 
                     var recvJson = Encoding.UTF8.GetString(ms.ToArray());
-                    Debug.WriteLine($"[TdaMailClient] WS RECV {ms.Length} bytes preview='{(recvJson.Length > 120 ? recvJson[..120] : recvJson)}'");
+                    Debug.WriteLine($"[TdaMailClient] WS RECV {ms.Length} bytes: {recvJson}");
                     DispatchReceived(recvJson);
                 }
             }
@@ -306,6 +348,13 @@ namespace Web7.SVRN7.Apps
                     if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
                         tcs.TrySetResult(json);
                 }
+                else if (type.EndsWith("/Reply-DidDocument", StringComparison.Ordinal))
+                {
+                    string cid = ExtractCorrelationId(root);
+                    Debug.WriteLine($"[TdaMailClient] Reply-DidDocument correlationId={cid} pendingCount={_pending.Count} matched={(!string.IsNullOrEmpty(cid) && _pending.ContainsKey(cid))}");
+                    if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
+                        tcs.TrySetResult(json);
+                }
                 else if (type.EndsWith("/new-message", StringComparison.Ordinal) ||
                          type.Contains("Email-Notify", StringComparison.OrdinalIgnoreCase))
                 {
@@ -336,6 +385,32 @@ namespace Web7.SVRN7.Apps
 
         // ── Parsing ─────────────────────────────────────────────────────────────
 
+        private static DidResolutionResult ParseDidResolution(string envelopeJson)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(envelopeJson);
+                JsonElement root = doc.RootElement;
+                if (!root.TryGetProperty("body", out JsonElement bodyEl))
+                    return new DidResolutionResult(false, string.Empty, null);
+
+                JsonElement resolved = bodyEl;
+                if (bodyEl.ValueKind == JsonValueKind.String)
+                {
+                    using JsonDocument inner = JsonDocument.Parse(bodyEl.GetString()!);
+                    resolved = inner.RootElement.Clone();
+                }
+
+                bool found = resolved.TryGetProperty("found", out JsonElement foundEl) && foundEl.GetBoolean();
+                string requestedDid = GetStr(resolved, "requestedDid");
+                string svrn7Name = resolved.TryGetProperty("svrn7Name", out JsonElement nameEl)
+                    ? nameEl.GetString() ?? string.Empty : string.Empty;
+
+                return new DidResolutionResult(found, requestedDid, svrn7Name);
+            }
+            catch { return new DidResolutionResult(false, string.Empty, null); }
+        }
+
         private static string ParseTdaDid(string envelopeJson)
         {
             try
@@ -353,6 +428,27 @@ namespace Web7.SVRN7.Apps
 
                 return resolved.TryGetProperty("did", out JsonElement didEl)
                     ? didEl.GetString() ?? string.Empty : string.Empty;
+            }
+            catch { return string.Empty; }
+        }
+
+        private static string ParseTdaName(string envelopeJson)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(envelopeJson);
+                JsonElement root = doc.RootElement;
+                if (!root.TryGetProperty("body", out JsonElement bodyEl)) return string.Empty;
+
+                JsonElement resolved = bodyEl;
+                if (bodyEl.ValueKind == JsonValueKind.String)
+                {
+                    using JsonDocument inner = JsonDocument.Parse(bodyEl.GetString()!);
+                    resolved = inner.RootElement.Clone();
+                }
+
+                return resolved.TryGetProperty("name", out JsonElement nameEl)
+                    ? nameEl.GetString() ?? string.Empty : string.Empty;
             }
             catch { return string.Empty; }
         }

@@ -139,8 +139,10 @@ function Enqueue-PandoMail {
         Plain text email body.
 
     .PARAMETER From
-        Sender display name and DID (e.g., "Alice <did:drn:alpha.svrn7.net/citizen/alice>").
-        Defaults to the Society DID if not specified.
+        Sender display string, e.g. '"Alice" <did:drn:...>'. Defaults to the local DID.
+
+    .PARAMETER ToDisplay
+        Recipient display string, e.g. '"Bob" <did:drn:...>'. Defaults to RecipientDid.
 
     .OUTPUTS
         OutboundMessage — packed DIDComm message ready for Switchboard delivery.
@@ -153,18 +155,20 @@ function Enqueue-PandoMail {
         [Parameter(Mandatory)] [string] $RecipientDid,
         [Parameter(Mandatory)] [string] $Subject,
         [Parameter(Mandatory)] [string] $Body,
-        [string] $From
+        [string] $From      = '',
+        [string] $ToDisplay = ''
     )
 
     process {
-        if (-not $From) { $From = $SVRN7.LocalDid }
+        if (-not $From)      { $From      = $SVRN7.LocalDid }
+        if (-not $ToDisplay) { $ToDisplay = $RecipientDid   }
 
         $date = [datetime]::UtcNow.ToString('ddd, dd MMM yyyy HH:mm:ss') + ' +0000'
 
-        # Build RFC 5322 message — did: URIs as From/To
+        # Build RFC 5322 message — display names included when provided
         $rfc5322 = @"
 From: $From
-To: $RecipientDid
+To: $ToDisplay
 Subject: $Subject
 Date: $date
 MIME-Version: 1.0
@@ -312,11 +316,14 @@ function Invoke-PandoMailSend {
             return $null
         }
 
-        $subject  = Get-BodyField $body 'subject'  ''
-        $bodyText = Get-BodyField $body 'bodyText'  ''
+        $subject         = Get-BodyField $body 'subject'         ''
+        $bodyText        = Get-BodyField $body 'bodyText'        ''
+        $senderDisplay   = Get-BodyField $body 'senderDisplay'   ''
+        $recipientDisplay = Get-BodyField $body 'recipientDisplay' ''
 
         Write-Verbose "Email LOBE: Enqueue-PandoMail — forwarding to $recipientDid ('$subject')"
-        Enqueue-PandoMail -RecipientDid $recipientDid -Subject $subject -Body $bodyText
+        Enqueue-PandoMail -RecipientDid $recipientDid -Subject $subject -Body $bodyText `
+            -From $senderDisplay -ToDisplay $recipientDisplay
     }
 }
 
@@ -356,6 +363,17 @@ function Get-TdaDid {
 
         $correlationId = Get-BodyField $body 'correlationId' ''
 
+        $localName = ''
+        try {
+            $docJson = $SVRN7.GetDidDocumentJson($SVRN7.LocalDid)
+            if ($docJson) {
+                $doc = $docJson | ConvertFrom-Json -ErrorAction SilentlyContinue
+                if ($null -ne $doc -and $doc.PSObject.Properties['Svrn7Name'] -and $doc.Svrn7Name) {
+                    $localName = $doc.Svrn7Name
+                }
+            }
+        } catch { }
+
         $envelope = [ordered]@{
             typ  = 'application/didcomm-plain+json'
             id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
@@ -364,6 +382,7 @@ function Get-TdaDid {
             to   = @($SVRN7.LocalDid)
             body = [ordered]@{
                 did           = $SVRN7.LocalDid
+                name          = $localName
                 correlationId = $correlationId
             }
         } | ConvertTo-Json -Compress -Depth 3
@@ -451,6 +470,129 @@ function Invoke-Svrn7EmailGetEmailBody {
     }
 }
 
+# ── Invoke-PandoMailResolveDid ────────────────────────────────────────────────
+
+function Invoke-PandoMailResolveDid {
+    <#
+    .SYNOPSIS
+        Resolves a DID Document on behalf of PandoMail and replies over WebSocket.
+
+    .DESCRIPTION
+        Handles a Resolve-PandoDid request from TdaMailClient.
+        Tries the local DID registry first. On a local hit, pushes Reply-DidDocument
+        immediately over the WebSocket hub.
+        On a local miss, forwards a plaintext did-resolve-request to the parent TDA
+        using the caller's correlationId as the requestId, so that
+        Invoke-Svrn7DidResolveResponse can push the result back to WebSocket when the
+        response arrives through the resolution chain.
+
+        Protocol (inbound):  did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Resolve-PandoDid
+        Protocol (outbound): did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/Reply-DidDocument (ws)
+                             did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request (http, on miss)
+
+    .PARAMETER MessageDid
+        The TDA resource DID URL of the inbox message.
+    #>
+    [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) {
+            Write-Warning "Email LOBE: Resolve-PandoDid message $MessageDid not found."
+            return $null
+        }
+
+        $body          = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+        $correlationId = Get-BodyField $body 'correlationId' ''
+        $requestedDid  = Get-BodyField $body 'requestedDid'  ''
+
+        if (-not $requestedDid) {
+            Write-Warning "Email LOBE: Resolve-PandoDid $MessageDid missing requestedDid."
+            return $null
+        }
+
+        # Try local registry first
+        $didDoc = $SVRN7.Driver.ResolveDidAsync($requestedDid).GetAwaiter().GetResult()
+        if ($null -ne $didDoc) {
+            Write-Verbose "Email LOBE: Resolve-PandoDid LOCAL HIT '$requestedDid'"
+            # Use GetDidDocumentJson round-trip to read Svrn7Name — same pattern as Get-TdaDid.
+            # Direct C# property access may return null if the field was absent when stored.
+            $svrn7Name = ''
+            try {
+                $docJson = $SVRN7.GetDidDocumentJson($requestedDid)
+                if ($docJson) {
+                    $doc = $docJson | ConvertFrom-Json -ErrorAction SilentlyContinue
+                    if ($null -ne $doc -and $doc.PSObject.Properties['Svrn7Name'] -and $doc.Svrn7Name) {
+                        $svrn7Name = $doc.Svrn7Name
+                    }
+                }
+            } catch { }
+            Write-Verbose "Email LOBE: Resolve-PandoDid svrn7Name='$svrn7Name'"
+            $replyEnvelope = [ordered]@{
+                typ  = 'application/didcomm-plain+json'
+                id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+                type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/Reply-DidDocument'
+                from = $SVRN7.LocalDid
+                to   = @($SVRN7.LocalDid)
+                body = [ordered]@{
+                    correlationId = $correlationId
+                    requestedDid  = $requestedDid
+                    found         = $true
+                    svrn7Name     = $svrn7Name
+                }
+            } | ConvertTo-Json -Compress -Depth 3
+            return [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $replyEnvelope)
+        }
+
+        # Local miss — escalate to parent TDA if available
+        $parentEndpoint = $SVRN7.ParentTdaEndpointUrl
+        $parentDid      = $SVRN7.ParentTdaDid
+
+        if (-not $parentEndpoint) {
+            Write-Verbose "Email LOBE: Resolve-PandoDid LOCAL MISS '$requestedDid' — no parent, replying not found"
+            $notFoundEnvelope = [ordered]@{
+                typ  = 'application/didcomm-plain+json'
+                id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+                type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/Reply-DidDocument'
+                from = $SVRN7.LocalDid
+                to   = @($SVRN7.LocalDid)
+                body = [ordered]@{
+                    correlationId = $correlationId
+                    requestedDid  = $requestedDid
+                    found         = $false
+                    svrn7Name     = ''
+                }
+            } | ConvertTo-Json -Compress -Depth 3
+            return [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $notFoundEnvelope)
+        }
+
+        # Forward the resolve request to the parent TDA using correlationId as requestId.
+        # Invoke-Svrn7DidResolveResponse (Identity LOBE) will push Reply-DidDocument to
+        # WebSocket when the response arrives, matching on originalRequestId = correlationId.
+        Write-Verbose "Email LOBE: Resolve-PandoDid LOCAL MISS '$requestedDid' → escalating to '$parentDid'"
+        $fwdEnvelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request'
+            from = $SVRN7.LocalDid
+            to   = @($parentDid)
+            body = [ordered]@{
+                requestedDid         = $requestedDid
+                requestId            = $correlationId
+                originalRequesterDid = $SVRN7.LocalDid
+                originalRequestId    = $correlationId
+            }
+        } | ConvertTo-Json -Compress -Depth 3
+
+        [Svrn7.TDA.OutboundMessage]::new($parentEndpoint, $fwdEnvelope)
+    }
+}
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Get-Rfc5322Header {
@@ -465,6 +607,7 @@ Export-ModuleMember -Function @(
     'Enqueue-PandoMail',
     'Invoke-PandoMailList',
     'Invoke-PandoMailSend',
+    'Invoke-PandoMailResolveDid',
     'Get-TdaDid',
     'Invoke-Svrn7EmailGetEmailBody'
 )

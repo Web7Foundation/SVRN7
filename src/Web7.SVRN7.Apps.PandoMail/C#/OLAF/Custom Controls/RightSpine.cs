@@ -4,7 +4,6 @@ using System.Collections;
 using System.ComponentModel;
 using System.Drawing;
 using System.Data;
-using System.Net;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -348,9 +347,9 @@ namespace Web7.SVRN7.Apps
 				EmailBody emailBody = await _tdaClient.GetEmailBodyAsync(messageDid);
 				string html = string.IsNullOrEmpty(emailBody.BodyText)
 					? "<html><body></body></html>"
-					: "<html><body><pre style=\"font-family:Arial,sans-serif;font-size:13px;white-space:pre-wrap\">"
-					  + WebUtility.HtmlEncode(emailBody.BodyText)
-					  + "</pre></body></html>";
+					: "<html><body style=\"font-family:Arial,sans-serif;font-size:13px;margin:10px 12px\">"
+					  + emailBody.BodyText
+					  + "</body></html>";
 
 				if (!this.IsHandleCreated) return;
 				BeginInvoke(new System.Windows.Forms.MethodInvoker(() =>

@@ -66,6 +66,15 @@
       "match": "exact",
       "entrypoint": "Invoke-Svrn7EmailGetEmailBody",
       "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Resolve-PandoDid",
+      "title": "Resolve DID Document (PandoMail)",
+      "description": "Local UI request to resolve a DID Document. Body: { requestedDid: string, correlationId?: string }. Tries local registry; escalates to parent TDA via plaintext did-resolve-request on miss. Replies with Reply-DidDocument over WebSocket.",
+      "direction": "inbound",
+      "match": "exact",
+      "entrypoint": "Invoke-PandoMailResolveDid",
+      "epochRequired": 0
     }
   ],
   "cmdlets": [
