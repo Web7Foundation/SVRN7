@@ -318,6 +318,8 @@ Full URI prefix: `did:drn:svrn7.net/protocols/`
 |---|---|
 | `202 Accepted` | Message unpacked and enqueued successfully |
 | `400 Bad Request` | Empty body, invalid JSON, or missing `type` field |
+| `415 Unsupported Media Type` | Content-Type is not `application/didcomm-encrypted+json` or `application/didcomm-plain+json` |
+| `403 Forbidden` | Plaintext message with `@type` not in `PlaintextDiscoveryProtocols` |
 
 ---
 

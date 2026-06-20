@@ -455,6 +455,30 @@ public sealed class DIDCommMessageSwitchboard
         return true; // unknown type — epoch check deferred to routing failure
     }
 
+    // ── DID discovery protocol detection ─────────────────────────────────────
+
+    /// <summary>
+    /// Returns true when the plaintext envelope carries a DID discovery protocol
+    /// type (P-008 plaintext permission). DID resolution is an open service — any
+    /// TDA may query any other TDA's DID Documents without a prior relationship.
+    /// Encryption is impossible on this path because the querying party does not
+    /// yet hold the recipient's X25519 key.
+    /// </summary>
+    private static bool IsPlaintextDiscoveryMessage(string plaintextEnvelope)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(plaintextEnvelope);
+            if (doc.RootElement.TryGetProperty("type", out var typeEl))
+            {
+                var type = typeEl.GetString();
+                return type is not null && Svrn7Constants.PlaintextDiscoveryProtocols.Contains(type);
+            }
+        }
+        catch { /* malformed envelope — fall through to encrypted path */ }
+        return false;
+    }
+
     // ── SignThenEncrypt packing ───────────────────────────────────────────────
 
     /// <summary>
@@ -591,8 +615,22 @@ public sealed class DIDCommMessageSwitchboard
             return;
         }
 
-        // HTTP: apply SignThenEncrypt before delivery (policy: all outbound HTTP messages).
-        var wireMessage = await PackOutboundAsync(msg.PackedMessage, ct);
+        // HTTP: DID discovery messages travel as plaintext (P-008 plaintext permission —
+        // any TDA may resolve any other TDA's DID Documents without prior key exchange).
+        // All other HTTP messages are SignThenEncrypt.
+        string wireMessage;
+        string outboundContentType;
+        if (IsPlaintextDiscoveryMessage(msg.PackedMessage))
+        {
+            wireMessage = msg.PackedMessage;
+            outboundContentType = "application/didcomm-plain+json";
+            _log.LogDebug("Switchboard: outbound DID discovery — sending as plaintext (P-008 plaintext permission).");
+        }
+        else
+        {
+            wireMessage = await PackOutboundAsync(msg.PackedMessage, ct);
+            outboundContentType = "application/didcomm-encrypted+json";
+        }
 
         var client   = _httpFactory.CreateClient("didcomm");
         var endpoint = msg.PeerEndpoint.TrimEnd('/');
@@ -606,7 +644,7 @@ public sealed class DIDCommMessageSwitchboard
                 using var content = new System.Net.Http.StringContent(
                     wireMessage,
                     System.Text.Encoding.UTF8,
-                    "application/didcomm-encrypted+json");
+                    outboundContentType);
 
                 var response = await client.PostAsync(endpoint, content, ct);
 

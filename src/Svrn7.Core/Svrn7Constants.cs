@@ -72,6 +72,26 @@ public static class Svrn7Constants
             Protocols.InvoiceReceipt,
         };
 
+    /// <summary>
+    /// Protocol @type URIs that travel as DIDComm plaintext
+    /// (<c>application/didcomm-plain+json</c>) over HTTP <c>POST /didcomm</c>.
+    /// DID resolution is an open discovery service: any TDA may query any other
+    /// TDA's DID Documents (own, Citizen, Society) freely, without a prior
+    /// relationship. Encryption is impossible on this path — you cannot encrypt
+    /// to a peer whose DID Document you haven't yet resolved.
+    ///
+    /// Inbound: <c>KestrelListenerService</c> admits these without the SignThenEncrypt
+    /// content-type gate; any other plaintext on POST /didcomm is rejected 403.
+    /// Outbound: <c>DIDCommMessageSwitchboard</c> skips <c>PackOutboundAsync</c>
+    /// for these and sends <c>application/didcomm-plain+json</c> directly.
+    /// </summary>
+    public static readonly IReadOnlySet<string> PlaintextDiscoveryProtocols =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            Protocols.DidResolveRequest,
+            Protocols.DidResolveResponse,
+        };
+
     /// <summary>Maximum age of a Merkle tree head before health check reports Degraded.</summary>
     public static readonly TimeSpan MaxTreeHeadAge = TimeSpan.FromHours(24);
 

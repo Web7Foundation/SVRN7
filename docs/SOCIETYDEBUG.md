@@ -574,4 +574,5 @@ Full URI prefix: `did:drn:svrn7.net/protocols/`
 | `202` but `SocietyEndowmentDepletedException` | Society overdraft ceiling reached | Check `overdraft-query`; await Federation top-up |
 | No `register-society-result` received | Federation could not reach port 8442 | Start this TDA before sending E.2 |
 | `agent-identity.json` missing `parentTdaDid` | `register-society-result` not received yet | Confirm Federation TDA delivered the result |
-| `202` but `unknown message type application/didcomm-encrypted+json` | Encrypted JWE sent — not yet decrypted | Use plaintext messages for dev/test |
+| `415 Unsupported Media Type` | Content-Type is not `application/didcomm-encrypted+json` or `application/didcomm-plain+json` | Set the correct Content-Type header |
+| `403 Forbidden` | Plaintext message `@type` is not a DID discovery protocol | Use `application/didcomm-encrypted+json` for all non-discovery messages |

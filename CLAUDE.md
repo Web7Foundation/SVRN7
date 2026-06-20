@@ -85,16 +85,24 @@ The TDA's public inbound surface is HTTP/2-only (no HTTP/1.1 fallback). Reasons:
 
 **Transport rule (P-008):**
 
-| Transport | Direction | Pack mode | Enforcement |
-|---|---|---|---|
-| HTTP (`POST /didcomm`) — TDA-to-TDA | outbound | SignThenEncrypt (secp256k1 ES256K JWS inside X25519 JWE) | outbound: Switchboard |
-| HTTP (`POST /didcomm`) — TDA-to-TDA | inbound | SignThenEncrypt required | `KestrelListenerService` rejects non-`application/didcomm-encrypted+json` with 415 |
-| WebSocket (`/didcomm-notify`) — TDA-to-local-UI | outbound | Plaintext (`application/didcomm-plain+json`) | Switchboard (PeerEndpoint == `ws://local/didcomm-notify`) |
-| WebSocket (`/didcomm-notify`) — local-UI/tool-to-TDA | inbound | Plaintext accepted | localhost-only; no content-type gate |
+| Transport | Direction | Protocol | Pack mode | Enforcement |
+|---|---|---|---|---|
+| HTTP (`POST /didcomm`) — TDA-to-TDA | outbound | General | SignThenEncrypt (secp256k1 ES256K JWS inside X25519 JWE) | Switchboard `PackOutboundAsync` |
+| HTTP (`POST /didcomm`) — TDA-to-TDA | outbound | DID discovery | Plaintext (`application/didcomm-plain+json`) | Switchboard `IsPlaintextDiscoveryMessage` → skip `PackOutboundAsync` |
+| HTTP (`POST /didcomm`) — TDA-to-TDA | inbound | General | SignThenEncrypt required | `KestrelListenerService` rejects non-encrypted with 415 |
+| HTTP (`POST /didcomm`) — TDA-to-TDA | inbound | DID discovery | Plaintext accepted | `KestrelListenerService` admits `application/didcomm-plain+json` only for `PlaintextDiscoveryProtocols`; rejects other plaintext with 403 |
+| WebSocket (`/didcomm-notify`) — TDA-to-local-UI | outbound | All | Plaintext (`application/didcomm-plain+json`) | Switchboard (PeerEndpoint starts with `ws://`) |
+| WebSocket (`/didcomm-notify`) — local-UI/tool-to-TDA | inbound | All | Plaintext accepted | localhost-only; no content-type gate |
+
+**DID discovery plaintext whitelist** (`Svrn7Constants.PlaintextDiscoveryProtocols`):
+- `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-request`
+- `did:drn:svrn7.net/protocols/Svrn7.Identity.0.8.0/did-resolve-response`
+
+**Why plaintext for DID resolution?** DID resolution is an open discovery service — any TDA may query any other TDA's DID Documents (own, Citizens, Societies) freely, without a prior relationship. Encryption is structurally impossible on this path: you cannot encrypt to a peer whose DID Document you have not yet resolved, which is exactly what the query is for. The plaintext permission is scoped strictly to `PlaintextDiscoveryProtocols`; any other plaintext on `POST /didcomm` is rejected 403.
 
 **Why plaintext for WebSocket?** The `/didcomm-notify` channel is localhost-only. PandoMail holds no key material and shares the Citizen TDA's DID. Encryption would require giving PandoMail long-lived private keys — that contradicts the shared-identity design and would expand the attack surface unnecessarily.
 
-**Symmetric design:** This is the outbound counterpart of the decrypt-at-boundary pattern on the inbound side. `KestrelListenerService` unpacks every inbound message at the HTTP boundary before anything enters the inbox; `DIDCommMessageSwitchboard.PackOutboundAsync` packs every outbound HTTP message at the delivery boundary before anything leaves the process.
+**Symmetric design:** This is the outbound counterpart of the decrypt-at-boundary pattern on the inbound side. `KestrelListenerService` unpacks every inbound message at the HTTP boundary before anything enters the inbox; `DIDCommMessageSwitchboard.PackOutboundAsync` packs every outbound HTTP message at the delivery boundary before anything leaves the process (DID discovery protocols excepted).
 
 **Fallback behaviour:** If the recipient's DID Document does not contain an `X25519KeyAgreementKey2020` entry — for example, a TDA bootstrapped before X25519 keys were added — `PackOutboundAsync` logs a warning and sends plaintext. This is a degraded mode. All TDAs bootstrapped with the current codebase include an X25519 key by default.
 

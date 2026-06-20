@@ -152,6 +152,8 @@ Full URI prefix: `did:drn:svrn7.net/protocols/`
 |---|---|
 | `202 Accepted` | Message unpacked and enqueued successfully |
 | `400 Bad Request` | Empty body, invalid JSON, or DIDComm unpack failed |
+| `415 Unsupported Media Type` | Content-Type is not `application/didcomm-encrypted+json` or `application/didcomm-plain+json` |
+| `403 Forbidden` | Plaintext message with `@type` not in `PlaintextDiscoveryProtocols` (only `did-resolve-request`/`did-resolve-response` are permitted as plaintext) |
 
 ---
 
@@ -203,7 +205,8 @@ logging.SetMinimumLevel(LogLevel.Information); // normal
 | `202` but log shows `CitizenAlreadyRegisteredException` | Citizen DID already registered | Expected — use a new key pair and DID |
 | `202` but log shows `SocietyEndowmentDepletedException` | Society overdraft ceiling reached | Check overdraft-query; await Federation top-up |
 | Agent 2 log: `No DIDComm service endpoint for <DID>` | Citizen DID document has no DIDComm service entry | Register the citizen's DID document before sending the receipt |
-| `202` but `unknown message type application/didcomm-encrypted+json'` | Encrypted JWE sent — UnpackAsync does not decrypt JWE | Use plaintext messages for dev/test |
+| `415 Unsupported Media Type` | Content-Type header not recognized | Use `application/didcomm-encrypted+json` or `application/didcomm-plain+json` |
+| `403 Forbidden` on plaintext POST | `@type` is not `did-resolve-request` or `did-resolve-response` | Only DID discovery protocols may be sent as plaintext; all others require SignThenEncrypt |
 
 ---
 

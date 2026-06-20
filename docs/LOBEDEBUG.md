@@ -78,7 +78,7 @@ info: KestrelListenerService[0]
 ```
 
 `Pando.Diagnostics` is a JIT LOBE — it is **not** loaded at startup.  It is imported
-into the runspace the first time a `diagnostics/1.0/date-query` message arrives.
+into the runspace the first time a `Pando.Diagnostics.0.1.0/Query-TOD` message arrives.
 
 ---
 
@@ -270,7 +270,7 @@ Expected `society-list-result` reply body:
 
 ---
 
-## Step 5 — Send a date-query message (no reply)
+## Step 5 — Send a Query-TOD message (no reply)
 
 The simplest test — no `replyEndpoint`, so the handler runs and logs the server time
 but does not attempt outbound delivery.
@@ -279,7 +279,7 @@ but does not attempt outbound delivery.
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query"
+    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/Query-TOD"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = "{}"
@@ -294,7 +294,7 @@ Expected TDA log:
 
 ```
 info:  Switchboard: routing did:drn:solo.svrn7.net/inbox/msg/<id>
-           (type=did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query)
+           (type=did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/Query-TOD)
            → Invoke-PandoDiagnosticsDateQuery [Pando.Diagnostics]
 info:    [PS Info] Pando.Diagnostics: serverUtc=2026-05-30T... epoch=0
 warn:    [PS Warning] Invoke-PandoDiagnosticsDateQuery: no reply endpoint — result not delivered.
@@ -305,7 +305,7 @@ The `[PS Warning]` line confirms the handler ran successfully — it is expected
 
 ---
 
-## Step 6 — Send a date-query message (with reply endpoint)
+## Step 6 — Send a Query-TOD message (with reply endpoint)
 
 Include `replyEndpoint` pointing at the local TDA to exercise the full reply path.
 The outbound delivery will be attempted and logged before any delivery failure.
@@ -318,7 +318,7 @@ $body = @{
 $msg = @{
     typ  = "application/didcomm-plain+json"
     id   = "did:drn:svrn7.net/didcomm/msg/$([System.Guid]::NewGuid().ToString('N'))"
-    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/date-query"
+    type = "did:drn:svrn7.net/protocols/Pando.Diagnostics.0.1.0/Query-TOD"
     from = "did:drn:solo.svrn7.net"
     to   = @("did:drn:solo.svrn7.net")
     body = $body
@@ -334,7 +334,7 @@ info:    [PS Info] Pando.Diagnostics: serverUtc=2026-05-30T... epoch=0
 info:    Switchboard: outbound delivered to http://localhost:8443/didcomm (202).
 ```
 
-Expected `date-result` reply body:
+Expected `Issue-TOD` reply body:
 
 ```json
 {
@@ -394,7 +394,7 @@ After a full reset, repeat Step 4 before testing the LOBE.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `No LOBE registered for @type .../diagnostics/1.0/date-query` | `Pando.Diagnostics` missing from `lobes.config.json` or files not in output | Verify Step 1 |
+| `No LOBE registered for @type .../Pando.Diagnostics.0.1.0/Query-TOD` | `Pando.Diagnostics` missing from `lobes.config.json` or files not in output | Verify Step 1 |
 | `The term 'Get-TDADate' is not recognized` | `Pando.Diagnostics.Impl.0.1.0.psm1` not found at `$PSScriptRoot` | Verify all three files are in `lobes/Pando.Diagnostics.0.1.0/` in the output folder |
 | `Invoke-PandoDiagnosticsDateQuery: message '...' not found.` | Message expired from cache before handler ran | Retry; check inbox store |
 | `[PS Warning] no reply endpoint — result not delivered.` | Expected when `replyEndpoint` absent and sender DID has no DID Document | Normal for Step 5 (no-reply variant) |

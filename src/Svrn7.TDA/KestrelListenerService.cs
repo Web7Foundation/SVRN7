@@ -164,30 +164,38 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
 
     /// <summary>
     /// Inbound DIDComm processing pipeline:
-    ///   1. Enforce application/didcomm-encrypted+json content type (SignThenEncrypt only).
-    ///   2. Read packed JWE body.
-    ///   3. UnpackAsync (JWE decrypt + JWS verify) — security boundary.
+    ///   1. Enforce content-type gate (P-008):
+    ///        application/didcomm-encrypted+json — full JWE decrypt + JWS verify path.
+    ///        application/didcomm-plain+json     — plaintext path; only DID discovery
+    ///                                             protocols are admitted; others → 403.
+    ///        anything else                       → 415.
+    ///   2. Read body.
+    ///   3. UnpackAsync — security boundary (decrypt+verify for JWE; parse-only for plaintext).
     ///   4. EnqueueAsync → svrn7-inbox.db (write-ahead log).
     ///   5. Return 202 Accepted.
     ///
-    /// If content type is wrong: return 415. If UnpackAsync fails: return 400.
-    /// All subsequent processing is asynchronous via DIDCommMessageSwitchboard.
+    /// If content type is wrong: return 415. If plaintext @type not in discovery whitelist: 403.
+    /// If UnpackAsync fails: return 400. All subsequent processing is asynchronous.
     /// </summary>
     private async Task HandleInboundAsync(HttpContext http)
     {
-        // Enforce SignThenEncrypt: only JWE envelopes are accepted on POST /didcomm.
-        // Plaintext and signed-only messages must use ws://…/didcomm-notify (localhost only).
         var contentType = http.Request.ContentType;
-        if (contentType is null ||
-            !contentType.StartsWith("application/didcomm-encrypted+json", StringComparison.OrdinalIgnoreCase))
+        bool isEncrypted = contentType is not null &&
+            contentType.StartsWith("application/didcomm-encrypted+json", StringComparison.OrdinalIgnoreCase);
+        bool isPlaintext = contentType is not null &&
+            contentType.StartsWith("application/didcomm-plain+json", StringComparison.OrdinalIgnoreCase);
+
+        if (!isEncrypted && !isPlaintext)
         {
             _log.LogWarning(
-                "KestrelListenerService: rejected non-encrypted inbound message (Content-Type: '{Ct}').",
+                "KestrelListenerService: rejected message with unsupported Content-Type '{Ct}'.",
                 contentType);
             http.Response.StatusCode = StatusCodes.Status415UnsupportedMediaType;
             await http.Response.WriteAsync(
-                "POST /didcomm requires Content-Type: application/didcomm-encrypted+json. " +
-                "Use ws://…/didcomm-notify for localhost plaintext messages.",
+                "POST /didcomm requires Content-Type: application/didcomm-encrypted+json " +
+                "for general DIDComm messages. Plaintext (application/didcomm-plain+json) " +
+                "is accepted only for DID discovery protocols (did-resolve-request/response). " +
+                "For localhost plaintext use ws://…/didcomm-notify.",
                 http.RequestAborted);
             return;
         }
@@ -202,7 +210,44 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
             return;
         }
 
+        // Plaintext is only permitted for DID discovery protocols.
+        // Gate on @type before UnpackAsync so unauthorized plaintext is rejected without
+        // touching the inbox. Encrypted messages skip this block entirely.
+        if (isPlaintext)
+        {
+            string? messageType = null;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(packedBody);
+                if (doc.RootElement.TryGetProperty("type", out var typeEl))
+                    messageType = typeEl.GetString();
+            }
+            catch
+            {
+                http.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await http.Response.WriteAsync(
+                    "Plaintext DIDComm body is not valid JSON.", http.RequestAborted);
+                return;
+            }
+
+            if (messageType is null ||
+                !Svrn7.Core.Svrn7Constants.PlaintextDiscoveryProtocols.Contains(messageType))
+            {
+                _log.LogWarning(
+                    "KestrelListenerService: rejected plaintext message — @type '{Type}' is not a DID discovery protocol.",
+                    messageType ?? "(null)");
+                http.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await http.Response.WriteAsync(
+                    "Plaintext DIDComm is only permitted for DID discovery protocols (did-resolve-request/response). " +
+                    "All other messages require application/didcomm-encrypted+json.",
+                    http.RequestAborted);
+                return;
+            }
+        }
+
         // ── Pack/Unpack boundary (DIDComm V2 Messaging element — DSA 0.24) ───
+        // For encrypted messages: JWE decrypt + JWS verify.
+        // For plaintext bootstrap messages: parse-only (UnpackAsync handles both paths).
         DIDCommUnpackedMessage unpacked;
         try
         {

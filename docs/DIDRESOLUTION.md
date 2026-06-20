@@ -129,6 +129,27 @@ Society A: local miss
 
 ---
 
+## Transport Rule (P-008 Plaintext Permission)
+
+DID resolution messages travel as **DIDComm plaintext** (`application/didcomm-plain+json`)
+over `POST /didcomm`. This is the only case where HTTP inbound allows plaintext.
+
+**Why:** DID resolution is an open discovery service — any TDA may query any other TDA's
+DID Documents (own, Citizen, Society) freely, at any time, without a prior relationship.
+Encryption is structurally impossible on this path: you cannot encrypt to a peer whose
+DID Document you have not yet resolved — which is exactly what the request is for.
+
+**Inbound (`KestrelListenerService`):** Admits `application/didcomm-plain+json` only for
+`did-resolve-request` and `did-resolve-response` (`Svrn7Constants.PlaintextDiscoveryProtocols`).
+Any other plaintext on `POST /didcomm` is rejected 403.
+
+**Outbound (`DIDCommMessageSwitchboard`):** Detects discovery protocol types via
+`IsPlaintextDiscoveryMessage` and skips `PackOutboundAsync` entirely — sends plaintext
+with `Content-Type: application/didcomm-plain+json`. All other HTTP outbound messages
+are SignThenEncrypt as usual.
+
+---
+
 ## Protocol Messages
 
 ### `did-resolve-request`
