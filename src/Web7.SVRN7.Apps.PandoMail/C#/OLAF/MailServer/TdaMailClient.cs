@@ -27,9 +27,9 @@ namespace Web7.SVRN7.Apps
         string BodyText);
 
     public sealed record DidResolutionResult(
-        bool    Found,
-        string  RequestedDid,
-        string? Svrn7Name);
+        bool   Found,
+        string RequestedDid,
+        string Svrn7Name);
 
     /// <summary>
     /// PandoMail ↔ local Citizen TDA transport over WebSocket (ws://localhost:{port}/didcomm-notify).
@@ -402,11 +402,10 @@ namespace Web7.SVRN7.Apps
 
                 bool found = resolved.TryGetProperty("found", out JsonElement foundEl) && foundEl.GetBoolean();
                 string requestedDid = GetStr(resolved, "requestedDid");
-                string? svrn7Name = resolved.TryGetProperty("svrn7Name", out JsonElement nameEl)
-                    ? nameEl.GetString() : null;
+                string svrn7Name = resolved.TryGetProperty("svrn7Name", out JsonElement nameEl)
+                    ? nameEl.GetString() ?? string.Empty : string.Empty;
 
-                return new DidResolutionResult(found, requestedDid,
-                    string.IsNullOrEmpty(svrn7Name) ? null : svrn7Name);
+                return new DidResolutionResult(found, requestedDid, svrn7Name);
             }
             catch { return new DidResolutionResult(false, string.Empty, null); }
         }
