@@ -395,12 +395,15 @@ function Send-LocalDIDCommMessage {
         # h2c (cleartext HTTP/2) support required for ws:// URIs in dev/test environments.
         [System.AppContext]::SetSwitch('System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport', $true)
 
-        $uri = "ws://localhost:$Port/didcomm-notify"
-        $ws  = [System.Net.WebSockets.ClientWebSocket]::new()
+        $uri     = "ws://localhost:$Port/didcomm-notify"
+        $handler = [System.Net.Http.SocketsHttpHandler]::new()
+        $invoker = [System.Net.Http.HttpClient]::new($handler)
+        $ws      = [System.Net.WebSockets.ClientWebSocket]::new()
         try {
             $ws.Options.HttpVersion       = [System.Version]::new(2, 0)
             $ws.Options.HttpVersionPolicy = [System.Net.Http.HttpVersionPolicy]::RequestVersionOrHigher
-            $ws.ConnectAsync([Uri]::new($uri), [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
+            # HTTP/2 WebSocket (RFC 8441) requires the HttpMessageInvoker overload of ConnectAsync.
+            $ws.ConnectAsync([Uri]::new($uri), $invoker, [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
             $bytes = [System.Text.Encoding]::UTF8.GetBytes($Body)
             $ws.SendAsync(
                 [System.ArraySegment[byte]]::new($bytes),
@@ -414,6 +417,7 @@ function Send-LocalDIDCommMessage {
             "Sent to $uri ($($bytes.Length) bytes)"
         } finally {
             $ws.Dispose()
+            $invoker.Dispose()
         }
     }
 }

@@ -240,7 +240,7 @@ if (await driver.DidRegistry.CountAsync() == 0)
             createdAt            = DateTimeOffset.UtcNow.ToString("O"),
         }, new JsonSerializerOptions { WriteIndented = true }));
 
-    tdaOpts.AgentKeyAgreementPrivateKey = kaKp.PrivateKeyBytes;
+    tdaOpts.AgentKeyAgreementPrivateKey = kaKp.PrivateKeyBytes.ToArray();
     tdaOpts.AgentSigningPrivateKey      = kp.PrivateKeyBytes.ToArray();
     kp.ZeroPrivateKey();
     kaKp.ZeroPrivateKey();

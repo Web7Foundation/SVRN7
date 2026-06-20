@@ -36,7 +36,7 @@ namespace Web7.SVRN7.Apps
 		{
 			_store = MessageStore.GetMessageStore();
 
-			this.Text = BaseTitle + " - Not connected";
+			this.Text = BaseTitle + $" - ws://localhost:{Program.TdaPort}/didcomm-notify" + " - Not connected";
 
 			// Show "0 Items" immediately; RefreshInboxAsync updates it after TDA connects.
 			this.itemCountLabel.Text = String.Format(this.itemCountLabel.Text, 0);
@@ -146,7 +146,8 @@ namespace Web7.SVRN7.Apps
 				try { did = await _tdaClient.GetTdaDidAsync(); }
 				catch { }
 			}
-			this.Text = BaseTitle + " - " + (string.IsNullOrEmpty(did) ? "Not connected" : did);
+			string wsSuffix = _tdaClient is not null ? $" - {_tdaClient.WsUri}" : string.Empty;
+			this.Text = BaseTitle + wsSuffix + " - " + (string.IsNullOrEmpty(did) ? "Not connected" : did);
 		}
 
 		private void OnEmailNotifyReceived(string json)

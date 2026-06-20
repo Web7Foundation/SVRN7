@@ -45,9 +45,13 @@ namespace Web7.SVRN7.Apps
         /// <summary>True when the WebSocket connection to the TDA is open.</summary>
         public bool IsConnected => _ws.State == WebSocketState.Open;
 
+        /// <summary>The WebSocket URI this client connects to.</summary>
+        public string WsUri { get; }
+
         public TdaMailClient(int port)
         {
-            _wsUri = $"ws://localhost:{port}/didcomm-notify";
+            WsUri  = $"ws://localhost:{port}/didcomm-notify";
+            _wsUri = WsUri;
 
             // Shared HttpClient for the ClientWebSocket HTTP/2 handshake (RFC 8441).
             var handler = new SocketsHttpHandler { EnableMultipleHttp2Connections = true };
