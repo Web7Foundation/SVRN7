@@ -33,6 +33,7 @@ public class BoardSurface : SKControl
     private Button _sendButton = null!;
     private float _skiaToLogicalX = 1f;
     private float _skiaToLogicalY = 1f;
+    private bool _pendingComposerFocus = false;
 
     // ── Animation ──
     private System.Windows.Forms.Timer _animTimer;
@@ -183,6 +184,7 @@ public class BoardSurface : SKControl
             _composerTextBox.SelectionStart = _composerTextBox.Text.Length;
             _composerTextBox.PlaceholderText = $"Message {activeCol.Contact.Name.Split(' ')[0]}…";
             _lastActiveCol = activeCol;
+            _pendingComposerFocus = true;
         }
 
         // Active column's x in Skia (device pixel) coordinates, accounting for horizontal scroll
@@ -219,7 +221,7 @@ public class BoardSurface : SKControl
         float inputSkiaY = skiaY + 20f;
         float inputSkiaH = 38f;
         int logTbLeft  = (int)((skiaCx + 10f) * _skiaToLogicalX) + 10;
-        int logTbRight = (int)((skiaCx + skiaCw - 54f) * _skiaToLogicalX);
+        int logTbRight = (int)((skiaCx + skiaCw - 76f) * _skiaToLogicalX);
         int logTbWidth = logTbRight - logTbLeft;
         int logRectTop = (int)(inputSkiaY * _skiaToLogicalY);
         int logRectH   = (int)(inputSkiaH * _skiaToLogicalY);
@@ -229,13 +231,12 @@ public class BoardSurface : SKControl
         {
             _composerTextBox.SetBounds(logTbLeft, logTbTop, logTbWidth, _composerTextBox.Height);
             _composerTextBox.Visible = true;
+            if (_pendingComposerFocus) { _composerTextBox.Focus(); _pendingComposerFocus = false; }
         }
         else
         {
             _composerTextBox.Visible = false;
         }
-
-        if (columnChanged) _composerTextBox.Focus();
     }
 
     private void SendComposerMessage()
@@ -487,14 +488,12 @@ public class BoardSurface : SKControl
         using var hdrBg = new SKPaint { Color = Surface2.WithAlpha(180), IsAntialias = true };
         canvas.DrawRect(new SKRect(x, y, x + w, y + HeaderHeight), hdrBg);
 
-        // Avatar circle
+        // Avatar circle — solid fill matching the Send button, white initials
         float avX = x + 14, avY = y + 17, avR = 18;
-        using var avBg = new SKPaint { Color = color.WithAlpha(40), IsAntialias = true };
+        using var avBg = new SKPaint { Color = color, IsAntialias = true };
         canvas.DrawCircle(avX + avR, avY + avR, avR, avBg);
-        using var avBorder = new SKPaint { Color = color, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f };
-        canvas.DrawCircle(avX + avR, avY + avR, avR, avBorder);
 
-        using var initPaint = new SKPaint { Color = color, IsAntialias = true, Typeface = _sansBold, TextSize = contact.IsMyAgent ? 16f : 12f, TextAlign = SKTextAlign.Center };
+        using var initPaint = new SKPaint { Color = SKColors.White, IsAntialias = true, Typeface = _sansBold, TextSize = contact.IsMyAgent ? 16f : 12f, TextAlign = SKTextAlign.Center };
         canvas.DrawText(contact.Initials, avX + avR, avY + avR + 5, initPaint);
 
         // Name
@@ -685,7 +684,7 @@ public class BoardSurface : SKControl
         canvas.DrawRect(new SKRect(x, y, x + w, y + 1), topBorder);
 
         // Input box
-        var inputRect = new SKRect(x + 10, y + 20, x + w - 54, y + 58);
+        var inputRect = new SKRect(x + 10, y + 20, x + w - 76, y + 58);
         using var inputBg = new SKPaint { Color = Surface3, IsAntialias = true };
         canvas.DrawRoundRect(inputRect, 20, 20, inputBg);
         using var inputBorder = new SKPaint { Color = borderColor, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1f };
@@ -890,7 +889,7 @@ public class BoardSurface : SKControl
 
     // ── Keyboard ───────────────────────────────────────────────────────────────
 
-    protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); if (!_composerTextBox.Focused) Focus(); }
+    protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); if (!_composerTextBox.Focused && !_composerTextBox.Visible) Focus(); }
 
     protected override void OnMouseWheel(MouseEventArgs e)
     {
