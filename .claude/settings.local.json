@@ -6,7 +6,8 @@
       "WebFetch(domain:hyperonomy.com)",
       "Bash(git *)",
       "WebFetch(domain:www.w3.org)",
-      "Bash(grep -n 'New-Svrn7Did\\\\|citizenDid.*New-Svrn7\\\\|$citizenDid\\\\s*=.*New-Svrn7Did' docs/DEBUG.md)"
+      "Bash(grep -n 'New-Svrn7Did\\\\|citizenDid.*New-Svrn7\\\\|$citizenDid\\\\s*=.*New-Svrn7Did' docs/DEBUG.md)",
+      "Skill(run)"
     ]
   }
 }
