@@ -51,6 +51,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{842588EC
 		tools\Build-LOBEPackages.ps1 = tools\Build-LOBEPackages.ps1
 		tools\gen-keypairs.ps1 = tools\gen-keypairs.ps1
 		tools\Initialize-TDA-8443.ps1 = tools\Initialize-TDA-8443.ps1
+		tools\Initialize-TDA-DICE.ps1 = tools\Initialize-TDA-DICE.ps1
 		tools\Initialize-Testnet.ps1 = tools\Initialize-Testnet.ps1
 		tools\Invoke-SetStaticKeypairs.ps1 = tools\Invoke-SetStaticKeypairs.ps1
 		tools\Pando.Packaging.psm1 = tools\Pando.Packaging.psm1

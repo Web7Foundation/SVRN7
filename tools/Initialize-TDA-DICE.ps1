@@ -7,7 +7,7 @@ $PSVersionTable.PSVersion   # Major must be 7
 
 # - Verify `Pando.Diagnostics` is in the JIT list:
 
-Set-Location src/Svrn7.TDA/bin/Debug/net8.0
+pushd src/Svrn7.TDA/bin/Debug/net8.0
 Get-Content lobes/lobes.config.json | Select-String "Pando"
 
 # Expected:
@@ -31,11 +31,11 @@ Get-Content lobes/lobes.config.json | Select-String "Pando"
 # Step 1 — Start W5 and W6 (Terminals A and B)
 
 cls
-Write-Host "--- Step 1 — Start W5 and W6 ---"
+Write-Host "-1-- Step 1 — Start W5 and W6 ---"
 Set-Location C:/SVRN7/repos/SVRN7/src/Svrn7.TDA/bin/Debug/net8.0
 #Start-Process cmd.exe -ArgumentList '/k title W5 [Wanderer]:8445 && dotnet ".\Svrn7.TDA.dll" --port 8445 --name W5 --reset'
-#Start-Process cmd.exe -ArgumentList '/k title W6 [Wanderer]:8446 && dotnet ".\Svrn7.TDA.dll" --port 8446 --name W6 --reset'
-Start-Process cmd.exe -ArgumentList '/k title W6 [Wanderer]:8446 && dotnet ".\Svrn7.TDA.dll" --port 8446 --name W6'
+Start-Process cmd.exe -ArgumentList '/k title W6 [Wanderer]:8446 && dotnet ".\Svrn7.TDA.dll" --port 8446 --name W6 --reset'
+#Start-Process cmd.exe -ArgumentList '/k title W6 [Wanderer]:8446 && dotnet ".\Svrn7.TDA.dll" --port 8446 --name W6'
 pause 
 
 # **Production / staging:** Add `--federationdomain svrn7.net` to auto-discover the
