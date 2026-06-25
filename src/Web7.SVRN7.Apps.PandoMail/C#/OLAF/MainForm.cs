@@ -138,6 +138,8 @@ namespace Web7.SVRN7.Apps
 
 			try
 			{
+				_store.ReplaceAll(new List<MailMessage>(), folderName);
+
 				List<EmailSummary> summaries;
 				if (folderName.Equals("Inbox", StringComparison.OrdinalIgnoreCase))
 					summaries = await _tdaClient.ListEmailsAsync();
