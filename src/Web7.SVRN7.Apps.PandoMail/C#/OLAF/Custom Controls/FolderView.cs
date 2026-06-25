@@ -332,7 +332,7 @@ namespace Web7.SVRN7.Apps
 			}
 			else if (e.Node.Text.Contains("Inbox"))
 			{
-				DrawAnnotatedText(e, this.UnreadCount, Color.Green, "[", "]");
+				DrawAnnotatedText(e, this.UnreadCount, Color.Green, "(", ")");
 				e.DrawDefault = false;
 			}
 			else if (e.Node.Text.Contains("Drafts"))
