@@ -50,6 +50,9 @@ namespace Web7.SVRN7.Apps
         /// <summary>Fired on the thread-pool when TDA pushes an Email-Notify envelope.</summary>
         public event Action<string> EmailNotifyReceived;
 
+        /// <summary>Fired on the thread-pool when TDA pushes a Notify-FolderCounts envelope.</summary>
+        public event Action<int, int, int> FolderCountsReceived;
+
         /// <summary>Fired on the thread-pool when the WebSocket connection drops unexpectedly.</summary>
         public event Action Disconnected;
 
@@ -433,6 +436,11 @@ namespace Web7.SVRN7.Apps
                     if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
                         tcs.TrySetResult(json);
                 }
+                else if (type.EndsWith("/Notify-FolderCounts", StringComparison.Ordinal))
+                {
+                    var (inbox, sent, dead) = ParseFolderCounts(json);
+                    FolderCountsReceived?.Invoke(inbox, sent, dead);
+                }
                 else if (type.EndsWith("/new-message", StringComparison.Ordinal) ||
                          type.Contains("Email-Notify", StringComparison.OrdinalIgnoreCase))
                 {
@@ -529,6 +537,29 @@ namespace Web7.SVRN7.Apps
                     ? nameEl.GetString() ?? string.Empty : string.Empty;
             }
             catch { return string.Empty; }
+        }
+
+        private static (int Inbox, int Sent, int DeadLetters) ParseFolderCounts(string envelopeJson)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(envelopeJson);
+                JsonElement root = doc.RootElement;
+                if (!root.TryGetProperty("body", out JsonElement bodyEl)) return (0, 0, 0);
+
+                JsonElement resolved = bodyEl;
+                if (bodyEl.ValueKind == JsonValueKind.String)
+                {
+                    using JsonDocument inner = JsonDocument.Parse(bodyEl.GetString()!);
+                    resolved = inner.RootElement.Clone();
+                }
+
+                int inbox = resolved.TryGetProperty("inboxCount",      out JsonElement ic) ? ic.GetInt32() : 0;
+                int sent  = resolved.TryGetProperty("sentCount",       out JsonElement sc) ? sc.GetInt32() : 0;
+                int dead  = resolved.TryGetProperty("deadLetterCount", out JsonElement dc) ? dc.GetInt32() : 0;
+                return (inbox, sent, dead);
+            }
+            catch { return (0, 0, 0); }
         }
 
         private static List<EmailSummary> ParseEmailList(string envelopeJson)

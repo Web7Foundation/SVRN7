@@ -293,6 +293,23 @@ public sealed class Svrn7RunspaceContext
         await _deadLetter.EnqueueAsync(record, ct);
     }
 
+    // ── Folder count snapshot ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns current message counts for the three PandoMail folder tree nodes.
+    /// Called by the Email LOBE's <c>New-FolderCountsNotification</c> helper after every
+    /// inbox/send/dead-letter operation so PandoMail can update its tree without reloading.
+    /// </summary>
+    public async Task<FolderCounts> CountEmailFoldersAsync(CancellationToken ct = default)
+    {
+        const string inboxType = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail";
+        const string sentType  = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Enqueue-PandoMail";
+        var inbox = await _inbox.ListByTypeAsync(inboxType, 5000, ct);
+        var sent  = await _inbox.ListByTypeAsync(sentType,  5000, ct);
+        var dead  = await _deadLetter.GetPendingAsync(ct);
+        return new FolderCounts(inbox.Count, sent.Count, dead.Count);
+    }
+
     // ── Pass-by-reference message resolution ─────────────────────────────────
 
     /// <summary>
@@ -323,6 +340,17 @@ public sealed class Svrn7RunspaceContext
         return view;
     }
 }
+
+// ── FolderCounts ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Snapshot of PandoMail folder message counts. Returned by
+/// <see cref="Svrn7RunspaceContext.CountEmailFoldersAsync"/> and pushed to the UI
+/// via the <c>Notify-FolderCounts</c> WebSocket notification.
+/// A named record (vs value tuple) so PowerShell can access fields by name:
+/// <c>$counts.Inbox</c>, <c>$counts.Sent</c>, <c>$counts.DeadLetters</c>.
+/// </summary>
+public sealed record FolderCounts(int Inbox, int Sent, int DeadLetters);
 
 // ── InboundMessageView ──────────────────────────────────────────────────────────
 

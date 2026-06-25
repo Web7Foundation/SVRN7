@@ -112,6 +112,7 @@ function Dequeue-PandoMail {
         # Output the record for any pipeline caller, then the notification OutboundMessage.
         $record
         [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $notifyEnvelope)
+        New-FolderCountsNotification
     }
 }
 
@@ -197,6 +198,7 @@ $Body
                 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail',
                 "No DIDComm service endpoint found for recipient '$RecipientDid'"
             ).GetAwaiter().GetResult()
+            New-FolderCountsNotification
             return
         }
 
@@ -214,6 +216,7 @@ $Body
         } | ConvertTo-Json -Compress -Depth 3
 
         [Svrn7.TDA.OutboundMessage]::new($peerEndpoint, $envelope)
+        New-FolderCountsNotification
     }
 }
 
@@ -747,6 +750,28 @@ function Invoke-PandoMailListDeadLetters {
         Write-Verbose "Email LOBE: List-DeadLetters returning $($emailList.Count) dead-letter record(s)."
         [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $envelope)
     }
+}
+
+# ── New-FolderCountsNotification ─────────────────────────────────────────────
+# Internal helper — not exported. Queries current folder counts and returns an
+# OutboundMessage that pushes Notify-FolderCounts over the local WebSocket hub.
+# Called after every LOBE operation that changes inbox, sent, or dead-letter counts.
+
+function New-FolderCountsNotification {
+    $counts = $SVRN7.CountEmailFoldersAsync().GetAwaiter().GetResult()
+    $envelope = [ordered]@{
+        typ  = 'application/didcomm-plain+json'
+        id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+        type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Notify-FolderCounts'
+        from = $SVRN7.LocalDid
+        to   = @($SVRN7.LocalDid)
+        body = [ordered]@{
+            inboxCount      = $counts.Inbox
+            sentCount       = $counts.Sent
+            deadLetterCount = $counts.DeadLetters
+        }
+    } | ConvertTo-Json -Compress -Depth 3
+    [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $envelope)
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

@@ -65,7 +65,8 @@ namespace Web7.SVRN7.Apps
 			try
 			{
 				await _tdaClient.ConnectAsync();
-				_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
+				_tdaClient.EmailNotifyReceived  += OnEmailNotifyReceived;
+				_tdaClient.FolderCountsReceived += OnFolderCountsReceived;
 				_tdaClient.Disconnected += OnTdaDisconnected;
 				rightSpine1.SetTdaClient(_tdaClient);
 			}
@@ -119,7 +120,8 @@ namespace Web7.SVRN7.Apps
 				try
 				{
 					await _tdaClient.ConnectAsync();
-					_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
+					_tdaClient.EmailNotifyReceived  += OnEmailNotifyReceived;
+					_tdaClient.FolderCountsReceived += OnFolderCountsReceived;
 					_tdaClient.Disconnected += OnTdaDisconnected;
 					rightSpine1.SetTdaClient(_tdaClient);
 					leftSpine1.FolderSelected += async folder => await BeginInvokeLoadFolderAsync(folder);
@@ -184,6 +186,12 @@ namespace Web7.SVRN7.Apps
 			// Marshal to UI thread and refresh the inbox when a new email arrives.
 			if (this.IsHandleCreated)
 				BeginInvoke(new MethodInvoker(async () => await RefreshInboxAsync()));
+		}
+
+		private void OnFolderCountsReceived(int inbox, int sent, int deadLetters)
+		{
+			if (this.IsHandleCreated)
+				BeginInvoke(new MethodInvoker(() => _store.UpdateFolderCounts(inbox, sent, deadLetters)));
 		}
 
 		private void OnTdaDisconnected()
