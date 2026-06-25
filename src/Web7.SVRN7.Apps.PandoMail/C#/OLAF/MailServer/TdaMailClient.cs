@@ -311,6 +311,15 @@ namespace Web7.SVRN7.Apps
             }
         }
 
+        // ── Startup: request current folder counts ─────────────────────────────
+
+        public async Task RequestFolderCountsAsync(CancellationToken ct = default)
+        {
+            await SendEnvelopeAsync(
+                "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Query-FolderCounts",
+                "{}", ct);
+        }
+
         // ── Core send ───────────────────────────────────────────────────────────
 
         private async Task SendEnvelopeAsync(string type, string body, CancellationToken ct)

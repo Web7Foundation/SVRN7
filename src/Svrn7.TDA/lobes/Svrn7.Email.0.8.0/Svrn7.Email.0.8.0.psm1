@@ -752,6 +752,35 @@ function Invoke-PandoMailListDeadLetters {
     }
 }
 
+# ── Invoke-PandoMailQueryFolderCounts ────────────────────────────────────────
+
+function Invoke-PandoMailQueryFolderCounts {
+    <#
+    .SYNOPSIS
+        Handles a Query-FolderCounts request from PandoMail and pushes current counts.
+
+    .DESCRIPTION
+        Called by PandoMail on connect to populate folder tree annotations from
+        existing data without requiring the user to click each folder first.
+        Delegates entirely to New-FolderCountsNotification.
+
+        Protocol (inbound):  did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Query-FolderCounts
+        Protocol (outbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Notify-FolderCounts
+
+    .PARAMETER MessageDid
+        The TDA resource DID URL of the inbox message.
+    #>
+    [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+    process {
+        New-FolderCountsNotification
+    }
+}
+
 # ── New-FolderCountsNotification ─────────────────────────────────────────────
 # Internal helper — not exported. Queries current folder counts and returns an
 # OutboundMessage that pushes Notify-FolderCounts over the local WebSocket hub.
@@ -792,5 +821,6 @@ Export-ModuleMember -Function @(
     'Get-TdaDid',
     'Invoke-Svrn7EmailGetEmailBody',
     'Invoke-PandoMailListSent',
-    'Invoke-PandoMailListDeadLetters'
+    'Invoke-PandoMailListDeadLetters',
+    'Invoke-PandoMailQueryFolderCounts'
 )

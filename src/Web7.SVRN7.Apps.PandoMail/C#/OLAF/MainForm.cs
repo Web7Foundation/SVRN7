@@ -80,6 +80,7 @@ namespace Web7.SVRN7.Apps
 
 			await UpdateTitleAsync();
 
+			await _tdaClient.RequestFolderCountsAsync();
 			await LoadFolderAsync("Inbox");
 		}
 
