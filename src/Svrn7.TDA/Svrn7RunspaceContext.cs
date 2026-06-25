@@ -272,6 +272,27 @@ public sealed class Svrn7RunspaceContext
         CancellationToken ct = default)
         => await _deadLetter.GetPendingAsync(ct);
 
+    /// <summary>
+    /// Persists a failed outbound message to the dead-letter store.
+    /// Called by LOBE cmdlets when a delivery attempt fails (e.g. endpoint not found).
+    /// </summary>
+    public async Task EnqueueDeadLetterAsync(
+        string peerEndpoint, string packedMessage, string messageType,
+        string lastError, CancellationToken ct = default)
+    {
+        var record = new DeadLetterRecord
+        {
+            Id            = Svrn7.Core.TdaResourceId.DIDCommMessage(Guid.NewGuid().ToString("N")),
+            PeerEndpoint  = peerEndpoint,
+            PackedMessage = packedMessage,
+            MessageType   = messageType,
+            FailedAt      = DateTimeOffset.UtcNow,
+            AttemptCount  = 1,
+            LastError     = lastError
+        };
+        await _deadLetter.EnqueueAsync(record, ct);
+    }
+
     // ── Pass-by-reference message resolution ─────────────────────────────────
 
     /// <summary>

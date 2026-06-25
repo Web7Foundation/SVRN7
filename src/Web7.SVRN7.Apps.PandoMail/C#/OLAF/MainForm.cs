@@ -139,15 +139,17 @@ namespace Web7.SVRN7.Apps
 			try
 			{
 				List<EmailSummary> summaries;
-				if (folderName.Equals("Sent Items", StringComparison.OrdinalIgnoreCase))
+				if (folderName.Equals("Inbox", StringComparison.OrdinalIgnoreCase))
+					summaries = await _tdaClient.ListEmailsAsync();
+				else if (folderName.Equals("Sent Items", StringComparison.OrdinalIgnoreCase))
 					summaries = await _tdaClient.ListOutboundEmailsAsync();
 				else if (folderName.Equals("Dead Letters", StringComparison.OrdinalIgnoreCase))
 					summaries = await _tdaClient.ListDeadLettersAsync();
 				else
-					summaries = await _tdaClient.ListEmailsAsync();
+					return; // folder not wired — leave current view unchanged
 
 				List<MailMessage> messages = MapToMailMessages(summaries);
-				_store.ReplaceAll(messages);
+				_store.ReplaceAll(messages, folderName);
 				this.itemCountLabel.Text = messages.Count + " Items";
 				await UpdateTitleAsync();
 			}

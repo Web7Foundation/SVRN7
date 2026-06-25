@@ -178,7 +178,25 @@ $Body
 "@
         $peerEndpoint = Resolve-SocietySenderEndpoint -Did $RecipientDid
         if (-not $peerEndpoint) {
-            Write-Warning "Enqueue-PandoMail: no DIDComm service endpoint for '$RecipientDid' — reply skipped."
+            Write-Warning "Enqueue-PandoMail: no DIDComm service endpoint for '$RecipientDid' — writing to dead letters."
+            $deadEnvelope = [ordered]@{
+                typ  = 'application/didcomm-plain+json'
+                id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+                type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail'
+                from = $SVRN7.LocalDid
+                to   = @($RecipientDid)
+                body = [ordered]@{
+                    from        = $SVRN7.LocalDid
+                    to          = $RecipientDid
+                    rfc5322Body = $rfc5322
+                }
+            } | ConvertTo-Json -Compress -Depth 3
+            $SVRN7.EnqueueDeadLetterAsync(
+                $RecipientDid,
+                $deadEnvelope,
+                'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail',
+                "No DIDComm service endpoint found for recipient '$RecipientDid'"
+            ).GetAwaiter().GetResult()
             return
         }
 

@@ -26,6 +26,8 @@ namespace Web7.SVRN7.Apps
 		private int			_deletedCount;
 		private int			_unreadCount;
 		private int			_draftsCount;
+		private int			_sentCount;
+		private int			_deadLetterCount;
 
 		/// <summary>Fired when the user selects a folder node. Argument is the node text (e.g. "Inbox", "Outbox").</summary>
 		public event Action<string> FolderSelected;
@@ -271,6 +273,32 @@ namespace Web7.SVRN7.Apps
 				}
 			}
 		}
+
+		int SentCount
+		{
+			get { return _sentCount; }
+			set
+			{
+				if (value != _sentCount)
+				{
+					_sentCount = value;
+					this.folderTreeView.Invalidate();
+				}
+			}
+		}
+
+		int DeadLetterCount
+		{
+			get { return _deadLetterCount; }
+			set
+			{
+				if (value != _deadLetterCount)
+				{
+					_deadLetterCount = value;
+					this.folderTreeView.Invalidate();
+				}
+			}
+		}
 		#endregion
 
 		#region TreeView Drawing
@@ -299,26 +327,27 @@ namespace Web7.SVRN7.Apps
 			e.DrawDefault = true;
 			if (e.Node.Text.Contains("Deleted"))
 			{
-				// Draw Deleted
 				DrawAnnotatedText(e, this.DeletedCount, Color.Blue, "(", ")");
-
-				// Turn off drawing
 				e.DrawDefault = false;
 			}
 			else if (e.Node.Text.Contains("Inbox"))
 			{
-				// Draw Inbox
 				DrawAnnotatedText(e, this.UnreadCount, Color.Green, "[", "]");
-
-				// Turn off drawing
 				e.DrawDefault = false;
 			}
 			else if (e.Node.Text.Contains("Drafts"))
 			{
-				// Draw Drafts
 				DrawAnnotatedText(e, this.DraftsCount, Color.Blue, "(", ")");
-
-				// Turn off drawing
+				e.DrawDefault = false;
+			}
+			else if (e.Node.Text == "Sent Items")
+			{
+				DrawAnnotatedText(e, this.SentCount, Color.Blue, "(", ")");
+				e.DrawDefault = false;
+			}
+			else if (e.Node.Text == "Dead Letters")
+			{
+				DrawAnnotatedText(e, this.DeadLetterCount, Color.Red, "(", ")");
 				e.DrawDefault = false;
 			}
 		}
@@ -393,6 +422,14 @@ namespace Web7.SVRN7.Apps
 			else if (e.PropertyName == "DeletedCount")
 			{
 				this.DeletedCount = _store.DeletedCount;
+			}
+			else if (e.PropertyName == "SentCount")
+			{
+				this.SentCount = _store.SentCount;
+			}
+			else if (e.PropertyName == "DeadLetterCount")
+			{
+				this.DeadLetterCount = _store.DeadLetterCount;
 			}
 		}
 		#endregion
