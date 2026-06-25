@@ -27,6 +27,9 @@ namespace Web7.SVRN7.Apps
 		private int			_unreadCount;
 		private int			_draftsCount;
 
+		/// <summary>Fired when the user selects a folder node. Argument is the node text (e.g. "Inbox", "Outbox").</summary>
+		public event Action<string> FolderSelected;
+
 		public FolderView()
 		{
 			// Set the Font
@@ -184,10 +187,10 @@ namespace Web7.SVRN7.Apps
 			treeNode12.Name = "Node7";
 			treeNode12.SelectedImageKey = "Folder.bmp";
 			treeNode12.Text = "Sync Issues";
-			treeNode13.ImageKey = "Forward.bmp";
+			treeNode13.ImageKey = "Error.bmp";
 			treeNode13.Name = "Node8";
-			treeNode13.SelectedImageKey = "Forward.bmp";
-			treeNode13.Text = "Synchronization Failures";
+			treeNode13.SelectedImageKey = "Error.bmp";
+			treeNode13.Text = "Dead Letters";
 			treeNode14.ImageKey = "Folder.bmp";
 			treeNode14.Name = "Node15";
 			treeNode14.Text = "Root Folder";
@@ -358,6 +361,8 @@ namespace Web7.SVRN7.Apps
 				this.folderTreeView.DrawMode = TreeViewDrawMode.OwnerDrawText;
 			}
 
+			this.folderTreeView.AfterSelect += folderTreeView_AfterSelect;
+
 			// Set Selected Item
 			foreach (TreeNode node in this.folderTreeView.Nodes[0].Nodes)
 			{
@@ -368,6 +373,11 @@ namespace Web7.SVRN7.Apps
 					break;
 				}
 			}
+		}
+
+		private void folderTreeView_AfterSelect(object sender, TreeViewEventArgs e)
+		{
+			FolderSelected?.Invoke(e.Node?.Text ?? string.Empty);
 		}
 
 		void MessageStore_PropertyChanged(object sender, PropertyChangedEventArgs e)

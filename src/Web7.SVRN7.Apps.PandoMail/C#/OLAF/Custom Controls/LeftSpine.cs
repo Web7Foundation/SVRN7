@@ -19,6 +19,9 @@ namespace Web7.SVRN7.Apps
 		private int _lastCount = -1;
 		private int	_maxHeight;
 
+		/// <summary>Fired when the user selects a folder in the tree. Argument is the folder name (e.g. "Inbox", "Outbox").</summary>
+		public event Action<string> FolderSelected;
+
 		#region Setup
 		public LeftSpine()
 		{
@@ -34,6 +37,9 @@ namespace Web7.SVRN7.Apps
 		{
 			// Setup
 			this.stackStrip.ItemHeightChanged += new EventHandler(stackStrip1_ItemHeightChanged);
+
+			// Bubble folder selection up so MainForm can react.
+			this.folderView1.FolderSelected += folder => FolderSelected?.Invoke(folder);
 
 			// Add Overflow items
 			AddOverflowItems();

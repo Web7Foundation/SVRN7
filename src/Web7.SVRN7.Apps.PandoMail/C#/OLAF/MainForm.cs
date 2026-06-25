@@ -75,9 +75,17 @@ namespace Web7.SVRN7.Apps
 				return;
 			}
 
+			leftSpine1.FolderSelected += async folder => await BeginInvokeLoadFolderAsync(folder);
+
 			await UpdateTitleAsync();
 
-			await RefreshInboxAsync();
+			await LoadFolderAsync("Inbox");
+		}
+
+		private async Task BeginInvokeLoadFolderAsync(string folder)
+		{
+			if (this.IsHandleCreated)
+				await Task.Run(() => this.BeginInvoke(new MethodInvoker(async () => await LoadFolderAsync(folder))));
 		}
 
 		private void Form1_UserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
@@ -100,7 +108,9 @@ namespace Web7.SVRN7.Apps
 		#endregion
 
 		#region Send/Receive
-		private async Task RefreshInboxAsync()
+		private async Task RefreshInboxAsync() => await LoadFolderAsync("Inbox");
+
+		private async Task LoadFolderAsync(string folderName)
 		{
 			if (_tdaClient == null || !_tdaClient.IsConnected)
 			{
@@ -112,6 +122,7 @@ namespace Web7.SVRN7.Apps
 					_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
 					_tdaClient.Disconnected += OnTdaDisconnected;
 					rightSpine1.SetTdaClient(_tdaClient);
+					leftSpine1.FolderSelected += async folder => await BeginInvokeLoadFolderAsync(folder);
 					await UpdateTitleAsync();
 				}
 				catch
@@ -127,12 +138,17 @@ namespace Web7.SVRN7.Apps
 
 			try
 			{
-				List<EmailSummary> summaries = await _tdaClient.ListEmailsAsync();
+				List<EmailSummary> summaries;
+				if (folderName.Equals("Outbox", StringComparison.OrdinalIgnoreCase))
+					summaries = await _tdaClient.ListOutboundEmailsAsync();
+				else if (folderName.Equals("Dead Letters", StringComparison.OrdinalIgnoreCase))
+					summaries = await _tdaClient.ListDeadLettersAsync();
+				else
+					summaries = await _tdaClient.ListEmailsAsync();
+
 				List<MailMessage> messages = MapToMailMessages(summaries);
 				_store.ReplaceAll(messages);
 				this.itemCountLabel.Text = messages.Count + " Items";
-				MessageBox.Show($"{messages.Count} message(s) received from TDA.", "TDA Response",
-					MessageBoxButtons.OK, MessageBoxIcon.Information);
 				await UpdateTitleAsync();
 			}
 			catch (Exception ex)

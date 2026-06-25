@@ -157,6 +157,64 @@ namespace Web7.SVRN7.Apps
             }
         }
 
+        // ── Outbound: Request outbox list ──────────────────────────────────────────
+
+        public async Task<List<EmailSummary>> ListOutboundEmailsAsync(int limit = 50,
+            CancellationToken ct = default)
+        {
+            string correlationId = Guid.NewGuid().ToString("N");
+            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pending[correlationId] = tcs;
+
+            try
+            {
+                string msgBody = JsonSerializer.Serialize(new { correlationId, limit });
+                await SendEnvelopeAsync(
+                    "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-OutboundEmails",
+                    msgBody, ct);
+
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeout.CancelAfter(TimeSpan.FromSeconds(15));
+                timeout.Token.Register(() => tcs.TrySetCanceled());
+
+                string replyJson = await tcs.Task;
+                return ParseEmailList(replyJson);
+            }
+            finally
+            {
+                _pending.TryRemove(correlationId, out _);
+            }
+        }
+
+        // ── Dead letters: Request dead-letter list ──────────────────────────────────
+
+        public async Task<List<EmailSummary>> ListDeadLettersAsync(int limit = 50,
+            CancellationToken ct = default)
+        {
+            string correlationId = Guid.NewGuid().ToString("N");
+            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pending[correlationId] = tcs;
+
+            try
+            {
+                string msgBody = JsonSerializer.Serialize(new { correlationId, limit });
+                await SendEnvelopeAsync(
+                    "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-DeadLetters",
+                    msgBody, ct);
+
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeout.CancelAfter(TimeSpan.FromSeconds(15));
+                timeout.Token.Register(() => tcs.TrySetCanceled());
+
+                string replyJson = await tcs.Task;
+                return ParseEmailList(replyJson);
+            }
+            finally
+            {
+                _pending.TryRemove(correlationId, out _);
+            }
+        }
+
         // ── Inbound: Request full body of a single email ──────────────────────────
 
         public async Task<EmailBody> GetEmailBodyAsync(string messageDid, CancellationToken ct = default)
@@ -340,6 +398,26 @@ namespace Web7.SVRN7.Apps
                             kv.Value.TrySetResult(json);
                             break;
                         }
+                    }
+                }
+                else if (type.EndsWith("/Get-PandoOutbox", StringComparison.Ordinal))
+                {
+                    string cid = ExtractCorrelationId(root);
+                    if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
+                        tcs.TrySetResult(json);
+                    else
+                    {
+                        foreach (var kv in _pending) { kv.Value.TrySetResult(json); break; }
+                    }
+                }
+                else if (type.EndsWith("/Get-PandoDeadLetters", StringComparison.Ordinal))
+                {
+                    string cid = ExtractCorrelationId(root);
+                    if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
+                        tcs.TrySetResult(json);
+                    else
+                    {
+                        foreach (var kv in _pending) { kv.Value.TrySetResult(json); break; }
                     }
                 }
                 else if (type.EndsWith("/Reply-EmailBody", StringComparison.Ordinal))
