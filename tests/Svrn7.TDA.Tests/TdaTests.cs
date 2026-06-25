@@ -799,6 +799,7 @@ public class LobeManagerRegistryTests : IDisposable
         return new Svrn7RunspaceContext(
             driver:             new NullSocietyDriver(),
             inbox:              new NullInboxStore(),
+            deadLetter:         new NullDeadLetterStore(),
             cache:              cache,
             processedOrders:    new NullProcessedOrderStore(),
             pendingResolutions: new PendingResolutionStore(),
@@ -824,6 +825,13 @@ internal sealed class NullInboxStore : Svrn7.Core.Interfaces.IInboxStore
     public Task ResetStuckMessagesAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task<System.Collections.Generic.IReadOnlyDictionary<Svrn7.Core.Models.InboundMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyDictionary<Svrn7.Core.Models.InboundMessageStatus, int>>(new System.Collections.Generic.Dictionary<Svrn7.Core.Models.InboundMessageStatus, int>());
     public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboundMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboundMessage>>(System.Array.Empty<Svrn7.Core.Models.InboundMessage>());
+}
+
+internal sealed class NullDeadLetterStore : Svrn7.Core.Interfaces.IDeadLetterStore
+{
+    public Task EnqueueAsync(Svrn7.Core.Models.DeadLetterRecord record, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.DeadLetterRecord>> GetPendingAsync(CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.DeadLetterRecord>>(System.Array.Empty<Svrn7.Core.Models.DeadLetterRecord>());
+    public Task MarkRetriedAsync(string id, CancellationToken ct = default) => Task.CompletedTask;
 }
 
 internal sealed class NullProcessedOrderStore : Svrn7.Core.Interfaces.IProcessedOrderStore
@@ -1403,7 +1411,7 @@ public class SwitchboardStartupTests : IDisposable
         var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(
             new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
         var ctx = new Svrn7RunspaceContext(
-            new NullSocietyDriver(), inbox, cache, new NullProcessedOrderStore(),
+            new NullSocietyDriver(), inbox, new NullDeadLetterStore(), cache, new NullProcessedOrderStore(),
             new PendingResolutionStore(), initialEpoch: 0);
         var lobes = new LobeManager(
             Options.Create(tdaOpts), ctx, NullLogger<LobeManager>.Instance);

@@ -593,6 +593,144 @@ function Invoke-PandoMailResolveDid {
     }
 }
 
+# ── Invoke-PandoMailListSent ──────────────────────────────────────────────────
+
+function Invoke-PandoMailListSent {
+    <#
+    .SYNOPSIS
+        Handles a List-OutboundEmails query and replies with a Get-PandoOutbox response.
+
+    .DESCRIPTION
+        Queries the local inbox for Enqueue-PandoMail messages (emails sent from PandoMail UI)
+        and delivers a Get-PandoOutbox DIDComm message to the sender's endpoint over WebSocket.
+
+        Protocol (inbound):  did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-OutboundEmails
+        Protocol (outbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Get-PandoOutbox
+
+    .PARAMETER MessageDid
+        The TDA resource DID URL of the inbox message.
+
+    .OUTPUTS
+        [Svrn7.TDA.OutboundMessage] delivering Get-PandoOutbox over WebSocket.
+    #>
+    [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) {
+            Write-Warning "Email LOBE: List-OutboundEmails message $MessageDid not found."
+            return $null
+        }
+
+        $body = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+        $correlationId = Get-BodyField $body 'correlationId' ''
+        $limit = 50
+        if ($body.PSObject.Properties['limit']) { $limit = [int]$body.limit }
+
+        $sent = $SVRN7.ListSentEmailsAsync($limit).GetAwaiter().GetResult()
+
+        $emailList = @(foreach ($e in $sent) {
+            $eBody = $e.PackedPayload | ConvertFrom-Json -ErrorAction SilentlyContinue
+            [ordered]@{
+                messageDid = $e.Id
+                senderDid  = $SVRN7.LocalDid
+                subject    = Get-BodyField $eBody 'subject' '(no subject)'
+                fromHeader = if (Get-BodyField $eBody 'senderDisplay' '') { Get-BodyField $eBody 'senderDisplay' '' } else { $SVRN7.LocalDid }
+                toHeader   = if (Get-BodyField $eBody 'recipientDisplay' '') { Get-BodyField $eBody 'recipientDisplay' '' } else { Get-BodyField $eBody 'recipientDid' '' }
+                receivedAt = $e.ReceivedAt.ToString('o')
+            }
+        })
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Get-PandoOutbox'
+            from = $SVRN7.LocalDid
+            to   = @($msg.FromDid)
+            body = [ordered]@{
+                emails        = $emailList
+                count         = $emailList.Count
+                correlationId = $correlationId
+            }
+        } | ConvertTo-Json -Compress -Depth 5
+
+        Write-Verbose "Email LOBE: List-OutboundEmails returning $($emailList.Count) sent messages."
+        [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $envelope)
+    }
+}
+
+# ── Invoke-PandoMailListDeadLetters ───────────────────────────────────────────
+
+function Invoke-PandoMailListDeadLetters {
+    <#
+    .SYNOPSIS
+        Handles a List-DeadLetters query and replies with a Get-PandoDeadLetters response.
+
+    .DESCRIPTION
+        Returns pending dead-letter records (failed outbound deliveries) over the WebSocket hub.
+
+        Protocol (inbound):  did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-DeadLetters
+        Protocol (outbound): did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Get-PandoDeadLetters
+
+    .PARAMETER MessageDid
+        The TDA resource DID URL of the inbox message.
+
+    .OUTPUTS
+        [Svrn7.TDA.OutboundMessage] delivering Get-PandoDeadLetters over WebSocket.
+    #>
+    [CmdletBinding()]
+    [OutputType([Svrn7.TDA.OutboundMessage])]
+    param(
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [string] $MessageDid
+    )
+
+    process {
+        $msg = $SVRN7.GetMessageAsync($MessageDid).GetAwaiter().GetResult()
+        if (-not $msg) {
+            Write-Warning "Email LOBE: List-DeadLetters message $MessageDid not found."
+            return $null
+        }
+
+        $body          = $msg.PackedPayload | ConvertFrom-Json -ErrorAction Stop
+        $correlationId = Get-BodyField $body 'correlationId' ''
+
+        $records = $SVRN7.ListDeadLettersAsync().GetAwaiter().GetResult()
+
+        $emailList = @(foreach ($r in $records) {
+            [ordered]@{
+                messageDid = $r.Id
+                senderDid  = $SVRN7.LocalDid
+                subject    = if ($r.LastError) { "FAILED: $($r.LastError)" } else { $r.MessageType }
+                fromHeader = $SVRN7.LocalDid
+                toHeader   = $r.PeerEndpoint
+                receivedAt = $r.FailedAt.ToString('o')
+            }
+        })
+
+        $envelope = [ordered]@{
+            typ  = 'application/didcomm-plain+json'
+            id   = [Svrn7.Core.TdaResourceId]::DIDCommMessage([Guid]::NewGuid().ToString('N'))
+            type = 'did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Get-PandoDeadLetters'
+            from = $SVRN7.LocalDid
+            to   = @($msg.FromDid)
+            body = [ordered]@{
+                emails        = $emailList
+                count         = $emailList.Count
+                correlationId = $correlationId
+            }
+        } | ConvertTo-Json -Compress -Depth 5
+
+        Write-Verbose "Email LOBE: List-DeadLetters returning $($emailList.Count) dead-letter record(s)."
+        [Svrn7.TDA.OutboundMessage]::new('ws://local/didcomm-notify', $envelope)
+    }
+}
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Get-Rfc5322Header {
@@ -609,5 +747,7 @@ Export-ModuleMember -Function @(
     'Invoke-PandoMailSend',
     'Invoke-PandoMailResolveDid',
     'Get-TdaDid',
-    'Invoke-Svrn7EmailGetEmailBody'
+    'Invoke-Svrn7EmailGetEmailBody',
+    'Invoke-PandoMailListSent',
+    'Invoke-PandoMailListDeadLetters'
 )

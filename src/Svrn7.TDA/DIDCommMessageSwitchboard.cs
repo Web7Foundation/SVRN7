@@ -55,7 +55,7 @@ public sealed class DIDCommMessageSwitchboard
 
     // Outbound queue: task LOBEs post packed messages here;
     // the drain loop delivers via HttpClient.
-    private readonly ConcurrentQueue<OutboundEnvelope> _outboundQueue = new();
+    private readonly ConcurrentQueue<OutboundMessage> _outboundQueue = new();
 
     private const int BatchSize                    = 20;
     private const int TransactionalMaxAttempts    = Svrn7.Core.Svrn7Constants.InboxMaxAttempts;
@@ -128,7 +128,7 @@ public sealed class DIDCommMessageSwitchboard
                     "Switchboard: re-enqueuing {Count} dead-lettered outbound message(s) from prior session.",
                     pending.Count);
                 foreach (var record in pending)
-                    _outboundQueue.Enqueue(new OutboundEnvelope(record.PeerEndpoint, record.PackedMessage));
+                    _outboundQueue.Enqueue(new OutboundMessage(record.PeerEndpoint, record.PackedMessage));
             }
         }
         catch (Exception ex)
@@ -430,7 +430,7 @@ public sealed class DIDCommMessageSwitchboard
         // Enqueue any outbound messages returned by the pipeline.
         foreach (var result in results)
         {
-            if (result?.BaseObject is OutboundEnvelope outbound)
+            if (result?.BaseObject is OutboundMessage outbound)
                 _outboundQueue.Enqueue(outbound);
         }
     }
@@ -575,10 +575,10 @@ public sealed class DIDCommMessageSwitchboard
     /// <summary>
     /// Enqueues a packed outbound DIDComm message for delivery.
     /// Called by LOBE cmdlets via the <c>Enqueue-Svrn7Message</c> cmdlet wrapper,
-    /// which posts an <see cref="OutboundEnvelope"/> to this queue.
+    /// which posts an <see cref="OutboundMessage"/> to this queue.
     /// </summary>
     public void EnqueueOutbound(string peerEndpoint, string packedMessage)
-        => _outboundQueue.Enqueue(new OutboundEnvelope(peerEndpoint, packedMessage));
+        => _outboundQueue.Enqueue(new OutboundMessage(peerEndpoint, packedMessage));
 
     /// <summary>
     /// Number of outbound messages waiting in the in-memory delivery queue.
@@ -597,7 +597,7 @@ public sealed class DIDCommMessageSwitchboard
         }
     }
 
-    private async Task DeliverOutboundAsync(OutboundEnvelope msg, CancellationToken ct)
+    private async Task DeliverOutboundAsync(OutboundMessage msg, CancellationToken ct)
     {
         using var deliverActivity = Svrn7Telemetry.Source.StartActivity(
             Svrn7Telemetry.ActivityDeliver,
@@ -701,10 +701,10 @@ public sealed class DIDCommMessageSwitchboard
     }
 }
 
-// ── OutboundEnvelope ───────────────────────────────────────────────────────────
+// ── OutboundMessage ───────────────────────────────────────────────────────────
 
 /// <summary>
 /// Outbound DIDComm message waiting for delivery by the Switchboard.
 /// LOBE cmdlets return this from the pipeline; the Switchboard delivers via HttpClient.
 /// </summary>
-public sealed record OutboundEnvelope(string PeerEndpoint, string PackedMessage);
+public sealed record OutboundMessage(string PeerEndpoint, string PackedMessage);

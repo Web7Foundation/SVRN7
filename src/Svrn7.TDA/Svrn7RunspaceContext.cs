@@ -35,6 +35,7 @@ namespace Svrn7.TDA;
 public sealed class Svrn7RunspaceContext
 {
     private readonly IInboxStore             _inbox;
+    private readonly IDeadLetterStore        _deadLetter;
     private readonly IMemoryCache            _cache;
     private readonly IProcessedOrderStore    _processedOrders;
     private readonly PendingResolutionStore  _pendingResolutions;
@@ -110,6 +111,7 @@ public sealed class Svrn7RunspaceContext
     public Svrn7RunspaceContext(
         ISvrn7SocietyDriver    driver,
         IInboxStore            inbox,
+        IDeadLetterStore       deadLetter,
         IMemoryCache           cache,
         IProcessedOrderStore   processedOrders,
         PendingResolutionStore pendingResolutions,
@@ -131,6 +133,7 @@ public sealed class Svrn7RunspaceContext
         _federationEndpointUrl = federationEndpointUrl;
         _agentIdentityPath     = agentIdentityPath;
         _inbox                 = inbox;
+        _deadLetter            = deadLetter;
         _cache                 = cache;
         _processedOrders       = processedOrders;
         _pendingResolutions    = pendingResolutions;
@@ -245,6 +248,29 @@ public sealed class Svrn7RunspaceContext
             .Select(m => new InboundMessageView(m.Id, m.MessageType, m.PackedPayload, m.FromDid, m.AttemptCount, m.ReceivedAt))
             .ToList();
     }
+
+    /// <summary>
+    /// Returns up to <paramref name="limit"/> sent email messages (Enqueue-PandoMail type),
+    /// newest-first. Called by the <c>Invoke-PandoMailListSent</c> LOBE cmdlet to fulfil
+    /// <c>List-OutboundEmails</c> protocol requests.
+    /// </summary>
+    public async Task<IReadOnlyList<InboundMessageView>> ListSentEmailsAsync(
+        int limit = 50, CancellationToken ct = default)
+    {
+        const string sentTypePrefix = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Enqueue-PandoMail";
+        var messages = await _inbox.ListByTypeAsync(sentTypePrefix, limit, ct);
+        return messages
+            .Select(m => new InboundMessageView(m.Id, m.MessageType, m.PackedPayload, m.FromDid, m.AttemptCount, m.ReceivedAt))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Returns all pending dead-letter records. Called by the <c>Invoke-PandoMailListDeadLetters</c>
+    /// LOBE cmdlet to fulfil <c>List-DeadLetters</c> protocol requests.
+    /// </summary>
+    public async Task<IReadOnlyList<DeadLetterRecord>> ListDeadLettersAsync(
+        CancellationToken ct = default)
+        => await _deadLetter.GetPendingAsync(ct);
 
     // ── Pass-by-reference message resolution ─────────────────────────────────
 

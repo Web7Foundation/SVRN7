@@ -75,6 +75,24 @@
       "match": "exact",
       "entrypoint": "Invoke-PandoMailResolveDid",
       "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-OutboundEmails",
+      "title": "List Sent Emails Request",
+      "description": "Query for sent (outbound) email messages. Body: { limit?: int, correlationId?: string }. Replies with Get-PandoOutbox over WebSocket.",
+      "direction": "inbound",
+      "match": "exact",
+      "entrypoint": "Invoke-PandoMailListSent",
+      "epochRequired": 0
+    },
+    {
+      "uri": "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-DeadLetters",
+      "title": "List Dead Letters Request",
+      "description": "Query for pending dead-letter records (failed outbound deliveries). Body: { correlationId?: string }. Replies with Get-PandoDeadLetters over WebSocket.",
+      "direction": "inbound",
+      "match": "exact",
+      "entrypoint": "Invoke-PandoMailListDeadLetters",
+      "epochRequired": 0
     }
   ],
   "cmdlets": [

@@ -139,7 +139,7 @@ namespace Web7.SVRN7.Apps
 			try
 			{
 				List<EmailSummary> summaries;
-				if (folderName.Equals("Outbox", StringComparison.OrdinalIgnoreCase))
+				if (folderName.Equals("Sent Items", StringComparison.OrdinalIgnoreCase))
 					summaries = await _tdaClient.ListOutboundEmailsAsync();
 				else if (folderName.Equals("Dead Letters", StringComparison.OrdinalIgnoreCase))
 					summaries = await _tdaClient.ListDeadLettersAsync();

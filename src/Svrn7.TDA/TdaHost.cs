@@ -265,13 +265,14 @@ public static class TdaServiceCollectionExtensions
         // Derived from: "$SVRN7 session variable" — DSA 0.24 Epoch 0.
         services.AddSingleton<Svrn7RunspaceContext>(sp =>
         {
-            var opts    = sp.GetRequiredService<IOptions<TdaOptions>>().Value;
-            var driver  = sp.GetRequiredService<ISvrn7SocietyDriver>();
-            var inbox   = sp.GetRequiredService<IInboxStore>();
-            var cache   = sp.GetRequiredService<IMemoryCache>();
-            var orders  = sp.GetRequiredService<IProcessedOrderStore>();
-            var pending = sp.GetRequiredService<PendingResolutionStore>();
-            return new Svrn7RunspaceContext(driver, inbox, cache, orders, pending,
+            var opts       = sp.GetRequiredService<IOptions<TdaOptions>>().Value;
+            var driver     = sp.GetRequiredService<ISvrn7SocietyDriver>();
+            var inbox      = sp.GetRequiredService<IInboxStore>();
+            var deadLetter = sp.GetRequiredService<Svrn7.Core.Interfaces.IDeadLetterStore>();
+            var cache      = sp.GetRequiredService<IMemoryCache>();
+            var orders     = sp.GetRequiredService<IProcessedOrderStore>();
+            var pending    = sp.GetRequiredService<PendingResolutionStore>();
+            return new Svrn7RunspaceContext(driver, inbox, deadLetter, cache, orders, pending,
                 initialEpoch:          Svrn7.Core.Svrn7Constants.Epochs.Endowment,
                 role:                  opts.Role,
                 agentDid:              opts.LocalDid,
