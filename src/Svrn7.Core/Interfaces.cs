@@ -234,7 +234,7 @@ public interface IFederationStore
 
 /// <summary>
 /// Durable inbox store for incoming DIDComm messages.
-/// Backed by a dedicated LiteDB database (svrn7-inbox.db) so the inbox
+/// Backed by a dedicated LiteDB database (svrn7-msg.db) so the inbox
 /// survives process restarts and is independent of svrn7.db writes.
 ///
 /// Concurrency model: single writer (LiteDB file lock), any number of readers.
@@ -243,7 +243,7 @@ public interface IFederationStore
 
 /// <summary>
 /// Durable store for cross-Society TransferOrder idempotency receipts.
-/// Backed by InboxLiteContext (svrn7-inbox.db).
+/// Backed by MsgLiteContext (svrn7-msg.db).
 /// Ensures duplicate TransferOrders receive the same packed DIDComm receipt
 /// without re-executing the credit logic.
 /// </summary>
@@ -266,13 +266,13 @@ public interface IInboxStore
     /// Used by <see cref="Svrn7RunspaceContext.GetMessageAsync"/> for pass-by-reference
     /// resolution in LOBE cmdlet pipelines. Returns null if not found.
     /// </summary>
-    Task<InboxMessage?> GetByIdAsync(string objectId, CancellationToken ct = default);
+    Task<InboundMessage?> GetByIdAsync(string objectId, CancellationToken ct = default);
 
     /// <summary>
     /// Returns up to <paramref name="batchSize"/> Pending messages and marks
     /// them Processing atomically. Returns an empty list when the inbox is empty.
     /// </summary>
-    Task<IReadOnlyList<InboxMessage>> DequeueBatchAsync(
+    Task<IReadOnlyList<InboundMessage>> DequeueBatchAsync(
         int batchSize = 20, CancellationToken ct = default);
 
     /// <summary>Marks a message Processed and records the completion timestamp.</summary>
@@ -293,15 +293,15 @@ public interface IInboxStore
     Task ResetStuckMessagesAsync(CancellationToken ct = default);
 
     /// <summary>Returns the count of messages per status for monitoring.</summary>
-    Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(
+    Task<IReadOnlyDictionary<InboundMessageStatus, int>> GetStatusCountsAsync(
         CancellationToken ct = default);
 
     /// <summary>
     /// Returns up to <paramref name="limit"/> Processed messages whose
-    /// <see cref="InboxMessage.MessageType"/> starts with <paramref name="typePrefix"/>,
+    /// <see cref="InboundMessage.MessageType"/> starts with <paramref name="typePrefix"/>,
     /// ordered newest-first. Used by LOBE cmdlets to satisfy list-query protocols.
     /// </summary>
-    Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(
+    Task<IReadOnlyList<InboundMessage>> ListByTypeAsync(
         string typePrefix, int limit = 50, CancellationToken ct = default);
 }
 
@@ -332,16 +332,16 @@ public interface IDIDCommTransferHandler
 
 /// <summary>
 /// Durable dead-letter outbox for failed outbound DIDComm messages.
-/// Backed by svrn7-inbox.db (InboxLiteContext). Operators can inspect
-/// and retry failed messages via the Outbox collection.
+/// Backed by svrn7-msg.db (MsgLiteContext). Operators can inspect
+/// and retry failed messages via the DeadLetter collection.
 /// </summary>
-public interface IOutboxStore
+public interface IDeadLetterStore
 {
-    /// <summary>Persists a failed outbound message to the dead-letter outbox.</summary>
-    Task EnqueueAsync(OutboxRecord record, CancellationToken ct = default);
+    /// <summary>Persists a failed outbound message to the dead-letter store.</summary>
+    Task EnqueueAsync(DeadLetterRecord record, CancellationToken ct = default);
 
     /// <summary>Returns all unretried records for operator inspection.</summary>
-    Task<IReadOnlyList<OutboxRecord>> GetPendingAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<DeadLetterRecord>> GetPendingAsync(CancellationToken ct = default);
 
     /// <summary>Marks a record as retried (whether retry succeeded or not).</summary>
     Task MarkRetriedAsync(string id, CancellationToken ct = default);

@@ -233,7 +233,7 @@ public sealed class Svrn7RunspaceContext
     /// Called by the <c>Invoke-PandoMailList</c> LOBE cmdlet to fulfil
     /// <c>List-Emails</c> protocol requests.
     /// </summary>
-    public async Task<IReadOnlyList<InboxMessageView>> ListEmailsAsync(
+    public async Task<IReadOnlyList<InboundMessageView>> ListEmailsAsync(
         int limit = 50, CancellationToken ct = default)
     {
         // Filter to the inbound email message type only — not protocol control messages
@@ -242,7 +242,7 @@ public sealed class Svrn7RunspaceContext
         const string emailTypePrefix = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail";
         var messages = await _inbox.ListByTypeAsync(emailTypePrefix, limit, ct);
         return messages
-            .Select(m => new InboxMessageView(m.Id, m.MessageType, m.PackedPayload, m.FromDid, m.AttemptCount, m.ReceivedAt))
+            .Select(m => new InboundMessageView(m.Id, m.MessageType, m.PackedPayload, m.FromDid, m.AttemptCount, m.ReceivedAt))
             .ToList();
     }
 
@@ -252,7 +252,7 @@ public sealed class Svrn7RunspaceContext
     /// Resolves an inbox message by its TDA resource DID URL.
     ///
     /// Because <see cref="LiteInboxStore.EnqueueAsync"/> now stores the full DID URL
-    /// as <c>InboxMessage.Id</c>, the DID URL is both the pass-by-reference handle
+    /// as <c>InboundMessage.Id</c>, the DID URL is both the pass-by-reference handle
     /// and the direct LiteDB lookup key. No parsing needed.
     ///
     /// Hot path: IMemoryCache (TTL 24 h — matches the nonce replay window).
@@ -260,31 +260,31 @@ public sealed class Svrn7RunspaceContext
     ///
     /// Derived from: pass-by-reference pattern — DSA 0.24 Epoch 0.
     /// </summary>
-    public async Task<InboxMessageView?> GetMessageAsync(
+    public async Task<InboundMessageView?> GetMessageAsync(
         string messageDid, CancellationToken ct = default)
     {
         // DID URL is the cache key — no cross-TDA collision possible.
-        if (_cache.TryGetValue(messageDid, out InboxMessageView? cached))
+        if (_cache.TryGetValue(messageDid, out InboundMessageView? cached))
             return cached;
 
         // GetByIdAsync queries by Id == messageDid directly.
         var msg = await _inbox.GetByIdAsync(messageDid, ct);
         if (msg is null) return null;
 
-        var view = new InboxMessageView(msg.Id, msg.MessageType, msg.PackedPayload, msg.FromDid, msg.AttemptCount, msg.ReceivedAt);
+        var view = new InboundMessageView(msg.Id, msg.MessageType, msg.PackedPayload, msg.FromDid, msg.AttemptCount, msg.ReceivedAt);
         _cache.Set(messageDid, view, TimeSpan.FromHours(24));
         return view;
     }
 }
 
-// ── InboxMessageView ──────────────────────────────────────────────────────────
+// ── InboundMessageView ──────────────────────────────────────────────────────────
 
 /// <summary>
-/// Read-only projection of an <see cref="InboxMessage"/> for LOBE cmdlet consumption.
+/// Read-only projection of an <see cref="InboundMessage"/> for LOBE cmdlet consumption.
 /// Cmdlets receive this via <see cref="Svrn7RunspaceContext.GetMessageAsync"/>.
 /// The <see cref="Id"/> is the pass-by-reference handle passed through pipelines.
 /// </summary>
-public sealed record InboxMessageView(
+public sealed record InboundMessageView(
     string         Id,
     string         MessageType,
     string         PackedPayload,

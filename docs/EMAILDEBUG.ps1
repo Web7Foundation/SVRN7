@@ -237,7 +237,7 @@ Send-LocalDIDCommMessage -Body $msg
 
 Write-Host "--- Step 9 — Reset between test runs ---"
 # (Stop the TDA first — Ctrl+C in the TDA terminal)
-Remove-Item -Path "mem\svrn7-inbox.db", "mem\svrn7-inbox.db-log" -ErrorAction SilentlyContinue
+Remove-Item -Path "mem\svrn7-msg.db", "mem\svrn7-msg.db-log" -ErrorAction SilentlyContinue
 dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA
 
 # For a full reset (clears all records):

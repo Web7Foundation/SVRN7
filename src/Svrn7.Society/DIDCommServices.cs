@@ -169,7 +169,7 @@ public sealed class DIDCommTransferHandler : IDIDCommTransferHandler
 // ── DIDCommMessageProcessorService ───────────────────────────────────────────
 
 /// <summary>
-/// Background service that processes the durable DIDComm inbox (IInboxStore / svrn7-inbox.db).
+/// Background service that processes the durable DIDComm inbox (IInboxStore / svrn7-msg.db).
 ///
 /// Each sweep:
 ///   1. VC expiry sweep (delegates to ISvrn7Driver.ExpireStaleVcsAsync).
@@ -182,7 +182,7 @@ public sealed class DIDCommTransferHandler : IDIDCommTransferHandler
 ///     Processing state by an unclean prior shutdown.
 ///   • Failed messages are retried up to MaxAttempts (Svrn7Constants.InboxMaxAttempts) times before
 ///     being moved to the Failed dead-letter state for operator inspection.
-///   • The inbox database (svrn7-inbox.db) is separate from svrn7.db so inbox
+///   • The inbox database (svrn7-msg.db) is separate from svrn7.db so inbox
 ///     I/O never contends with wallet or identity operations.
 /// </summary>
 public sealed class DIDCommMessageProcessorService : BackgroundService
@@ -273,7 +273,7 @@ public sealed class DIDCommMessageProcessorService : BackgroundService
     }
 
     private async Task ProcessMessageAsync(
-        IDIDCommTransferHandler handler, InboxMessage message, CancellationToken ct)
+        IDIDCommTransferHandler handler, InboundMessage message, CancellationToken ct)
     {
         try
         {

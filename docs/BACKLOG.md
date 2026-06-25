@@ -542,7 +542,7 @@ WebSocket frame received
   └── ReceiveWebSocketLoopAsync assembles complete message
         └── ProcessWebSocketMessageAsync
               ├── UnpackAsync  (plaintext — extracts @type, From, Body)
-              └── EnqueueAsync → svrn7-inbox.db
+              └── EnqueueAsync → svrn7-msg.db
                     └── Switchboard drain loop
                           └── LobeManager.TryResolveProtocol(@type)
                                 └── LOBE cmdlet invocation

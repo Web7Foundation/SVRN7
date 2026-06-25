@@ -217,7 +217,7 @@ Remove-Svrn7Databases `
     -Svrn7DbPath    tests/data/svrn7.db `
     -DidsDbPath     tests/data/svrn7-dids.db `
     -VcsDbPath      tests/data/svrn7-vcs.db `
-    -InboxDbPath    tests/data/svrn7-inbox.db `
+    -MsgDbPath      tests/data/svrn7-msg.db `
     -SchemasDbPath  tests/data/svrn7-schemas.db `
     -Confirm:$false
 ```

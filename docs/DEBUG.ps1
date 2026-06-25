@@ -220,7 +220,7 @@ Remove-Svrn7Databases `
     -Svrn7DbPath    tests/data/svrn7.db `
     -DidsDbPath     tests/data/svrn7-dids.db `
     -VcsDbPath      tests/data/svrn7-vcs.db `
-    -InboxDbPath    tests/data/svrn7-inbox.db `
+    -MsgDbPath    tests/data/svrn7-msg.db `
     -SchemasDbPath  tests/data/svrn7-schemas.db `
     -Confirm:$false
 
@@ -245,5 +245,5 @@ Remove-Svrn7Databases -Confirm:$false
 # | -Svrn7DbPath   | svrn7.db         | Main wallet / UTXO / Merkle log database       |
 # | -DidsDbPath    | svrn7-dids.db    | DID Document registry                          |
 # | -VcsDbPath     | svrn7-vcs.db     | Verifiable Credential registry                 |
-# | -InboxDbPath   | svrn7-inbox.db   | DIDComm inbox, outbox, processed orders        |
+# | -MsgDbPath   | svrn7-msg.db   | DIDComm inbox, outbox, processed orders        |
 # | -SchemasDbPath | svrn7-schemas.db | JSON Schema 2020-12 registry                   |

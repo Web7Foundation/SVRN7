@@ -234,7 +234,7 @@ Derived from: "Citizen/Society TDA (Host)" — element type Host — DSA 0.24 Ep
 **Inbound**: `POST /didcomm` (Kestrel HTTP/2 + mTLS; body size limit 2 MB; rate-limited: 100 req/s default)
 → `KestrelListenerService.UnpackAsync()` — extracts `Id`, `Type`, `From`, `Body` from plaintext; encrypted messages pass through undecrypted;
   returns 503 + `Retry-After: 5` if EnqueueAsync throws; returns 429 when rate limit exceeded
-→ `LiteInboxStore.EnqueueAsync(type, body, fromDid?, wireId?)` — persists to `svrn7-inbox.db`; `wireId = unpacked.Id` (null for encrypted)
+→ `LiteInboxStore.EnqueueAsync(type, body, fromDid?, wireId?)` — persists to `svrn7-msg.db`; `wireId = unpacked.Id` (null for encrypted)
 → `DIDCommMessageSwitchboard` — on startup: calls `ResetStuckMessagesAsync()` (recovery) and re-enqueues dead-lettered outbound messages;
   TTL check: messages older than `MaxMessageAgeSeconds` (default 3600s) are dead-lettered before processing;
   routes by `@type` Locator DID URL; **sequential dispatch** (one message at a time — financial correctness;
@@ -255,7 +255,7 @@ Derived from: "Citizen/Society TDA (Host)" — element type Host — DSA 0.24 Ep
                            │ writes packed DIDComm payload
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  DURABLE INBOX  (IInboxStore → LiteDB: svrn7-inbox.db)       │
+│  DURABLE INBOX  (IInboxStore → LiteDB: svrn7-msg.db)       │
 │  InboxMessage { Id=DID URL, MessageType, PackedPayload, ... } │
 └──────────────────────────┬───────────────────────────────────┘
                            │ drain loop (sequential batch)
@@ -366,7 +366,7 @@ This is the pass-by-reference constraint derived from the Data Access arrow in D
 ### Dead-Letter Outbox
 
 Failed outbound messages (after retry exhaustion — 3 attempts, exponential backoff) are persisted to `IOutboxStore`
-(`LiteOutboxStore` in `svrn7-inbox.db`) for operator inspection and replay.
+(`LiteOutboxStore` in `svrn7-msg.db`) for operator inspection and replay.
 On startup, the Switchboard re-enqueues pending outbox records from the prior session.
 
 ---
@@ -517,7 +517,7 @@ are ever created.
 | `svrn7.db`      | `data/svrn7.db`       | Wallets, UTXOs, citizens, Merkle log   |
 | `svrn7-dids.db` | `data/svrn7-dids.db`  | DID Documents, version history         |
 | `svrn7-vcs.db`  | `data/svrn7-vcs.db`   | Verifiable Credentials, revocations    |
-| `svrn7-inbox.db`| `data/svrn7-inbox.db` | Inbox queue, Schema Registry, outbox   |
+| `svrn7-msg.db`  | `data/svrn7-msg.db`   | Inbound messages, dead-letter, processed orders |
 
 All paths accept `:memory:` for zero-disk testing.
 
@@ -630,7 +630,7 @@ dotnet run
     "NetworkId":       "alpha.svrn7.net",
     "LobesConfigPath": "lobes/lobes.config.json",
     "LobeDirectory":   "lobes/",
-    "InboxDbPath":     "data/svrn7-inbox.db",
+    "InboxDbPath":     "data/svrn7-msg.db",
     "HttpPort":        8080,
     "CertificatePath": "certs/tda.pfx"
   }
@@ -719,7 +719,7 @@ await driver.RegisterCitizenInSocietyAsync(new RegisterCitizenInSocietyRequest
 | `NetworkId`                     | *(required)*                | Network identifier                                       |
 | `LobesConfigPath`               | `lobes/lobes.config.json`   | LOBE loading manifest path                               |
 | `LobeDirectory`                 | `lobes/`                    | Watched for new .lobe.json files (all subdirectories)    |
-| `InboxDbPath`                   | `data/svrn7-inbox.db`       | LiteDB inbox + schema + outbox                           |
+| `MsgDbPath`                     | `data/svrn7-msg.db`         | LiteDB message database (inbound, dead-letter, processed orders) |
 | `HttpPort`                      | `8080`                      | Kestrel listen port                                      |
 | `LobeInvocationTimeoutSeconds`  | `30`                        | Max seconds for a LOBE cmdlet; exceeded → `ps.Stop()`   |
 | `MaxMessageAgeSeconds`          | `3600`                      | Message TTL before dead-letter (0 = disabled)            |

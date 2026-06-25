@@ -16,7 +16,7 @@
 - **DID method governance** — self-service registration and deregistration of additional DID method names
 - **DIDComm SignThenEncrypt transfers** — cross-Society citizen-to-citizen transfers via `TransferOrderCredential`
 - **Overdraft management** — revolving credit facility from the Federation when the Society wallet is low; delivered via DIDComm HTTP transport when `FederationEndpointUrl` is configured
-- **Inbox/outbox** — `LiteInboxStore` backed by `svrn7-inbox.db`; `DIDCommMessageProcessorService` background service. `InboxMessage` stores `FromDid` (sender DID) and `WireId` (DIDComm wire `id`; null for encrypted messages), both threaded from `KestrelListenerService` via `IInboxStore.EnqueueAsync`.
+- **Message store** — `LiteInboxStore` backed by `svrn7-msg.db`; `DIDCommMessageProcessorService` background service. `InboundMessage` stores `FromDid` (sender DID) and `WireId` (DIDComm wire `id`; null for encrypted messages), both threaded from `KestrelListenerService` via `IInboxStore.EnqueueAsync`.
 - **Schema Registry** — JSON Schema 2020-12 registry for credential schemas (Society TDA only)
 - **Cross-Society VC queries** — `FindVcsBySubjectAcrossSocietiesAsync` via DIDComm
 
@@ -56,7 +56,7 @@ builder.Services.AddSvrn7Society(opts =>
     opts.Svrn7DbPath  = "data/svrn7.db";
     opts.DidsDbPath   = "data/svrn7-dids.db";
     opts.VcsDbPath    = "data/svrn7-vcs.db";
-    opts.InboxDbPath  = "data/svrn7-inbox.db";
+    opts.MsgDbPath    = "data/svrn7-msg.db";
 });
 
 // Optional: enable inbox background processor
@@ -219,7 +219,7 @@ Four LiteDB 5 embedded databases per Society deployment:
 | `svrn7.db`         | `data/svrn7.db`            | Wallets, UTXOs, citizens, membership, overdraft, Merkle log |
 | `svrn7-dids.db`    | `data/svrn7-dids.db`       | DID Documents, verification method index |
 | `svrn7-vcs.db`     | `data/svrn7-vcs.db`        | Verifiable Credentials                 |
-| `svrn7-inbox.db`   | `data/svrn7-inbox.db`      | DIDComm inbox, outbox, processed orders, schemas |
+| `svrn7-msg.db`     | `data/svrn7-msg.db`        | DIDComm inbound messages, dead-letter, processed orders |
 
 ---
 

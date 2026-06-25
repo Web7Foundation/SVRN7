@@ -37,17 +37,17 @@ public record NonceRecord
 
 
 /// <summary>Status of a durable inbox message.</summary>
-public enum InboxMessageStatus { Pending, Processing, Processed, Failed }
+public enum InboundMessageStatus { Pending, Processing, Processed, Failed }
 
 /// <summary>
-/// A durable DIDComm inbox message stored in svrn7-inbox.db.
+/// A durable DIDComm inbox message stored in svrn7-msg.db.
 /// Messages survive process restarts and are processed exactly once by
 /// DIDCommMessageProcessorService.
 ///
 /// Lifecycle: Pending → Processing → Processed | Failed
 /// Failed messages retain LastError for operational diagnostics.
 /// </summary>
-public record InboxMessage
+public record InboundMessage
 {
     public required string             Id            { get; set; }  // TDA resource DID URL
                                                                       // e.g. did:drn:alpha.svrn7.net/inbox/msg/5f43a2b1c8e9d7f012345678
@@ -57,7 +57,7 @@ public record InboxMessage
     public string?                     FromDid       { get; set; }  // Sender DID from DIDComm envelope
     public string?                     WireId        { get; set; }  // DIDComm wire 'id' from the sender's envelope (null for encrypted/opaque messages)
     public required DateTimeOffset     ReceivedAt    { get; set; }
-    public InboxMessageStatus          Status        { get; set; } = InboxMessageStatus.Pending;
+    public InboundMessageStatus          Status        { get; set; } = InboundMessageStatus.Pending;
     public DateTimeOffset?             ProcessedAt   { get; set; }
     public string?                     LastError     { get; set; }
     public int                         AttemptCount  { get; set; }
@@ -89,7 +89,7 @@ public record InboxMessage
 
 
 /// <summary>
-/// Durable record of a processed cross-Society TransferOrder, persisted in svrn7-inbox.db.
+/// Durable record of a processed cross-Society TransferOrder, persisted in svrn7-msg.db.
 /// Stores the packed DIDComm receipt so duplicate TransferOrders receive the same reply
 /// without re-executing the credit logic.
 /// </summary>
@@ -471,11 +471,11 @@ public record OperationResult
 
 /// <summary>
 /// A failed outbound DIDComm message persisted to the dead-letter outbox.
-/// Stored in svrn7-inbox.db (InboxLiteContext) in the Outbox collection.
-/// Created by DIDCommMessageSwitchboard.DeliverOutboundAsync after Polly
-/// retry exhaustion. Operators can inspect and manually retry via tooling.
+/// Stored in svrn7-msg.db (MsgLiteContext) in the DeadLetter collection.
+/// Created by DIDCommMessageSwitchboard.DeliverOutboundAsync after retry
+/// exhaustion. Operators can inspect and manually retry via tooling.
 /// </summary>
-public record OutboxRecord
+public record DeadLetterRecord
 {
     public required string Id            { get; set; }  // TDA resource DID URL
     public required string PeerEndpoint  { get; set; }  // target TDA endpoint

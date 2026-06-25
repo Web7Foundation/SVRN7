@@ -168,7 +168,7 @@ var host = Host.CreateDefaultBuilder(args)
             opts.Svrn7DbPath                       = ResolvePath(ctx.Configuration["Svrn7:DbPath"],         "svrn7.db",        port);
             opts.DidsDbPath                        = ResolvePath(ctx.Configuration["Svrn7:DidsDbPath"],     "svrn7-dids.db",   port);
             opts.VcsDbPath                         = ResolvePath(ctx.Configuration["Svrn7:VcsDbPath"],      "svrn7-vcs.db",    port);
-            opts.InboxDbPath                       = ResolvePath(ctx.Configuration["Svrn7:InboxDbPath"],    "svrn7-inbox.db",  port);
+            opts.MsgDbPath                         = ResolvePath(ctx.Configuration["Svrn7:MsgDbPath"],      "svrn7-msg.db",    port);
             opts.SchemasDbPath                     = ResolvePath(ctx.Configuration["Svrn7:SchemasDbPath"],  "svrn7-schemas.db",port);
             opts.SocietyMessagingPrivateKeyEd25519 = []; // supplied at runtime
         });

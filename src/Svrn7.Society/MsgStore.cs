@@ -7,28 +7,28 @@ using Svrn7.Core.Models;
 namespace Svrn7.Society;
 
 /// <summary>
-/// LiteDB context for svrn7-inbox.db.
-/// Kept as a dedicated database so DIDComm inbox writes do not contend
+/// LiteDB context for svrn7-msg.db.
+/// Kept as a dedicated database so DIDComm message writes do not contend
 /// with the wallet/identity writes on the main svrn7.db file lock.
 ///
-/// Collection: InboxMessages
+/// Collection: InboundMessages
 ///   - Indexed on Status (for Pending/Processing queries)
 ///   - Indexed on ReceivedAt (for ordering and stuck-message recovery)
 /// </summary>
-public sealed class InboxLiteContext : IDisposable
+public sealed class MsgLiteContext : IDisposable
 {
     private readonly LiteDatabase _db;
     private bool _disposed;
 
-    public const string ColInbox          = "InboxMessages";
+    public const string ColInboundMessages = "InboundMessages";
     public const string ColProcessedOrders = "ProcessedOrders";
-    public const string ColOutbox          = "Outbox";
+    public const string ColDeadLetter       = "DeadLetter";
 
-    public InboxLiteContext(string connectionString)
+    public MsgLiteContext(string connectionString)
     {
         var mapper = new BsonMapper();
         mapper.Entity<ProcessedOrderRecord>().Id(r => r.TransferId);
-        // InboxMessage.Id and OutboxRecord.Id are named "Id" — LiteDB auto-maps them to _id.
+        // InboundMessage.Id and DeadLetterRecord.Id are named "Id" — LiteDB auto-maps them to _id.
         _db = new LiteDatabase(connectionString, mapper);
         EnsureIndexes();
     }
@@ -36,32 +36,32 @@ public sealed class InboxLiteContext : IDisposable
     private void EnsureIndexes()
     {
         ThrowIfDisposed();
-        var col = _db.GetCollection<InboxMessage>(ColInbox);
+        var col = _db.GetCollection<InboundMessage>(ColInboundMessages);
         col.EnsureIndex(m => m.Id, unique: true);
         col.EnsureIndex(m => m.Status);
         col.EnsureIndex(m => m.ReceivedAt);
         // ProcessedOrderRecord.TransferId is mapped to _id — primary key index is implicit.
-        _db.GetCollection<OutboxRecord>(ColOutbox)
+        _db.GetCollection<DeadLetterRecord>(ColDeadLetter)
            .EnsureIndex(r => r.FailedAt);
-        _db.GetCollection<OutboxRecord>(ColOutbox)
+        _db.GetCollection<DeadLetterRecord>(ColDeadLetter)
            .EnsureIndex(r => r.IsRetried);
     }
 
-    public ILiteCollection<InboxMessage> InboxMessages
+    public ILiteCollection<InboundMessage> InboundMessages
     {
         get
         {
             ThrowIfDisposed();
-            return _db.GetCollection<InboxMessage>(ColInbox);
+            return _db.GetCollection<InboundMessage>(ColInboundMessages);
         }
     }
 
-    public ILiteCollection<OutboxRecord> Outbox
+    public ILiteCollection<DeadLetterRecord> DeadLetter
     {
         get
         {
             ThrowIfDisposed();
-            return _db.GetCollection<OutboxRecord>(ColOutbox);
+            return _db.GetCollection<DeadLetterRecord>(ColDeadLetter);
         }
     }
 
@@ -76,7 +76,7 @@ public sealed class InboxLiteContext : IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(InboxLiteContext));
+        if (_disposed) throw new ObjectDisposedException(nameof(MsgLiteContext));
     }
 
     public void Dispose()
@@ -88,7 +88,7 @@ public sealed class InboxLiteContext : IDisposable
 }
 
 /// <summary>
-/// IInboxStore implementation backed by InboxLiteContext (svrn7-inbox.db).
+/// IInboxStore implementation backed by MsgLiteContext (svrn7-msg.db).
 ///
 /// Concurrency model
 /// ─────────────────
@@ -114,11 +114,11 @@ public sealed class InboxLiteContext : IDisposable
 /// </summary>
 public sealed class LiteInboxStore : IInboxStore
 {
-    private readonly InboxLiteContext _ctx;
+    private readonly MsgLiteContext _ctx;
     private readonly Svrn7SocietyOptions _opts;
     private readonly ILogger<LiteInboxStore> _log;
 
-    public LiteInboxStore(InboxLiteContext ctx, IOptions<Svrn7SocietyOptions> opts, ILogger<LiteInboxStore> log)
+    public LiteInboxStore(MsgLiteContext ctx, IOptions<Svrn7SocietyOptions> opts, ILogger<LiteInboxStore> log)
     {
         _ctx  = ctx;
         _opts = opts.Value;
@@ -131,11 +131,11 @@ public sealed class LiteInboxStore : IInboxStore
     {
         ct.ThrowIfCancellationRequested();
 
-        var message = new InboxMessage
+        var message = new InboundMessage
         {
             // Id is a TDA resource DID URL — globally unique, self-routing.
             // TdaResourceId builds: did:drn:{networkId}/inbox/msg/{objectId}
-            Id            = Svrn7.Core.TdaResourceId.InboxMessage(
+            Id            = Svrn7.Core.TdaResourceId.InboundMessage(
                                 Svrn7.Core.TdaResourceId.NetworkIdFromDid(_opts.SocietyDid),
                                 LiteDB.ObjectId.NewObjectId().ToString()),
             MessageType   = messageType,
@@ -144,49 +144,49 @@ public sealed class LiteInboxStore : IInboxStore
             FromDid       = fromDid,
             WireId        = wireId,
             ReceivedAt    = DateTimeOffset.UtcNow,
-            Status        = InboxMessageStatus.Pending,
+            Status        = InboundMessageStatus.Pending,
         };
 
-        _ctx.InboxMessages.Insert(message);
+        _ctx.InboundMessages.Insert(message);
         _log.LogDebug("Inbox: enqueued message{NL}{Body}",
             Environment.NewLine, message.ToFormattedJson());
         return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public Task<InboxMessage?> GetByIdAsync(string didUrl, CancellationToken ct = default)
+    public Task<InboundMessage?> GetByIdAsync(string didUrl, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         // Id is now a full DID URL. Match directly on the Id field.
-        var msg = _ctx.InboxMessages.FindOne(m => m.Id == didUrl);
-        return Task.FromResult<InboxMessage?>(msg);
+        var msg = _ctx.InboundMessages.FindOne(m => m.Id == didUrl);
+        return Task.FromResult<InboundMessage?>(msg);
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<InboxMessage>> DequeueBatchAsync(
+    public Task<IReadOnlyList<InboundMessage>> DequeueBatchAsync(
         int batchSize = 20, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
-        var col     = _ctx.InboxMessages;
+        var col     = _ctx.InboundMessages;
         var pending = col
-            .Find(m => m.Status == InboxMessageStatus.Pending)
+            .Find(m => m.Status == InboundMessageStatus.Pending)
             .OrderBy(m => m.ReceivedAt)
             .Take(batchSize)
             .ToList();
 
         if (pending.Count == 0)
-            return Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
+            return Task.FromResult<IReadOnlyList<InboundMessage>>(Array.Empty<InboundMessage>());
 
         // Atomically mark batch as Processing
         foreach (var msg in pending)
         {
-            msg.Status = InboxMessageStatus.Processing;
+            msg.Status = InboundMessageStatus.Processing;
             col.Update(msg);
         }
 
         _log.LogDebug("Inbox: dequeued {Count} messages for processing", pending.Count);
-        return Task.FromResult<IReadOnlyList<InboxMessage>>(pending);
+        return Task.FromResult<IReadOnlyList<InboundMessage>>(pending);
     }
 
     /// <inheritdoc/>
@@ -194,7 +194,7 @@ public sealed class LiteInboxStore : IInboxStore
     {
         ct.ThrowIfCancellationRequested();
 
-        var col = _ctx.InboxMessages;
+        var col = _ctx.InboundMessages;
         var msg = col.FindOne(m => m.Id == messageDid);
         if (msg is null)
         {
@@ -202,7 +202,7 @@ public sealed class LiteInboxStore : IInboxStore
             return Task.CompletedTask;
         }
 
-        msg.Status      = InboxMessageStatus.Processed;
+        msg.Status      = InboundMessageStatus.Processed;
         msg.ProcessedAt = DateTimeOffset.UtcNow;
         col.Update(msg);
 
@@ -217,7 +217,7 @@ public sealed class LiteInboxStore : IInboxStore
     {
         ct.ThrowIfCancellationRequested();
 
-        var col = _ctx.InboxMessages;
+        var col = _ctx.InboundMessages;
         var msg = col.FindOne(m => m.Id == messageId);
         if (msg is null)
         {
@@ -230,14 +230,14 @@ public sealed class LiteInboxStore : IInboxStore
 
         if (retry && msg.AttemptCount < maxAttempts)
         {
-            msg.Status = InboxMessageStatus.Pending;   // will be retried on next sweep
+            msg.Status = InboundMessageStatus.Pending;   // will be retried on next sweep
             _log.LogWarning(
                 "Inbox: message {Id} failed (attempt {Attempt}/{Max}) — requeued. Error: {Error}",
                 messageId, msg.AttemptCount, maxAttempts, error);
         }
         else
         {
-            msg.Status = InboxMessageStatus.Failed;    // dead-letter
+            msg.Status = InboundMessageStatus.Failed;    // dead-letter
             _log.LogError(
                 "Inbox: message {Id} permanently failed after {Attempt} attempt(s). Error: {Error}",
                 messageId, msg.AttemptCount, error);
@@ -252,12 +252,12 @@ public sealed class LiteInboxStore : IInboxStore
     {
         ct.ThrowIfCancellationRequested();
 
-        var col   = _ctx.InboxMessages;
-        var stuck = col.Find(m => m.Status == InboxMessageStatus.Processing).ToList();
+        var col   = _ctx.InboundMessages;
+        var stuck = col.Find(m => m.Status == InboundMessageStatus.Processing).ToList();
 
         foreach (var msg in stuck)
         {
-            msg.Status = InboxMessageStatus.Pending;
+            msg.Status = InboundMessageStatus.Pending;
             col.Update(msg);
         }
 
@@ -270,47 +270,47 @@ public sealed class LiteInboxStore : IInboxStore
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(
+    public Task<IReadOnlyDictionary<InboundMessageStatus, int>> GetStatusCountsAsync(
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
-        var counts = _ctx.InboxMessages
+        var counts = _ctx.InboundMessages
             .FindAll()
             .GroupBy(m => m.Status)
             .ToDictionary(g => g.Key, g => g.Count());
 
         // Ensure all statuses are present even when count is zero
-        foreach (InboxMessageStatus s in Enum.GetValues<InboxMessageStatus>())
+        foreach (InboundMessageStatus s in Enum.GetValues<InboundMessageStatus>())
             counts.TryAdd(s, 0);
 
-        return Task.FromResult<IReadOnlyDictionary<InboxMessageStatus, int>>(counts);
+        return Task.FromResult<IReadOnlyDictionary<InboundMessageStatus, int>>(counts);
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(
+    public Task<IReadOnlyList<InboundMessage>> ListByTypeAsync(
         string typePrefix, int limit = 50, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
-        var messages = _ctx.InboxMessages
-            .Find(m => m.MessageType.StartsWith(typePrefix) && m.Status == InboxMessageStatus.Processed)
+        var messages = _ctx.InboundMessages
+            .Find(m => m.MessageType.StartsWith(typePrefix) && m.Status == InboundMessageStatus.Processed)
             .OrderByDescending(m => m.ReceivedAt)
             .Take(limit)
             .ToList();
 
-        return Task.FromResult<IReadOnlyList<InboxMessage>>(messages);
+        return Task.FromResult<IReadOnlyList<InboundMessage>>(messages);
     }
 }
 
 /// <summary>
-/// IProcessedOrderStore implementation backed by InboxLiteContext (svrn7-inbox.db).
+/// IProcessedOrderStore implementation backed by MsgLiteContext (svrn7-msg.db).
 /// </summary>
 public sealed class LiteProcessedOrderStore : IProcessedOrderStore
 {
-    private readonly InboxLiteContext _ctx;
+    private readonly MsgLiteContext _ctx;
 
-    public LiteProcessedOrderStore(InboxLiteContext ctx) => _ctx = ctx;
+    public LiteProcessedOrderStore(MsgLiteContext ctx) => _ctx = ctx;
 
     public Task<string?> GetReceiptAsync(string transferId, CancellationToken ct = default)
     {
@@ -334,38 +334,38 @@ public sealed class LiteProcessedOrderStore : IProcessedOrderStore
 }
 
 
-// ── LiteOutboxStore ───────────────────────────────────────────────────────────
+// ── LiteDeadLetterStore ───────────────────────────────────────────────────────
 
 /// <summary>
-/// IOutboxStore implementation backed by InboxLiteContext (svrn7-inbox.db).
+/// IDeadLetterStore implementation backed by MsgLiteContext (svrn7-msg.db).
 /// Dead-letter store for failed outbound DIDComm messages.
 /// </summary>
-public sealed class LiteOutboxStore : Svrn7.Core.Interfaces.IOutboxStore
+public sealed class LiteDeadLetterStore : Svrn7.Core.Interfaces.IDeadLetterStore
 {
-    private readonly InboxLiteContext _ctx;
-    public LiteOutboxStore(InboxLiteContext ctx) => _ctx = ctx;
+    private readonly MsgLiteContext _ctx;
+    public LiteDeadLetterStore(MsgLiteContext ctx) => _ctx = ctx;
 
-    public Task EnqueueAsync(OutboxRecord record, CancellationToken ct = default)
+    public Task EnqueueAsync(DeadLetterRecord record, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        _ctx.Outbox.Insert(record);
+        _ctx.DeadLetter.Insert(record);
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<OutboxRecord>> GetPendingAsync(CancellationToken ct = default)
+    public Task<IReadOnlyList<DeadLetterRecord>> GetPendingAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        var records = _ctx.Outbox.Find(r => !r.IsRetried).ToList();
-        return Task.FromResult<IReadOnlyList<OutboxRecord>>(records);
+        var records = _ctx.DeadLetter.Find(r => !r.IsRetried).ToList();
+        return Task.FromResult<IReadOnlyList<DeadLetterRecord>>(records);
     }
 
     public Task MarkRetriedAsync(string id, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        var record = _ctx.Outbox.FindOne(r => r.Id == id);
+        var record = _ctx.DeadLetter.FindOne(r => r.Id == id);
         if (record is null) return Task.CompletedTask;
         record.IsRetried = true;
-        _ctx.Outbox.Update(record);
+        _ctx.DeadLetter.Update(record);
         return Task.CompletedTask;
     }
 }

@@ -1647,7 +1647,7 @@ function Remove-Svrn7Databases {
             svrn7.db        — wallets, UTXOs, citizens, societies, Merkle log
             svrn7-dids.db   — DID Documents and verification methods
             svrn7-vcs.db    — Verifiable Credentials
-            svrn7-inbox.db  — DIDComm inbox, outbox, processed orders
+            svrn7-msg.db  — DIDComm inbox, outbox, processed orders
             svrn7-schemas.db— JSON Schema 2020-12 registry
 
         LiteDB also writes a companion journal file alongside each database
@@ -1669,8 +1669,8 @@ function Remove-Svrn7Databases {
     .PARAMETER VcsDbPath
         Path to svrn7-vcs.db. Default: data/svrn7-vcs.db
 
-    .PARAMETER InboxDbPath
-        Path to svrn7-inbox.db. Default: data/svrn7-inbox.db
+    .PARAMETER MsgDbPath
+        Path to svrn7-msg.db. Default: data/svrn7-msg.db
 
     .PARAMETER SchemasDbPath
         Path to svrn7-schemas.db. Default: data/svrn7-schemas.db
@@ -1695,7 +1695,7 @@ function Remove-Svrn7Databases {
         Remove-Svrn7Databases -Svrn7DbPath tests/data/svrn7.db `
                               -DidsDbPath   tests/data/svrn7-dids.db `
                               -VcsDbPath    tests/data/svrn7-vcs.db `
-                              -InboxDbPath  tests/data/svrn7-inbox.db `
+                              -MsgDbPath  tests/data/svrn7-msg.db `
                               -SchemasDbPath tests/data/svrn7-schemas.db `
                               -Confirm:$false
     #>
@@ -1705,7 +1705,7 @@ function Remove-Svrn7Databases {
         [string] $Svrn7DbPath   = 'data/svrn7.db',
         [string] $DidsDbPath    = 'data/svrn7-dids.db',
         [string] $VcsDbPath     = 'data/svrn7-vcs.db',
-        [string] $InboxDbPath   = 'data/svrn7-inbox.db',
+        [string] $MsgDbPath   = 'data/svrn7-msg.db',
         [string] $SchemasDbPath = 'data/svrn7-schemas.db'
     )
 
@@ -1713,7 +1713,7 @@ function Remove-Svrn7Databases {
 
     # Collect every candidate path: the main .db file and its LiteDB journal companion.
     $candidates = foreach ($dbPath in @($Svrn7DbPath, $DidsDbPath, $VcsDbPath,
-                                         $InboxDbPath, $SchemasDbPath)) {
+                                         $MsgDbPath, $SchemasDbPath)) {
         $dbPath
         "$dbPath-log"   # LiteDB 5 journal file written alongside the main database
     }

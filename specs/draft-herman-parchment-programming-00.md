@@ -398,7 +398,7 @@ Visual:     Classic database cylinder (top-cap ellipse + rectangular body).
 - **Derivation rule**: One LiteDB context class (or equivalent store context), one or more
   collection definitions, one store interface (IXxxStore), and one store implementation.
   The database file path is a required configuration parameter.
-- **Web 7.0 example instances**: "Long-Term Message Memory (LiteDB)" → svrn7-inbox.db,
+- **Web 7.0 example instances**: "Long-Term Message Memory (LiteDB)" → svrn7-msg.db,
   "DID Doc Registry (LiteDB)" → svrn7-dids.db,
   "VC Doc Registry (LiteDB)" → svrn7-vcs.db,
   "Schema Registry (LiteDB)" [Conditional: Society TDA Only] → svrn7-schemas.db.
@@ -645,7 +645,7 @@ This zone structure directly generates the layered implementation specification:
 - Layer 2: DIDComm Pack/Unpack boundary (DIDCommPackingService)
 - Layer 3: LOBEs (PowerShell modules: Svrn7.Federation.0.8.0.psm1, Svrn7.Society.0.8.0.psm1, ...)
 - Layer 4: Runspace Pool and agents (IsolatedRunspaceFactory, agent scripts, Switchboard)
-- Layer 5: Storage (Data Storage databases: svrn7.db, svrn7-dids.db, svrn7-vcs.db, svrn7-inbox.db)
+- Layer 5: Storage (Data Storage databases: svrn7.db, svrn7-dids.db, svrn7-vcs.db, svrn7-msg.db)
 
 ---
 

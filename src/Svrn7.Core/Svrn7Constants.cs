@@ -179,7 +179,7 @@ public static class TdaResourceId
     public static string Build(string networkId, string db, string type, string key)
         => $"did:drn:{networkId}/{db}/{type}/{key}";
 
-    public static string InboxMessage(string networkId, string objectIdHex)
+    public static string InboundMessage(string networkId, string objectIdHex)
         => $"did:drn:{networkId}/inbox/msg/{objectIdHex}";
 
     /// <summary>Processed order DID URL. Key = LiteDB ObjectId 24-char hex.</summary>

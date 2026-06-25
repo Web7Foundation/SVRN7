@@ -45,7 +45,7 @@ public sealed class DIDCommMessageSwitchboard
     private readonly Svrn7RunspaceContext                _ctx;
     private readonly IsolatedRunspaceFactory                _pool;
     private readonly IInboxStore                        _inbox;
-    private readonly Svrn7.Core.Interfaces.IOutboxStore _outbox;
+    private readonly Svrn7.Core.Interfaces.IDeadLetterStore _deadLetter;
     private readonly LobeManager                        _lobes;
     private readonly IHttpClientFactory     _httpFactory;
     private readonly WebSocketNotifyHub     _hub;
@@ -55,7 +55,7 @@ public sealed class DIDCommMessageSwitchboard
 
     // Outbound queue: task LOBEs post packed messages here;
     // the drain loop delivers via HttpClient.
-    private readonly ConcurrentQueue<OutboundMessage> _outboundQueue = new();
+    private readonly ConcurrentQueue<OutboundEnvelope> _outboundQueue = new();
 
     private const int BatchSize                    = 20;
     private const int TransactionalMaxAttempts    = Svrn7.Core.Svrn7Constants.InboxMaxAttempts;
@@ -71,7 +71,7 @@ public sealed class DIDCommMessageSwitchboard
         Svrn7RunspaceContext                ctx,
         IsolatedRunspaceFactory                 pool,
         IInboxStore                         inbox,
-        Svrn7.Core.Interfaces.IOutboxStore  outbox,
+        Svrn7.Core.Interfaces.IDeadLetterStore deadLetter,
         LobeManager                         lobes,
         IHttpClientFactory                  httpFactory,
         WebSocketNotifyHub                  hub,
@@ -82,7 +82,7 @@ public sealed class DIDCommMessageSwitchboard
         _ctx         = ctx;
         _pool        = pool;
         _inbox       = inbox;
-        _outbox      = outbox;
+        _deadLetter  = deadLetter;
         _lobes       = lobes;
         _httpFactory = httpFactory;
         _hub         = hub;
@@ -102,7 +102,7 @@ public sealed class DIDCommMessageSwitchboard
     ///
     ///   2. Dead-letter outbox — any outbound message that exhausted all delivery attempts
     ///      in the previous session is re-enqueued into the outbound queue for another round
-    ///      of retries. The operator can inspect <c>svrn7-inbox.db</c> for persistent failures.
+    ///      of retries. The operator can inspect <c>svrn7-msg.db</c> for persistent failures.
     /// </summary>
     public async Task StartupAsync(CancellationToken ct)
     {
@@ -121,14 +121,14 @@ public sealed class DIDCommMessageSwitchboard
         // 2. Re-enqueue dead-lettered outbound messages from the previous session.
         try
         {
-            var pending = await _outbox.GetPendingAsync(ct);
+            var pending = await _deadLetter.GetPendingAsync(ct);
             if (pending.Count > 0)
             {
                 _log.LogInformation(
                     "Switchboard: re-enqueuing {Count} dead-lettered outbound message(s) from prior session.",
                     pending.Count);
                 foreach (var record in pending)
-                    _outboundQueue.Enqueue(new OutboundMessage(record.PeerEndpoint, record.PackedMessage));
+                    _outboundQueue.Enqueue(new OutboundEnvelope(record.PeerEndpoint, record.PackedMessage));
             }
         }
         catch (Exception ex)
@@ -192,7 +192,7 @@ public sealed class DIDCommMessageSwitchboard
 
     // ── Dispatch ──────────────────────────────────────────────────────────────
 
-    private async Task DispatchAsync(InboxMessage msg, CancellationToken ct)
+    private async Task DispatchAsync(InboundMessage msg, CancellationToken ct)
     {
         using var activity = Svrn7Telemetry.Source.StartActivity(
             Svrn7Telemetry.ActivityDispatch,
@@ -430,7 +430,7 @@ public sealed class DIDCommMessageSwitchboard
         // Enqueue any outbound messages returned by the pipeline.
         foreach (var result in results)
         {
-            if (result?.BaseObject is OutboundMessage outbound)
+            if (result?.BaseObject is OutboundEnvelope outbound)
                 _outboundQueue.Enqueue(outbound);
         }
     }
@@ -575,10 +575,10 @@ public sealed class DIDCommMessageSwitchboard
     /// <summary>
     /// Enqueues a packed outbound DIDComm message for delivery.
     /// Called by LOBE cmdlets via the <c>Enqueue-Svrn7Message</c> cmdlet wrapper,
-    /// which posts an <see cref="OutboundMessage"/> to this queue.
+    /// which posts an <see cref="OutboundEnvelope"/> to this queue.
     /// </summary>
     public void EnqueueOutbound(string peerEndpoint, string packedMessage)
-        => _outboundQueue.Enqueue(new OutboundMessage(peerEndpoint, packedMessage));
+        => _outboundQueue.Enqueue(new OutboundEnvelope(peerEndpoint, packedMessage));
 
     /// <summary>
     /// Number of outbound messages waiting in the in-memory delivery queue.
@@ -597,7 +597,7 @@ public sealed class DIDCommMessageSwitchboard
         }
     }
 
-    private async Task DeliverOutboundAsync(OutboundMessage msg, CancellationToken ct)
+    private async Task DeliverOutboundAsync(OutboundEnvelope msg, CancellationToken ct)
     {
         using var deliverActivity = Svrn7Telemetry.Source.StartActivity(
             Svrn7Telemetry.ActivityDeliver,
@@ -689,7 +689,7 @@ public sealed class DIDCommMessageSwitchboard
         var outboxId  = Svrn7.Core.TdaResourceId.Build(
             networkId, "inbox", "outbox", LiteDB.ObjectId.NewObjectId().ToString());
 
-        await _outbox.EnqueueAsync(new Svrn7.Core.Models.OutboxRecord
+        await _deadLetter.EnqueueAsync(new Svrn7.Core.Models.DeadLetterRecord
         {
             Id            = outboxId,
             PeerEndpoint  = msg.PeerEndpoint,
@@ -701,10 +701,10 @@ public sealed class DIDCommMessageSwitchboard
     }
 }
 
-// ── OutboundMessage ───────────────────────────────────────────────────────────
+// ── OutboundEnvelope ───────────────────────────────────────────────────────────
 
 /// <summary>
 /// Outbound DIDComm message waiting for delivery by the Switchboard.
 /// LOBE cmdlets return this from the pipeline; the Switchboard delivers via HttpClient.
 /// </summary>
-public sealed record OutboundMessage(string PeerEndpoint, string PackedMessage);
+public sealed record OutboundEnvelope(string PeerEndpoint, string PackedMessage);

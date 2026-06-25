@@ -881,8 +881,8 @@ MUST be persisted to the `IOutboxStore` dead-letter outbox rather than silently 
 On TDA startup, `DIDCommMessageSwitchboard.StartupAsync` calls `IOutboxStore.GetPendingAsync()`
 and re-enqueues pending records from the prior session.
 
-The outbox is backed by `svrn7-inbox.db` (the same LiteDB file as the inbox, shared
-via `InboxLiteContext`). Records are stored in an `Outbox` collection:
+The outbox is backed by `svrn7-msg.db` (the same LiteDB file as the inbox, shared
+via `MsgLiteContext`). Records are stored in a `DeadLetter` collection:
 
 ```
 Id:           TDA resource DID URL (did:drn:{networkId}/inbox/outbox/{objectId})

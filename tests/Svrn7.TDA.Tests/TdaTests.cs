@@ -23,10 +23,10 @@ public class TdaResourceIdTests
     // ── Build / parse round-trips ─────────────────────────────────────────────
 
     [Fact]
-    public void InboxMessage_RoundTrip()
+    public void InboundMessage_RoundTrip()
     {
         var objectId = ObjectId.NewObjectId().ToString();
-        var didUrl   = TdaResourceId.InboxMessage(Network, objectId);
+        var didUrl   = TdaResourceId.InboundMessage(Network, objectId);
 
         didUrl.Should().Be($"did:drn:{Network}/inbox/msg/{objectId}");
         TdaResourceId.ParseKey(didUrl).Should().Be(objectId);
@@ -133,7 +133,7 @@ public class TdaResourceIdTests
     {
         var builders = new[]
         {
-            TdaResourceId.InboxMessage(Network, "abc"),
+            TdaResourceId.InboundMessage(Network, "abc"),
             TdaResourceId.Citizen(Network, "alice"),
             TdaResourceId.Wallet(Network, "alice"),
             TdaResourceId.Utxo(Network, new string('a', 64)),
@@ -156,13 +156,13 @@ public class TdaResourceIdTests
 
 public class LiteInboxStoreDIDUrlTests : IDisposable
 {
-    private readonly InboxLiteContext   _ctx;
+    private readonly MsgLiteContext   _ctx;
     private readonly LiteInboxStore     _store;
     private const string                SocietyDid = "did:drn:alpha.svrn7.net";
 
     public LiteInboxStoreDIDUrlTests()
     {
-        _ctx   = new InboxLiteContext(":memory:");
+        _ctx   = new MsgLiteContext(":memory:");
         var opts = Options.Create(new Svrn7SocietyOptions { SocietyDid = SocietyDid });
         _store = new LiteInboxStore(_ctx, opts, NullLogger<LiteInboxStore>.Instance);
     }
@@ -173,7 +173,7 @@ public class LiteInboxStoreDIDUrlTests : IDisposable
         await _store.EnqueueAsync("test/1.0/msg", "payload");
 
         var counts = await _store.GetStatusCountsAsync();
-        counts[InboxMessageStatus.Pending].Should().Be(1);
+        counts[InboundMessageStatus.Pending].Should().Be(1);
 
         var batch = await _store.DequeueBatchAsync(1);
         batch.Should().HaveCount(1);
@@ -200,7 +200,7 @@ public class LiteInboxStoreDIDUrlTests : IDisposable
     [Fact]
     public async Task GetByIdAsync_Returns_Null_For_Unknown_DID_URL()
     {
-        var unknown = TdaResourceId.InboxMessage("alpha.svrn7.net",
+        var unknown = TdaResourceId.InboundMessage("alpha.svrn7.net",
             ObjectId.NewObjectId().ToString());
         var result  = await _store.GetByIdAsync(unknown);
         result.Should().BeNull();
@@ -216,8 +216,8 @@ public class LiteInboxStoreDIDUrlTests : IDisposable
         await _store.MarkProcessedAsync(didUrl);
 
         var counts = await _store.GetStatusCountsAsync();
-        counts.ContainsKey(InboxMessageStatus.Processed).Should().BeTrue();
-        counts[InboxMessageStatus.Processed].Should().Be(1);
+        counts.ContainsKey(InboundMessageStatus.Processed).Should().BeTrue();
+        counts[InboundMessageStatus.Processed].Should().Be(1);
     }
 
     [Fact]
@@ -817,13 +817,13 @@ public class LobeManagerRegistryTests : IDisposable
 internal sealed class NullInboxStore : Svrn7.Core.Interfaces.IInboxStore
 {
     public Task EnqueueAsync(string t, string p, string? fromDid = null, string? wireId = null, string? jweEnvelope = null, CancellationToken ct = default) => Task.CompletedTask;
-    public Task<Svrn7.Core.Models.InboxMessage?> GetByIdAsync(string id, CancellationToken ct = default) => Task.FromResult<Svrn7.Core.Models.InboxMessage?>(null);
-    public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboxMessage>> DequeueBatchAsync(int b = 20, CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboxMessage>>(Array.Empty<Svrn7.Core.Models.InboxMessage>());
+    public Task<Svrn7.Core.Models.InboundMessage?> GetByIdAsync(string id, CancellationToken ct = default) => Task.FromResult<Svrn7.Core.Models.InboundMessage?>(null);
+    public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboundMessage>> DequeueBatchAsync(int b = 20, CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboundMessage>>(Array.Empty<Svrn7.Core.Models.InboundMessage>());
     public Task MarkProcessedAsync(string id, CancellationToken ct = default) => Task.CompletedTask;
     public Task MarkFailedAsync(string id, string err, bool retry = true, int max = Svrn7Constants.InboxMaxAttempts, CancellationToken ct = default) => Task.CompletedTask;
     public Task ResetStuckMessagesAsync(CancellationToken ct = default) => Task.CompletedTask;
-    public Task<System.Collections.Generic.IReadOnlyDictionary<Svrn7.Core.Models.InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyDictionary<Svrn7.Core.Models.InboxMessageStatus, int>>(new System.Collections.Generic.Dictionary<Svrn7.Core.Models.InboxMessageStatus, int>());
-    public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboxMessage>>(System.Array.Empty<Svrn7.Core.Models.InboxMessage>());
+    public Task<System.Collections.Generic.IReadOnlyDictionary<Svrn7.Core.Models.InboundMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyDictionary<Svrn7.Core.Models.InboundMessageStatus, int>>(new System.Collections.Generic.Dictionary<Svrn7.Core.Models.InboundMessageStatus, int>());
+    public Task<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboundMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<System.Collections.Generic.IReadOnlyList<Svrn7.Core.Models.InboundMessage>>(System.Array.Empty<Svrn7.Core.Models.InboundMessage>());
 }
 
 internal sealed class NullProcessedOrderStore : Svrn7.Core.Interfaces.IProcessedOrderStore
@@ -977,10 +977,10 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
         _inbox.Messages[0].Type.Should().Be("test/1.0/msg");
     }
 
-    // ── 415 Unsupported Media Type: non-encrypted content type ───────────────
+    // ── 415 Unsupported Media Type: unrecognised content type ────────────────
 
     [Fact]
-    public async Task Post_PlaintextContentType_Returns415_DoesNotEnqueue()
+    public async Task Post_UnrecognisedContentType_Returns415_DoesNotEnqueue()
     {
         AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
         using var handler = new SocketsHttpHandler();
@@ -991,12 +991,15 @@ public sealed class KestrelListenerServiceIntegrationTests : IAsyncLifetime
             DefaultVersionPolicy  = HttpVersionPolicy.RequestVersionOrHigher,
         };
 
+        // application/json is not a DIDComm content type — must be rejected at the
+        // content-type gate before any body parsing. application/didcomm-plain+json
+        // is recognised (though restricted to discovery protocols) and does not get 415.
         var response = await client.PostAsync("/didcomm",
-            new StringContent("plaintext-body",
-                System.Text.Encoding.UTF8, "application/didcomm-plain+json"));
+            new StringContent("{\"type\":\"test\"}",
+                System.Text.Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.UnsupportedMediaType,
-            because: "POST /didcomm must reject non-encrypted content types");
+            because: "POST /didcomm must reject content types other than the two DIDComm media types");
         _inbox.Messages.Should().BeEmpty(
             because: "a rejected message must not be enqueued");
     }
@@ -1093,19 +1096,19 @@ internal sealed class RecordingInboxStore : IInboxStore
         return Task.CompletedTask;
     }
 
-    public Task<InboxMessage?> GetByIdAsync(string objectId, CancellationToken ct = default) =>
-        Task.FromResult<InboxMessage?>(null);
-    public Task<IReadOnlyList<InboxMessage>> DequeueBatchAsync(int batchSize = 20, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
+    public Task<InboundMessage?> GetByIdAsync(string objectId, CancellationToken ct = default) =>
+        Task.FromResult<InboundMessage?>(null);
+    public Task<IReadOnlyList<InboundMessage>> DequeueBatchAsync(int batchSize = 20, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<InboundMessage>>(Array.Empty<InboundMessage>());
     public Task MarkProcessedAsync(string messageId, CancellationToken ct = default) => Task.CompletedTask;
     public Task MarkFailedAsync(string messageId, string error, bool retry = true, int maxAttempts = Svrn7Constants.InboxMaxAttempts, CancellationToken ct = default) =>
         Task.CompletedTask;
     public Task ResetStuckMessagesAsync(CancellationToken ct = default) => Task.CompletedTask;
-    public Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyDictionary<InboxMessageStatus, int>>(
-            new Dictionary<InboxMessageStatus, int>());
-    public Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
+    public Task<IReadOnlyDictionary<InboundMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyDictionary<InboundMessageStatus, int>>(
+            new Dictionary<InboundMessageStatus, int>());
+    public Task<IReadOnlyList<InboundMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<InboundMessage>>(Array.Empty<InboundMessage>());
 }
 
 /// <summary>Stub IDIDCommService: UnpackAsync always returns a pre-configured message.</summary>
@@ -1204,13 +1207,13 @@ public class Svrn7ConstantsInboxReliabilityTests
 
 public class LiteInboxStoreStuckMessageTests : IDisposable
 {
-    private readonly InboxLiteContext   _ctx;
+    private readonly MsgLiteContext   _ctx;
     private readonly LiteInboxStore     _store;
     private const string                SocietyDid = "did:drn:alpha.svrn7.net";
 
     public LiteInboxStoreStuckMessageTests()
     {
-        _ctx   = new InboxLiteContext(":memory:");
+        _ctx   = new MsgLiteContext(":memory:");
         var opts = Options.Create(new Svrn7SocietyOptions { SocietyDid = SocietyDid });
         _store = new LiteInboxStore(_ctx, opts, NullLogger<LiteInboxStore>.Instance);
     }
@@ -1225,16 +1228,16 @@ public class LiteInboxStoreStuckMessageTests : IDisposable
         batch.Should().HaveCount(2);
 
         var counts = await _store.GetStatusCountsAsync();
-        counts[InboxMessageStatus.Processing].Should().Be(2,
+        counts[InboundMessageStatus.Processing].Should().Be(2,
             because: "DequeueBatchAsync moves messages to Processing");
 
         // Simulate an unclean shutdown recovery.
         await _store.ResetStuckMessagesAsync();
 
         counts = await _store.GetStatusCountsAsync();
-        counts.TryGetValue(InboxMessageStatus.Processing, out var processing);
+        counts.TryGetValue(InboundMessageStatus.Processing, out var processing);
         processing.Should().Be(0, because: "ResetStuckMessagesAsync clears all Processing messages");
-        counts[InboxMessageStatus.Pending].Should().Be(2,
+        counts[InboundMessageStatus.Pending].Should().Be(2,
             because: "stuck messages are restored to Pending for re-processing");
     }
 
@@ -1248,8 +1251,8 @@ public class LiteInboxStoreStuckMessageTests : IDisposable
         await _store.ResetStuckMessagesAsync();
 
         var counts = await _store.GetStatusCountsAsync();
-        counts[InboxMessageStatus.Processed].Should().Be(1);
-        counts.TryGetValue(InboxMessageStatus.Pending, out var pending);
+        counts[InboundMessageStatus.Processed].Should().Be(1);
+        counts.TryGetValue(InboundMessageStatus.Pending, out var pending);
         pending.Should().Be(0);
     }
 
@@ -1264,9 +1267,9 @@ public class LiteInboxStoreStuckMessageTests : IDisposable
         await _store.ResetStuckMessagesAsync();
 
         var counts = await _store.GetStatusCountsAsync();
-        counts[InboxMessageStatus.Failed].Should().Be(1,
+        counts[InboundMessageStatus.Failed].Should().Be(1,
             because: "Failed messages are permanently dead-lettered and must not be reset");
-        counts.TryGetValue(InboxMessageStatus.Pending, out var pending);
+        counts.TryGetValue(InboundMessageStatus.Pending, out var pending);
         pending.Should().Be(0);
     }
 
@@ -1297,7 +1300,7 @@ public class SwitchboardStartupTests : IDisposable
     public async Task StartupAsync_Calls_ResetStuckMessages()
     {
         var inbox      = new TrackingInboxStore();
-        var outbox     = new TrackingOutboxStore(Array.Empty<Svrn7.Core.Models.OutboxRecord>());
+        var outbox     = new TrackingDeadLetterStore(Array.Empty<Svrn7.Core.Models.DeadLetterRecord>());
         var switchboard = CreateSwitchboard(inbox, outbox);
 
         await switchboard.StartupAsync(CancellationToken.None);
@@ -1310,7 +1313,7 @@ public class SwitchboardStartupTests : IDisposable
     public async Task StartupAsync_Calls_GetPendingOutbox()
     {
         var inbox      = new TrackingInboxStore();
-        var outbox     = new TrackingOutboxStore(Array.Empty<Svrn7.Core.Models.OutboxRecord>());
+        var outbox     = new TrackingDeadLetterStore(Array.Empty<Svrn7.Core.Models.DeadLetterRecord>());
         var switchboard = CreateSwitchboard(inbox, outbox);
 
         await switchboard.StartupAsync(CancellationToken.None);
@@ -1325,7 +1328,7 @@ public class SwitchboardStartupTests : IDisposable
         var inbox = new TrackingInboxStore();
         var pending = new[]
         {
-            new Svrn7.Core.Models.OutboxRecord
+            new Svrn7.Core.Models.DeadLetterRecord
             {
                 Id            = TdaResourceId.Build("test.svrn7.net", "inbox", "outbox",
                                     LiteDB.ObjectId.NewObjectId().ToString()),
@@ -1334,7 +1337,7 @@ public class SwitchboardStartupTests : IDisposable
                 MessageType   = "outbound",
                 AttemptCount  = 3,
             },
-            new Svrn7.Core.Models.OutboxRecord
+            new Svrn7.Core.Models.DeadLetterRecord
             {
                 Id            = TdaResourceId.Build("test.svrn7.net", "inbox", "outbox",
                                     LiteDB.ObjectId.NewObjectId().ToString()),
@@ -1344,7 +1347,7 @@ public class SwitchboardStartupTests : IDisposable
                 AttemptCount  = 3,
             },
         };
-        var outbox      = new TrackingOutboxStore(pending);
+        var outbox      = new TrackingDeadLetterStore(pending);
         var switchboard = CreateSwitchboard(inbox, outbox);
 
         await switchboard.StartupAsync(CancellationToken.None);
@@ -1357,7 +1360,7 @@ public class SwitchboardStartupTests : IDisposable
     public async Task StartupAsync_Continues_If_InboxStore_Throws()
     {
         var inbox      = new ThrowingResetInboxStore();
-        var outbox     = new TrackingOutboxStore(Array.Empty<Svrn7.Core.Models.OutboxRecord>());
+        var outbox     = new TrackingDeadLetterStore(Array.Empty<Svrn7.Core.Models.DeadLetterRecord>());
         var switchboard = CreateSwitchboard(inbox, outbox);
 
         // StartupAsync must not propagate the exception — it is best-effort.
@@ -1373,7 +1376,7 @@ public class SwitchboardStartupTests : IDisposable
     public async Task StartupAsync_Empty_Outbox_Does_Not_Enqueue_Anything()
     {
         var inbox      = new TrackingInboxStore();
-        var outbox     = new TrackingOutboxStore(Array.Empty<Svrn7.Core.Models.OutboxRecord>());
+        var outbox     = new TrackingDeadLetterStore(Array.Empty<Svrn7.Core.Models.DeadLetterRecord>());
         var switchboard = CreateSwitchboard(inbox, outbox);
 
         await switchboard.StartupAsync(CancellationToken.None);
@@ -1385,7 +1388,7 @@ public class SwitchboardStartupTests : IDisposable
 
     private DIDCommMessageSwitchboard CreateSwitchboard(
         IInboxStore inbox,
-        Svrn7.Core.Interfaces.IOutboxStore outbox,
+        Svrn7.Core.Interfaces.IDeadLetterStore outbox,
         TdaOptions? overrideOpts = null)
     {
         var tdaOpts = overrideOpts ?? new TdaOptions
@@ -1564,12 +1567,12 @@ internal sealed class TrackingInboxStore : IInboxStore
     public bool ResetStuckCalled { get; private set; }
 
     public Task EnqueueAsync(string t, string p, string? fromDid = null, string? wireId = null, string? jweEnvelope = null, CancellationToken ct = default) => Task.CompletedTask;
-    public Task<InboxMessage?> GetByIdAsync(string id, CancellationToken ct = default) => Task.FromResult<InboxMessage?>(null);
-    public Task<IReadOnlyList<InboxMessage>> DequeueBatchAsync(int b = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
+    public Task<InboundMessage?> GetByIdAsync(string id, CancellationToken ct = default) => Task.FromResult<InboundMessage?>(null);
+    public Task<IReadOnlyList<InboundMessage>> DequeueBatchAsync(int b = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboundMessage>>(Array.Empty<InboundMessage>());
     public Task MarkProcessedAsync(string id, CancellationToken ct = default) => Task.CompletedTask;
     public Task MarkFailedAsync(string id, string err, bool retry = true, int maxAttempts = Svrn7Constants.InboxMaxAttempts, CancellationToken ct = default) => Task.CompletedTask;
-    public Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<InboxMessageStatus, int>>(new Dictionary<InboxMessageStatus, int>());
-    public Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
+    public Task<IReadOnlyDictionary<InboundMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<InboundMessageStatus, int>>(new Dictionary<InboundMessageStatus, int>());
+    public Task<IReadOnlyList<InboundMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboundMessage>>(Array.Empty<InboundMessage>());
     public Task ResetStuckMessagesAsync(CancellationToken ct = default)
     {
         ResetStuckCalled = true;
@@ -1577,19 +1580,19 @@ internal sealed class TrackingInboxStore : IInboxStore
     }
 }
 
-/// <summary>IOutboxStore stub: returns a pre-configured list of pending records; tracks whether GetPendingAsync was called.</summary>
-internal sealed class TrackingOutboxStore : Svrn7.Core.Interfaces.IOutboxStore
+/// <summary>IDeadLetterStore stub: returns a pre-configured list of pending records; tracks whether GetPendingAsync was called.</summary>
+internal sealed class TrackingDeadLetterStore : Svrn7.Core.Interfaces.IDeadLetterStore
 {
-    private readonly IReadOnlyList<Svrn7.Core.Models.OutboxRecord> _pending;
+    private readonly IReadOnlyList<Svrn7.Core.Models.DeadLetterRecord> _pending;
     public bool GetPendingCalled { get; private set; }
 
-    public TrackingOutboxStore(IEnumerable<Svrn7.Core.Models.OutboxRecord> pending)
+    public TrackingDeadLetterStore(IEnumerable<Svrn7.Core.Models.DeadLetterRecord> pending)
         => _pending = pending.ToList();
 
-    public Task EnqueueAsync(Svrn7.Core.Models.OutboxRecord record, CancellationToken ct = default)
+    public Task EnqueueAsync(Svrn7.Core.Models.DeadLetterRecord record, CancellationToken ct = default)
         => Task.CompletedTask;
 
-    public Task<IReadOnlyList<Svrn7.Core.Models.OutboxRecord>> GetPendingAsync(CancellationToken ct = default)
+    public Task<IReadOnlyList<Svrn7.Core.Models.DeadLetterRecord>> GetPendingAsync(CancellationToken ct = default)
     {
         GetPendingCalled = true;
         return Task.FromResult(_pending);
@@ -1603,12 +1606,12 @@ internal sealed class TrackingOutboxStore : Svrn7.Core.Interfaces.IOutboxStore
 internal sealed class ThrowingResetInboxStore : IInboxStore
 {
     public Task EnqueueAsync(string t, string p, string? fromDid = null, string? wireId = null, string? jweEnvelope = null, CancellationToken ct = default) => Task.CompletedTask;
-    public Task<InboxMessage?> GetByIdAsync(string id, CancellationToken ct = default) => Task.FromResult<InboxMessage?>(null);
-    public Task<IReadOnlyList<InboxMessage>> DequeueBatchAsync(int b = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
+    public Task<InboundMessage?> GetByIdAsync(string id, CancellationToken ct = default) => Task.FromResult<InboundMessage?>(null);
+    public Task<IReadOnlyList<InboundMessage>> DequeueBatchAsync(int b = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboundMessage>>(Array.Empty<InboundMessage>());
     public Task MarkProcessedAsync(string id, CancellationToken ct = default) => Task.CompletedTask;
     public Task MarkFailedAsync(string id, string err, bool retry = true, int maxAttempts = Svrn7Constants.InboxMaxAttempts, CancellationToken ct = default) => Task.CompletedTask;
-    public Task<IReadOnlyDictionary<InboxMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<InboxMessageStatus, int>>(new Dictionary<InboxMessageStatus, int>());
-    public Task<IReadOnlyList<InboxMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboxMessage>>(Array.Empty<InboxMessage>());
+    public Task<IReadOnlyDictionary<InboundMessageStatus, int>> GetStatusCountsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<InboundMessageStatus, int>>(new Dictionary<InboundMessageStatus, int>());
+    public Task<IReadOnlyList<InboundMessage>> ListByTypeAsync(string typePrefix, int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InboundMessage>>(Array.Empty<InboundMessage>());
     public Task ResetStuckMessagesAsync(CancellationToken ct = default)
         => throw new InvalidOperationException("Simulated inbox store failure on reset.");
 }
