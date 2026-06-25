@@ -140,7 +140,7 @@ namespace Web7.SVRN7.Apps
 
 			try
 			{
-				_store.ReplaceAll(new List<MailMessage>(), folderName);
+				_store.ClearMessages();
 
 				List<EmailSummary> summaries;
 				if (folderName.Equals("Inbox", StringComparison.OrdinalIgnoreCase))

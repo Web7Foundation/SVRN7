@@ -131,9 +131,18 @@ namespace Web7.SVRN7.Apps
 
 		public void UpdateFolderCounts(int inbox, int sent, int deadLetters)
 		{
-			this.UnreadCount     = inbox;
 			this.SentCount       = sent;
 			this.DeadLetterCount = deadLetters;
+		}
+
+		public void ClearMessages()
+		{
+			_messages.RaiseListChangedEvents = false;
+			_messages.Clear();
+			_messages.RaiseListChangedEvents = true;
+			_messages.ResetBindings();
+			_selectedMessage = null;
+			OnPropertyChanged("SelectedMessage");
 		}
 
 		public void ReplaceAll(IList<MailMessage> incoming, string folderName = "Inbox")
