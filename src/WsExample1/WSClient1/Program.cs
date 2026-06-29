@@ -79,7 +79,7 @@ class Program // WSClient
                         .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
                         ?.InformationalVersion ?? "unknown";
 
-                    string attach = $$"""{"type":"attach","instanceId":"{{_instanceId}}","appName":"{{appName}}","appFullName":"{{appFullName}}","mvid":"{{mvid}}","appVersion":"{{appVersion}}"}""";
+                    string attach = JsonSerializer.Serialize(new { type = "attach", instanceId = _instanceId, appName, appFullName, mvid, appVersion });
                     await ws.SendAsync(Encoding.UTF8.GetBytes(attach), WebSocketMessageType.Text, true, cts.Token);
                     Console.WriteLine($"{Ts()} sent: {attach}");
 
@@ -108,7 +108,7 @@ class Program // WSClient
 
                         if (line == "bye")
                         {
-                            string detach = $$"""{"type":"detach","instanceId":"{{_instanceId}}","appName":"{{appName}}","appFullName":"{{appFullName}}","mvid":"{{mvid}}","appVersion":"{{appVersion}}"}""";
+                            string detach = JsonSerializer.Serialize(new { type = "detach", instanceId = _instanceId, appName, appFullName, mvid, appVersion });
                             await ws.SendAsync(Encoding.UTF8.GetBytes(detach), WebSocketMessageType.Text, true, cts.Token);
                             Console.WriteLine($"{Ts()} sent: {detach}");
                             break;

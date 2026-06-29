@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -111,7 +112,7 @@ class Program // WSServer
                     string? reqPath = context.Request.Url?.AbsolutePath.TrimEnd('/');
                     if (reqPath == "/health")
                     {
-                        string healthJson = $$"""{"status":"ok","connections":{{ConnectionCount()}},"maxConnections":{{MaxConnections}},"instanceId":"{{_instanceId}}","appName":"{{_appName}}","appVersion":"{{_appVersion}}"}""";
+                        string healthJson = JsonSerializer.Serialize(new { status = "ok", connections = ConnectionCount(), maxConnections = MaxConnections, instanceId = _instanceId, appName = _appName, appVersion = _appVersion });
                         byte[] healthBytes = Encoding.UTF8.GetBytes(healthJson);
                         context.Response.StatusCode = 200;
                         context.Response.ContentType = "application/json";
@@ -197,7 +198,7 @@ class Program // WSServer
                     {
                         Console.WriteLine($"{Ts()} [{id}] idle timeout ({IdleTimeout.TotalSeconds}s), closing");
 
-                        string timeoutMsg = $$"""{"type":"timeout","instanceId":"{{_instanceId}}","appName":"{{_appName}}","appFullName":"{{_appFullName}}","mvid":"{{_mvid}}","appVersion":"{{_appVersion}}"}""";
+                        string timeoutMsg = JsonSerializer.Serialize(new { type = "timeout", instanceId = _instanceId, appName = _appName, appFullName = _appFullName, mvid = _mvid, appVersion = _appVersion });
                         using CancellationTokenSource sendCts = new(TimeSpan.FromSeconds(5));
                         await sendLock.WaitAsync(sendCts.Token);
                         try { await ws.SendAsync(Encoding.UTF8.GetBytes(timeoutMsg), WebSocketMessageType.Text, true, sendCts.Token); }

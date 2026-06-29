@@ -372,12 +372,6 @@ The idle watchdog must stop both when the connection goes idle (`idleCts.Cancel(
 server shuts down (`ct` cancelled). A linked source responds to either without requiring the
 watchdog to check both tokens explicitly.
 
-**Why JSON is built with raw string literals instead of a serialiser**
-
-The dependency footprint is deliberately zero. Raw string literals (`$$"""..."""`) are readable,
-compile-time constant, and produce no allocations beyond the interpolated values. For the small
-fixed set of message types here, a serialiser adds complexity without benefit.
-
 **Why `_connections` uses `Guid` keys but connections are also identified by the same `id` in logs**
 
 The server-assigned GUID is generated fresh per connection (`Guid.NewGuid()`), not derived from

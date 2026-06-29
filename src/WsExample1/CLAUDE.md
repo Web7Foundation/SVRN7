@@ -79,7 +79,6 @@ llms.txt
 ## Do Not
 
 - Do not enable `<ImplicitUsings>` — all usings must remain explicit
-- Do not use `System.Text.Json.JsonSerializer` or any serializer — JSON is built manually with raw string literals to maintain zero-dependency design
 - Do not call `CloseAsync`/`CloseOutputAsync` with the outer `ct` inside `HandleClientAsync` — use an independent short-lived CTS; `ct` is cancelled during server shutdown before cleanup runs
 - Do not call `ws.SendAsync` without first acquiring `sendLock` — the watchdog and receive loop both send; concurrent sends corrupt the WebSocket frame stream
 - Do not register `Console.CancelKeyPress` inside the reconnect loop — register once before the outer loop targeting the `_cts` static field; registering inside accumulates handlers
