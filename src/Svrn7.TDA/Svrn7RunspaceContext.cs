@@ -35,6 +35,7 @@ namespace Svrn7.TDA;
 public sealed class Svrn7RunspaceContext
 {
     private readonly IInboxStore             _inbox;
+    private readonly IDeadLetterStore        _deadLetter;
     private readonly IMemoryCache            _cache;
     private readonly IProcessedOrderStore    _processedOrders;
     private readonly PendingResolutionStore  _pendingResolutions;
@@ -110,6 +111,7 @@ public sealed class Svrn7RunspaceContext
     public Svrn7RunspaceContext(
         ISvrn7SocietyDriver    driver,
         IInboxStore            inbox,
+        IDeadLetterStore       deadLetter,
         IMemoryCache           cache,
         IProcessedOrderStore   processedOrders,
         PendingResolutionStore pendingResolutions,
@@ -131,6 +133,7 @@ public sealed class Svrn7RunspaceContext
         _federationEndpointUrl = federationEndpointUrl;
         _agentIdentityPath     = agentIdentityPath;
         _inbox                 = inbox;
+        _deadLetter            = deadLetter;
         _cache                 = cache;
         _processedOrders       = processedOrders;
         _pendingResolutions    = pendingResolutions;
@@ -233,7 +236,7 @@ public sealed class Svrn7RunspaceContext
     /// Called by the <c>Invoke-PandoMailList</c> LOBE cmdlet to fulfil
     /// <c>List-Emails</c> protocol requests.
     /// </summary>
-    public async Task<IReadOnlyList<InboxMessageView>> ListEmailsAsync(
+    public async Task<IReadOnlyList<InboundMessageView>> ListEmailsAsync(
         int limit = 50, CancellationToken ct = default)
     {
         // Filter to the inbound email message type only — not protocol control messages
@@ -242,8 +245,69 @@ public sealed class Svrn7RunspaceContext
         const string emailTypePrefix = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail";
         var messages = await _inbox.ListByTypeAsync(emailTypePrefix, limit, ct);
         return messages
-            .Select(m => new InboxMessageView(m.Id, m.MessageType, m.PackedPayload, m.FromDid, m.AttemptCount, m.ReceivedAt))
+            .Select(m => new InboundMessageView(m.Id, m.MessageType, m.PackedPayload, m.FromDid, m.AttemptCount, m.ReceivedAt))
             .ToList();
+    }
+
+    /// <summary>
+    /// Returns up to <paramref name="limit"/> sent email messages (Enqueue-PandoMail type),
+    /// newest-first. Called by the <c>Invoke-PandoMailListSent</c> LOBE cmdlet to fulfil
+    /// <c>List-OutboundEmails</c> protocol requests.
+    /// </summary>
+    public async Task<IReadOnlyList<InboundMessageView>> ListSentEmailsAsync(
+        int limit = 50, CancellationToken ct = default)
+    {
+        const string sentTypePrefix = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Enqueue-PandoMail";
+        var messages = await _inbox.ListByTypeAsync(sentTypePrefix, limit, ct);
+        return messages
+            .Select(m => new InboundMessageView(m.Id, m.MessageType, m.PackedPayload, m.FromDid, m.AttemptCount, m.ReceivedAt))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Returns all pending dead-letter records. Called by the <c>Invoke-PandoMailListDeadLetters</c>
+    /// LOBE cmdlet to fulfil <c>List-DeadLetters</c> protocol requests.
+    /// </summary>
+    public async Task<IReadOnlyList<DeadLetterRecord>> ListDeadLettersAsync(
+        CancellationToken ct = default)
+        => await _deadLetter.GetPendingAsync(ct);
+
+    /// <summary>
+    /// Persists a failed outbound message to the dead-letter store.
+    /// Called by LOBE cmdlets when a delivery attempt fails (e.g. endpoint not found).
+    /// </summary>
+    public async Task EnqueueDeadLetterAsync(
+        string peerEndpoint, string packedMessage, string messageType,
+        string lastError, CancellationToken ct = default)
+    {
+        var record = new DeadLetterRecord
+        {
+            Id            = Svrn7.Core.TdaResourceId.DIDCommMessage(Guid.NewGuid().ToString("N")),
+            PeerEndpoint  = peerEndpoint,
+            PackedMessage = packedMessage,
+            MessageType   = messageType,
+            FailedAt      = DateTimeOffset.UtcNow,
+            AttemptCount  = 1,
+            LastError     = lastError
+        };
+        await _deadLetter.EnqueueAsync(record, ct);
+    }
+
+    // ── Folder count snapshot ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns current message counts for the three PandoMail folder tree nodes.
+    /// Called by the Email LOBE's <c>New-FolderCountsNotification</c> helper after every
+    /// inbox/send/dead-letter operation so PandoMail can update its tree without reloading.
+    /// </summary>
+    public async Task<FolderCounts> CountEmailFoldersAsync(CancellationToken ct = default)
+    {
+        const string inboxType = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Signal-PandoMail";
+        const string sentType  = "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Enqueue-PandoMail";
+        var inbox = await _inbox.ListByTypeAsync(inboxType, 5000, ct);
+        var sent  = await _inbox.ListByTypeAsync(sentType,  5000, ct);
+        var dead  = await _deadLetter.GetPendingAsync(ct);
+        return new FolderCounts(inbox.Count, sent.Count, dead.Count);
     }
 
     // ── Pass-by-reference message resolution ─────────────────────────────────
@@ -252,7 +316,7 @@ public sealed class Svrn7RunspaceContext
     /// Resolves an inbox message by its TDA resource DID URL.
     ///
     /// Because <see cref="LiteInboxStore.EnqueueAsync"/> now stores the full DID URL
-    /// as <c>InboxMessage.Id</c>, the DID URL is both the pass-by-reference handle
+    /// as <c>InboundMessage.Id</c>, the DID URL is both the pass-by-reference handle
     /// and the direct LiteDB lookup key. No parsing needed.
     ///
     /// Hot path: IMemoryCache (TTL 24 h — matches the nonce replay window).
@@ -260,31 +324,42 @@ public sealed class Svrn7RunspaceContext
     ///
     /// Derived from: pass-by-reference pattern — DSA 0.24 Epoch 0.
     /// </summary>
-    public async Task<InboxMessageView?> GetMessageAsync(
+    public async Task<InboundMessageView?> GetMessageAsync(
         string messageDid, CancellationToken ct = default)
     {
         // DID URL is the cache key — no cross-TDA collision possible.
-        if (_cache.TryGetValue(messageDid, out InboxMessageView? cached))
+        if (_cache.TryGetValue(messageDid, out InboundMessageView? cached))
             return cached;
 
         // GetByIdAsync queries by Id == messageDid directly.
         var msg = await _inbox.GetByIdAsync(messageDid, ct);
         if (msg is null) return null;
 
-        var view = new InboxMessageView(msg.Id, msg.MessageType, msg.PackedPayload, msg.FromDid, msg.AttemptCount, msg.ReceivedAt);
+        var view = new InboundMessageView(msg.Id, msg.MessageType, msg.PackedPayload, msg.FromDid, msg.AttemptCount, msg.ReceivedAt);
         _cache.Set(messageDid, view, TimeSpan.FromHours(24));
         return view;
     }
 }
 
-// ── InboxMessageView ──────────────────────────────────────────────────────────
+// ── FolderCounts ──────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Read-only projection of an <see cref="InboxMessage"/> for LOBE cmdlet consumption.
+/// Snapshot of PandoMail folder message counts. Returned by
+/// <see cref="Svrn7RunspaceContext.CountEmailFoldersAsync"/> and pushed to the UI
+/// via the <c>Notify-FolderCounts</c> WebSocket notification.
+/// A named record (vs value tuple) so PowerShell can access fields by name:
+/// <c>$counts.Inbox</c>, <c>$counts.Sent</c>, <c>$counts.DeadLetters</c>.
+/// </summary>
+public sealed record FolderCounts(int Inbox, int Sent, int DeadLetters);
+
+// ── InboundMessageView ──────────────────────────────────────────────────────────
+
+/// <summary>
+/// Read-only projection of an <see cref="InboundMessage"/> for LOBE cmdlet consumption.
 /// Cmdlets receive this via <see cref="Svrn7RunspaceContext.GetMessageAsync"/>.
 /// The <see cref="Id"/> is the pass-by-reference handle passed through pipelines.
 /// </summary>
-public sealed record InboxMessageView(
+public sealed record InboundMessageView(
     string         Id,
     string         MessageType,
     string         PackedPayload,

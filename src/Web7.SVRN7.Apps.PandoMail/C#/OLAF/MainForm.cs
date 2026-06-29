@@ -65,7 +65,8 @@ namespace Web7.SVRN7.Apps
 			try
 			{
 				await _tdaClient.ConnectAsync();
-				_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
+				_tdaClient.EmailNotifyReceived  += OnEmailNotifyReceived;
+				_tdaClient.FolderCountsReceived += OnFolderCountsReceived;
 				_tdaClient.Disconnected += OnTdaDisconnected;
 				rightSpine1.SetTdaClient(_tdaClient);
 			}
@@ -75,9 +76,18 @@ namespace Web7.SVRN7.Apps
 				return;
 			}
 
+			leftSpine1.FolderSelected += async folder => await BeginInvokeLoadFolderAsync(folder);
+
 			await UpdateTitleAsync();
 
-			await RefreshInboxAsync();
+			await _tdaClient.RequestFolderCountsAsync();
+			await LoadFolderAsync("Inbox");
+		}
+
+		private async Task BeginInvokeLoadFolderAsync(string folder)
+		{
+			if (this.IsHandleCreated)
+				await Task.Run(() => this.BeginInvoke(new MethodInvoker(async () => await LoadFolderAsync(folder))));
 		}
 
 		private void Form1_UserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
@@ -100,7 +110,9 @@ namespace Web7.SVRN7.Apps
 		#endregion
 
 		#region Send/Receive
-		private async Task RefreshInboxAsync()
+		private async Task RefreshInboxAsync() => await LoadFolderAsync("Inbox");
+
+		private async Task LoadFolderAsync(string folderName)
 		{
 			if (_tdaClient == null || !_tdaClient.IsConnected)
 			{
@@ -109,9 +121,11 @@ namespace Web7.SVRN7.Apps
 				try
 				{
 					await _tdaClient.ConnectAsync();
-					_tdaClient.EmailNotifyReceived += OnEmailNotifyReceived;
+					_tdaClient.EmailNotifyReceived  += OnEmailNotifyReceived;
+					_tdaClient.FolderCountsReceived += OnFolderCountsReceived;
 					_tdaClient.Disconnected += OnTdaDisconnected;
 					rightSpine1.SetTdaClient(_tdaClient);
+					leftSpine1.FolderSelected += async folder => await BeginInvokeLoadFolderAsync(folder);
 					await UpdateTitleAsync();
 				}
 				catch
@@ -127,12 +141,21 @@ namespace Web7.SVRN7.Apps
 
 			try
 			{
-				List<EmailSummary> summaries = await _tdaClient.ListEmailsAsync();
+				_store.ClearMessages();
+
+				List<EmailSummary> summaries;
+				if (folderName.Equals("Inbox", StringComparison.OrdinalIgnoreCase))
+					summaries = await _tdaClient.ListEmailsAsync();
+				else if (folderName.Equals("Sent Items", StringComparison.OrdinalIgnoreCase))
+					summaries = await _tdaClient.ListOutboundEmailsAsync();
+				else if (folderName.Equals("Dead Letters", StringComparison.OrdinalIgnoreCase))
+					summaries = await _tdaClient.ListDeadLettersAsync();
+				else
+					return; // folder not wired — leave current view unchanged
+
 				List<MailMessage> messages = MapToMailMessages(summaries);
-				_store.ReplaceAll(messages);
+				_store.ReplaceAll(messages, folderName);
 				this.itemCountLabel.Text = messages.Count + " Items";
-				MessageBox.Show($"{messages.Count} message(s) received from TDA.", "TDA Response",
-					MessageBoxButtons.OK, MessageBoxIcon.Information);
 				await UpdateTitleAsync();
 			}
 			catch (Exception ex)
@@ -164,6 +187,12 @@ namespace Web7.SVRN7.Apps
 			// Marshal to UI thread and refresh the inbox when a new email arrives.
 			if (this.IsHandleCreated)
 				BeginInvoke(new MethodInvoker(async () => await RefreshInboxAsync()));
+		}
+
+		private void OnFolderCountsReceived(int inbox, int sent, int deadLetters)
+		{
+			if (this.IsHandleCreated)
+				BeginInvoke(new MethodInvoker(() => _store.UpdateFolderCounts(inbox, sent, deadLetters)));
 		}
 
 		private void OnTdaDisconnected()

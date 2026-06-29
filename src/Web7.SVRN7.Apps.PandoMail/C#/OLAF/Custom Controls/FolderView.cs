@@ -26,6 +26,11 @@ namespace Web7.SVRN7.Apps
 		private int			_deletedCount;
 		private int			_unreadCount;
 		private int			_draftsCount;
+		private int			_sentCount;
+		private int			_deadLetterCount;
+
+		/// <summary>Fired when the user selects a folder node. Argument is the node text (e.g. "Inbox", "Outbox").</summary>
+		public event Action<string> FolderSelected;
 
 		public FolderView()
 		{
@@ -184,10 +189,10 @@ namespace Web7.SVRN7.Apps
 			treeNode12.Name = "Node7";
 			treeNode12.SelectedImageKey = "Folder.bmp";
 			treeNode12.Text = "Sync Issues";
-			treeNode13.ImageKey = "Forward.bmp";
+			treeNode13.ImageKey = "Error.bmp";
 			treeNode13.Name = "Node8";
-			treeNode13.SelectedImageKey = "Forward.bmp";
-			treeNode13.Text = "Synchronization Failures";
+			treeNode13.SelectedImageKey = "Error.bmp";
+			treeNode13.Text = "Dead Letters";
 			treeNode14.ImageKey = "Folder.bmp";
 			treeNode14.Name = "Node15";
 			treeNode14.Text = "Root Folder";
@@ -268,6 +273,32 @@ namespace Web7.SVRN7.Apps
 				}
 			}
 		}
+
+		int SentCount
+		{
+			get { return _sentCount; }
+			set
+			{
+				if (value != _sentCount)
+				{
+					_sentCount = value;
+					this.folderTreeView.Invalidate();
+				}
+			}
+		}
+
+		int DeadLetterCount
+		{
+			get { return _deadLetterCount; }
+			set
+			{
+				if (value != _deadLetterCount)
+				{
+					_deadLetterCount = value;
+					this.folderTreeView.Invalidate();
+				}
+			}
+		}
 		#endregion
 
 		#region TreeView Drawing
@@ -296,26 +327,27 @@ namespace Web7.SVRN7.Apps
 			e.DrawDefault = true;
 			if (e.Node.Text.Contains("Deleted"))
 			{
-				// Draw Deleted
 				DrawAnnotatedText(e, this.DeletedCount, Color.Blue, "(", ")");
-
-				// Turn off drawing
 				e.DrawDefault = false;
 			}
 			else if (e.Node.Text.Contains("Inbox"))
 			{
-				// Draw Inbox
-				DrawAnnotatedText(e, this.UnreadCount, Color.Green, "[", "]");
-
-				// Turn off drawing
+				DrawAnnotatedText(e, this.UnreadCount, Color.Green, "(", ")");
 				e.DrawDefault = false;
 			}
 			else if (e.Node.Text.Contains("Drafts"))
 			{
-				// Draw Drafts
 				DrawAnnotatedText(e, this.DraftsCount, Color.Blue, "(", ")");
-
-				// Turn off drawing
+				e.DrawDefault = false;
+			}
+			else if (e.Node.Text == "Sent Items")
+			{
+				DrawAnnotatedText(e, this.SentCount, Color.Blue, "(", ")");
+				e.DrawDefault = false;
+			}
+			else if (e.Node.Text == "Dead Letters")
+			{
+				DrawAnnotatedText(e, this.DeadLetterCount, Color.Red, "(", ")");
 				e.DrawDefault = false;
 			}
 		}
@@ -358,6 +390,8 @@ namespace Web7.SVRN7.Apps
 				this.folderTreeView.DrawMode = TreeViewDrawMode.OwnerDrawText;
 			}
 
+			this.folderTreeView.AfterSelect += folderTreeView_AfterSelect;
+
 			// Set Selected Item
 			foreach (TreeNode node in this.folderTreeView.Nodes[0].Nodes)
 			{
@@ -368,6 +402,11 @@ namespace Web7.SVRN7.Apps
 					break;
 				}
 			}
+		}
+
+		private void folderTreeView_AfterSelect(object sender, TreeViewEventArgs e)
+		{
+			FolderSelected?.Invoke(e.Node?.Text ?? string.Empty);
 		}
 
 		void MessageStore_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -383,6 +422,14 @@ namespace Web7.SVRN7.Apps
 			else if (e.PropertyName == "DeletedCount")
 			{
 				this.DeletedCount = _store.DeletedCount;
+			}
+			else if (e.PropertyName == "SentCount")
+			{
+				this.SentCount = _store.SentCount;
+			}
+			else if (e.PropertyName == "DeadLetterCount")
+			{
+				this.DeadLetterCount = _store.DeadLetterCount;
 			}
 		}
 		#endregion

@@ -65,7 +65,7 @@ public static class SocietyServiceCollectionExtensions
     ///   5. ISocietyMembershipStore → LiteSocietyMembershipStore
     ///   6. ISvrn7SocietyDriver → Svrn7SocietyDriver
     ///   7. IDIDCommTransferHandler → DIDCommTransferHandler
-    ///   8. IInboxStore → LiteInboxStore (svrn7-inbox.db)
+    ///   8. IInboxStore → LiteInboxStore (svrn7-msg.db)
     ///   9. DIDCommMessageProcessorService (background hosted service)
     /// </summary>
     public static IServiceCollection AddSvrn7Society(
@@ -111,12 +111,12 @@ public static class SocietyServiceCollectionExtensions
         // Share Svrn7LiteContext's open LiteDatabase — avoids a second exclusive lock on svrn7.db.
         services.TryAddSingleton<FederationLiteContext>(sp =>
             new FederationLiteContext(sp.GetRequiredService<Svrn7LiteContext>().Database));
-        services.TryAddSingleton<InboxLiteContext>(sp =>
+        services.TryAddSingleton<MsgLiteContext>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>().Value;
-            var log  = sp.GetRequiredService<ILoggerFactory>().CreateLogger<InboxLiteContext>();
-            log.LogDebug("LiteDB: svrn7-inbox.db  → {Path}", Path.GetFullPath(opts.InboxDbPath));
-            return new InboxLiteContext(opts.InboxDbPath);
+            var log  = sp.GetRequiredService<ILoggerFactory>().CreateLogger<MsgLiteContext>();
+            log.LogDebug("LiteDB: svrn7-msg.db    → {Path}", Path.GetFullPath(opts.MsgDbPath));
+            return new MsgLiteContext(opts.MsgDbPath);
         });
 
         // 3. Core service registrations
@@ -140,11 +140,11 @@ public static class SocietyServiceCollectionExtensions
             new LiteFederationStore(sp.GetRequiredService<FederationLiteContext>()));
         services.TryAddSingleton<IInboxStore>(sp =>
             new LiteInboxStore(
-                sp.GetRequiredService<InboxLiteContext>(),
+                sp.GetRequiredService<MsgLiteContext>(),
                 sp.GetRequiredService<IOptions<Svrn7SocietyOptions>>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LiteInboxStore>>()));
         services.TryAddSingleton<IProcessedOrderStore>(sp =>
-            new LiteProcessedOrderStore(sp.GetRequiredService<InboxLiteContext>()));
+            new LiteProcessedOrderStore(sp.GetRequiredService<MsgLiteContext>()));
         services.TryAddSingleton<ITransferNonceStore>(sp =>
             new LiteTransferNonceStore(sp.GetRequiredService<Svrn7LiteContext>()));
         services.TryAddSingleton<IVcService>(sp =>

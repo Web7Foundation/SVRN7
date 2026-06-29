@@ -50,6 +50,9 @@ namespace Web7.SVRN7.Apps
         /// <summary>Fired on the thread-pool when TDA pushes an Email-Notify envelope.</summary>
         public event Action<string> EmailNotifyReceived;
 
+        /// <summary>Fired on the thread-pool when TDA pushes a Notify-FolderCounts envelope.</summary>
+        public event Action<int, int, int> FolderCountsReceived;
+
         /// <summary>Fired on the thread-pool when the WebSocket connection drops unexpectedly.</summary>
         public event Action Disconnected;
 
@@ -142,6 +145,64 @@ namespace Web7.SVRN7.Apps
                 });
                 await SendEnvelopeAsync(
                     "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-Emails",
+                    msgBody, ct);
+
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeout.CancelAfter(TimeSpan.FromSeconds(15));
+                timeout.Token.Register(() => tcs.TrySetCanceled());
+
+                string replyJson = await tcs.Task;
+                return ParseEmailList(replyJson);
+            }
+            finally
+            {
+                _pending.TryRemove(correlationId, out _);
+            }
+        }
+
+        // ── Outbound: Request outbox list ──────────────────────────────────────────
+
+        public async Task<List<EmailSummary>> ListOutboundEmailsAsync(int limit = 50,
+            CancellationToken ct = default)
+        {
+            string correlationId = Guid.NewGuid().ToString("N");
+            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pending[correlationId] = tcs;
+
+            try
+            {
+                string msgBody = JsonSerializer.Serialize(new { correlationId, limit });
+                await SendEnvelopeAsync(
+                    "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-OutboundEmails",
+                    msgBody, ct);
+
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeout.CancelAfter(TimeSpan.FromSeconds(15));
+                timeout.Token.Register(() => tcs.TrySetCanceled());
+
+                string replyJson = await tcs.Task;
+                return ParseEmailList(replyJson);
+            }
+            finally
+            {
+                _pending.TryRemove(correlationId, out _);
+            }
+        }
+
+        // ── Dead letters: Request dead-letter list ──────────────────────────────────
+
+        public async Task<List<EmailSummary>> ListDeadLettersAsync(int limit = 50,
+            CancellationToken ct = default)
+        {
+            string correlationId = Guid.NewGuid().ToString("N");
+            var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pending[correlationId] = tcs;
+
+            try
+            {
+                string msgBody = JsonSerializer.Serialize(new { correlationId, limit });
+                await SendEnvelopeAsync(
+                    "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/List-DeadLetters",
                     msgBody, ct);
 
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -250,6 +311,15 @@ namespace Web7.SVRN7.Apps
             }
         }
 
+        // ── Startup: request current folder counts ─────────────────────────────
+
+        public async Task RequestFolderCountsAsync(CancellationToken ct = default)
+        {
+            await SendEnvelopeAsync(
+                "did:drn:svrn7.net/protocols/Svrn7.Email.0.8.0/Query-FolderCounts",
+                "{}", ct);
+        }
+
         // ── Core send ───────────────────────────────────────────────────────────
 
         private async Task SendEnvelopeAsync(string type, string body, CancellationToken ct)
@@ -342,6 +412,26 @@ namespace Web7.SVRN7.Apps
                         }
                     }
                 }
+                else if (type.EndsWith("/Get-PandoOutbox", StringComparison.Ordinal))
+                {
+                    string cid = ExtractCorrelationId(root);
+                    if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
+                        tcs.TrySetResult(json);
+                    else
+                    {
+                        foreach (var kv in _pending) { kv.Value.TrySetResult(json); break; }
+                    }
+                }
+                else if (type.EndsWith("/Get-PandoDeadLetters", StringComparison.Ordinal))
+                {
+                    string cid = ExtractCorrelationId(root);
+                    if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
+                        tcs.TrySetResult(json);
+                    else
+                    {
+                        foreach (var kv in _pending) { kv.Value.TrySetResult(json); break; }
+                    }
+                }
                 else if (type.EndsWith("/Reply-EmailBody", StringComparison.Ordinal))
                 {
                     string cid = ExtractCorrelationId(root);
@@ -354,6 +444,11 @@ namespace Web7.SVRN7.Apps
                     Debug.WriteLine($"[TdaMailClient] Reply-DidDocument correlationId={cid} pendingCount={_pending.Count} matched={(!string.IsNullOrEmpty(cid) && _pending.ContainsKey(cid))}");
                     if (!string.IsNullOrEmpty(cid) && _pending.TryGetValue(cid, out var tcs))
                         tcs.TrySetResult(json);
+                }
+                else if (type.EndsWith("/Notify-FolderCounts", StringComparison.Ordinal))
+                {
+                    var (inbox, sent, dead) = ParseFolderCounts(json);
+                    FolderCountsReceived?.Invoke(inbox, sent, dead);
                 }
                 else if (type.EndsWith("/new-message", StringComparison.Ordinal) ||
                          type.Contains("Email-Notify", StringComparison.OrdinalIgnoreCase))
@@ -451,6 +546,29 @@ namespace Web7.SVRN7.Apps
                     ? nameEl.GetString() ?? string.Empty : string.Empty;
             }
             catch { return string.Empty; }
+        }
+
+        private static (int Inbox, int Sent, int DeadLetters) ParseFolderCounts(string envelopeJson)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(envelopeJson);
+                JsonElement root = doc.RootElement;
+                if (!root.TryGetProperty("body", out JsonElement bodyEl)) return (0, 0, 0);
+
+                JsonElement resolved = bodyEl;
+                if (bodyEl.ValueKind == JsonValueKind.String)
+                {
+                    using JsonDocument inner = JsonDocument.Parse(bodyEl.GetString()!);
+                    resolved = inner.RootElement.Clone();
+                }
+
+                int inbox = resolved.TryGetProperty("inboxCount",      out JsonElement ic) ? ic.GetInt32() : 0;
+                int sent  = resolved.TryGetProperty("sentCount",       out JsonElement sc) ? sc.GetInt32() : 0;
+                int dead  = resolved.TryGetProperty("deadLetterCount", out JsonElement dc) ? dc.GetInt32() : 0;
+                return (inbox, sent, dead);
+            }
+            catch { return (0, 0, 0); }
         }
 
         private static List<EmailSummary> ParseEmailList(string envelopeJson)

@@ -45,7 +45,7 @@ public sealed class DIDCommMessageSwitchboard
     private readonly Svrn7RunspaceContext                _ctx;
     private readonly IsolatedRunspaceFactory                _pool;
     private readonly IInboxStore                        _inbox;
-    private readonly Svrn7.Core.Interfaces.IOutboxStore _outbox;
+    private readonly Svrn7.Core.Interfaces.IDeadLetterStore _deadLetter;
     private readonly LobeManager                        _lobes;
     private readonly IHttpClientFactory     _httpFactory;
     private readonly WebSocketNotifyHub     _hub;
@@ -71,7 +71,7 @@ public sealed class DIDCommMessageSwitchboard
         Svrn7RunspaceContext                ctx,
         IsolatedRunspaceFactory                 pool,
         IInboxStore                         inbox,
-        Svrn7.Core.Interfaces.IOutboxStore  outbox,
+        Svrn7.Core.Interfaces.IDeadLetterStore deadLetter,
         LobeManager                         lobes,
         IHttpClientFactory                  httpFactory,
         WebSocketNotifyHub                  hub,
@@ -82,7 +82,7 @@ public sealed class DIDCommMessageSwitchboard
         _ctx         = ctx;
         _pool        = pool;
         _inbox       = inbox;
-        _outbox      = outbox;
+        _deadLetter  = deadLetter;
         _lobes       = lobes;
         _httpFactory = httpFactory;
         _hub         = hub;
@@ -102,7 +102,7 @@ public sealed class DIDCommMessageSwitchboard
     ///
     ///   2. Dead-letter outbox — any outbound message that exhausted all delivery attempts
     ///      in the previous session is re-enqueued into the outbound queue for another round
-    ///      of retries. The operator can inspect <c>svrn7-inbox.db</c> for persistent failures.
+    ///      of retries. The operator can inspect <c>svrn7-msg.db</c> for persistent failures.
     /// </summary>
     public async Task StartupAsync(CancellationToken ct)
     {
@@ -121,7 +121,7 @@ public sealed class DIDCommMessageSwitchboard
         // 2. Re-enqueue dead-lettered outbound messages from the previous session.
         try
         {
-            var pending = await _outbox.GetPendingAsync(ct);
+            var pending = await _deadLetter.GetPendingAsync(ct);
             if (pending.Count > 0)
             {
                 _log.LogInformation(
@@ -192,7 +192,7 @@ public sealed class DIDCommMessageSwitchboard
 
     // ── Dispatch ──────────────────────────────────────────────────────────────
 
-    private async Task DispatchAsync(InboxMessage msg, CancellationToken ct)
+    private async Task DispatchAsync(InboundMessage msg, CancellationToken ct)
     {
         using var activity = Svrn7Telemetry.Source.StartActivity(
             Svrn7Telemetry.ActivityDispatch,
@@ -689,7 +689,7 @@ public sealed class DIDCommMessageSwitchboard
         var outboxId  = Svrn7.Core.TdaResourceId.Build(
             networkId, "inbox", "outbox", LiteDB.ObjectId.NewObjectId().ToString());
 
-        await _outbox.EnqueueAsync(new Svrn7.Core.Models.OutboxRecord
+        await _deadLetter.EnqueueAsync(new Svrn7.Core.Models.DeadLetterRecord
         {
             Id            = outboxId,
             PeerEndpoint  = msg.PeerEndpoint,

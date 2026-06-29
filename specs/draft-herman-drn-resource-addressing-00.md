@@ -303,7 +303,7 @@ in a conformant TDA deployment.
 | Segment    | LiteDB File          | Scope                  | Description                                      |
 |------------|----------------------|------------------------|--------------------------------------------------|
 | `main`     | `svrn7.db`           | All TDA types          | Primary SVRN7 Data Storage database. Wallets, UTXOs, citizens, societies, memberships, Merkle log, nonces, overdrafts, key backups. |
-| `inbox`    | `svrn7-inbox.db`     | All TDA types          | Durable DIDComm inbox. Inbound messages and processed order receipts. |
+| `inbox`    | `svrn7-msg.db`     | All TDA types          | Durable DIDComm inbox. Inbound messages and processed order receipts. |
 | `dids`     | `svrn7-dids.db`      | Society TDA Only       | DID Document registry and version history.       |
 | `vcs`      | `svrn7-vcs.db`       | Society TDA Only       | Verifiable Credential registry and revocation events. |
 | `schemas`  | `svrn7-schemas.db`   | Society TDA Only       | JSON Schema registry for VC issuance and validation. |
@@ -332,7 +332,7 @@ using these database segments.
 | `overdraft`   | Overdrafts          | Identity (DID suffix) | SocietyOverdraftRecord — society overdraft state. |
 | `keybak`      | KeyBackups          | Local id              | Encrypted key backup — keyed by citizen local id. |
 
-### 5.2 `inbox` database (`svrn7-inbox.db`)
+### 5.2 `inbox` database (`svrn7-msg.db`)
 
 | Type Segment     | Collection       | Key Type             | Description                                      |
 |------------------|------------------|----------------------|--------------------------------------------------|

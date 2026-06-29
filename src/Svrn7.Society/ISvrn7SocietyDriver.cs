@@ -44,11 +44,11 @@ public class Svrn7SocietyOptions : Svrn7Options
     public string FederationEndpointUrl { get; set; } = string.Empty;
 
     /// <summary>
-    /// File path for svrn7-inbox.db — the durable DIDComm message inbox.
-    /// Kept separate from svrn7.db so inbox writes never contend with
+    /// File path for svrn7-msg.db — the durable DIDComm message database.
+    /// Kept separate from svrn7.db so message writes never contend with
     /// wallet and identity writes on the same LiteDB file lock.
     /// </summary>
-    public string InboxDbPath    { get; set; } = "data/svrn7-inbox.db";
+    public string MsgDbPath      { get; set; } = "data/svrn7-msg.db";
 
     /// <summary>
     /// Path to svrn7-schemas.db (Schema Registry — Society TDA Only, DSA 0.24).

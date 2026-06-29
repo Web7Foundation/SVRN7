@@ -18,6 +18,8 @@ namespace Web7.SVRN7.Apps
 		int								_unreadCount = 0;
 		int								_draftsCount = 3;
 		int								_deletedCount = 16;
+		int								_sentCount = 0;
+		int								_deadLetterCount = 0;
 		MailMessage						_selectedMessage;
 		int								_previous = 0;
 
@@ -96,6 +98,26 @@ namespace Web7.SVRN7.Apps
 			}
 		}
 
+		public int SentCount
+		{
+			get { return _sentCount; }
+			set
+			{
+				_sentCount = value;
+				OnPropertyChanged("SentCount");
+			}
+		}
+
+		public int DeadLetterCount
+		{
+			get { return _deadLetterCount; }
+			set
+			{
+				_deadLetterCount = value;
+				OnPropertyChanged("DeadLetterCount");
+			}
+		}
+
 		public BindingList<MailMessage> Messages
 		{
 			get { return _messages; }
@@ -107,7 +129,23 @@ namespace Web7.SVRN7.Apps
 			OnPropertyChanged(null);
 		}
 
-		public void ReplaceAll(IList<MailMessage> incoming)
+		public void UpdateFolderCounts(int inbox, int sent, int deadLetters)
+		{
+			this.SentCount       = sent;
+			this.DeadLetterCount = deadLetters;
+		}
+
+		public void ClearMessages()
+		{
+			_messages.RaiseListChangedEvents = false;
+			_messages.Clear();
+			_messages.RaiseListChangedEvents = true;
+			_messages.ResetBindings();
+			_selectedMessage = null;
+			OnPropertyChanged("SelectedMessage");
+		}
+
+		public void ReplaceAll(IList<MailMessage> incoming, string folderName = "Inbox")
 		{
 			_messages.RaiseListChangedEvents = false;
 			_messages.Clear();
@@ -119,7 +157,14 @@ namespace Web7.SVRN7.Apps
 			}
 			_messages.RaiseListChangedEvents = true;
 			_messages.ResetBindings();
-			this.UnreadCount = unread;
+
+			if (folderName.Equals("Sent Items", StringComparison.OrdinalIgnoreCase))
+				this.SentCount = incoming.Count;
+			else if (folderName.Equals("Dead Letters", StringComparison.OrdinalIgnoreCase))
+				this.DeadLetterCount = incoming.Count;
+			else
+				this.UnreadCount = unread;
+
 			if (_messages.Count > 0)
 			{
 				this.SelectedMessage = _messages[0];

@@ -18,9 +18,9 @@
 
 BeforeAll {
     $LobesDir      = Join-Path $PSScriptRoot '..\src\Svrn7.TDA\lobes'
-    $CommonPsm1    = Join-Path $LobesDir 'Svrn7.Common\Svrn7.Common.0.8.0.psm1'
-    $FederationPsm1 = Join-Path $LobesDir 'Svrn7.Federation\Svrn7.Federation.0.8.0.psm1'
-    $SocietyPsm1   = Join-Path $LobesDir 'Svrn7.Society\Svrn7.Society.0.8.0.psm1'
+    $CommonPsm1    = Join-Path $LobesDir 'Svrn7.Common.0.8.0\Svrn7.Common.0.8.0.psm1'
+    $FederationPsm1 = Join-Path $LobesDir 'Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1'
+    $SocietyPsm1   = Join-Path $LobesDir 'Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1'
 
     # Load Common helpers directly into this script's scope via the scriptblock pattern.
     # This is the same mechanism Federation and Society use — avoids .psm1 extension scoping.
@@ -33,7 +33,7 @@ Describe 'Send-LocalDIDCommMessage exported by Svrn7.Federation' {
     BeforeAll {
         # Import without $SVRN7_LOBES_DIR so Common is loaded into Federation's scope.
         $LobesDir = Join-Path $PSScriptRoot '..\src\Svrn7.TDA\lobes'
-        Import-Module (Join-Path $LobesDir 'Svrn7.Federation\Svrn7.Federation.0.8.0.psm1') -Force -WarningAction SilentlyContinue
+        Import-Module (Join-Path $LobesDir 'Svrn7.Federation.0.8.0\Svrn7.Federation.0.8.0.psm1') -Force -WarningAction SilentlyContinue
     }
 
     AfterAll {
@@ -65,7 +65,7 @@ Describe 'Send-LocalDIDCommMessage exported by Svrn7.Society' {
     BeforeAll {
         $LobesDir = Join-Path $PSScriptRoot '..\src\Svrn7.TDA\lobes'
         # Society loads Common in standalone mode too — import without TDA context.
-        Import-Module (Join-Path $LobesDir 'Svrn7.Society\Svrn7.Society.0.8.0.psm1') -Force -WarningAction SilentlyContinue
+        Import-Module (Join-Path $LobesDir 'Svrn7.Society.0.8.0\Svrn7.Society.0.8.0.psm1') -Force -WarningAction SilentlyContinue
     }
 
     AfterAll {

@@ -246,7 +246,7 @@ dotnet .\Svrn7.TDA.dll --port 8443 --name MyTDA [--url http://localhost] [--rese
       └── mem/
             ├── svrn7.db
             ├── svrn7-dids.db
-            ├── svrn7-inbox.db
+            ├── svrn7-msg.db
             ├── svrn7-vcs.db
             ├── svrn7-schemas.db
             └── agent-identity.json

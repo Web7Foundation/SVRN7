@@ -31,7 +31,7 @@ namespace Svrn7.TDA;
 //   reference.
 //
 //   WRITE-AHEAD LOG GATE: After successful unpack, IInboxStore.EnqueueAsync writes
-//   the payload to svrn7-inbox.db and returns 202 immediately. The Switchboard
+//   the payload to svrn7-msg.db and returns 202 immediately. The Switchboard
 //   processes asynchronously. The Listener has no knowledge of routing or agent logic.
 //
 //   HTTP/2 + mTLS: Kestrel binds on the configured port with HTTP/2 and mutual TLS.
@@ -171,7 +171,7 @@ public sealed class KestrelListenerService : IHostedService, IAsyncDisposable
     ///        anything else                       → 415.
     ///   2. Read body.
     ///   3. UnpackAsync — security boundary (decrypt+verify for JWE; parse-only for plaintext).
-    ///   4. EnqueueAsync → svrn7-inbox.db (write-ahead log).
+    ///   4. EnqueueAsync → svrn7-msg.db (write-ahead log).
     ///   5. Return 202 Accepted.
     ///
     /// If content type is wrong: return 415. If plaintext @type not in discovery whitelist: 403.

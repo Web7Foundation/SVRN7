@@ -161,8 +161,8 @@ public sealed class TdaOptions
 
     // ── Data Storage databases ────────────────────────────────────────────────
 
-    /// <summary>Path to svrn7-inbox.db (Long-Term Message Memory).</summary>
-    public string InboxDbPath { get; set; } = "svrn7-inbox.db";
+    /// <summary>Path to svrn7-msg.db (Long-Term Message Memory).</summary>
+    public string MsgDbPath { get; set; } = "svrn7-msg.db";
 }
 
 // ── SwitchboardHostedService ──────────────────────────────────────────────────
@@ -265,13 +265,14 @@ public static class TdaServiceCollectionExtensions
         // Derived from: "$SVRN7 session variable" — DSA 0.24 Epoch 0.
         services.AddSingleton<Svrn7RunspaceContext>(sp =>
         {
-            var opts    = sp.GetRequiredService<IOptions<TdaOptions>>().Value;
-            var driver  = sp.GetRequiredService<ISvrn7SocietyDriver>();
-            var inbox   = sp.GetRequiredService<IInboxStore>();
-            var cache   = sp.GetRequiredService<IMemoryCache>();
-            var orders  = sp.GetRequiredService<IProcessedOrderStore>();
-            var pending = sp.GetRequiredService<PendingResolutionStore>();
-            return new Svrn7RunspaceContext(driver, inbox, cache, orders, pending,
+            var opts       = sp.GetRequiredService<IOptions<TdaOptions>>().Value;
+            var driver     = sp.GetRequiredService<ISvrn7SocietyDriver>();
+            var inbox      = sp.GetRequiredService<IInboxStore>();
+            var deadLetter = sp.GetRequiredService<Svrn7.Core.Interfaces.IDeadLetterStore>();
+            var cache      = sp.GetRequiredService<IMemoryCache>();
+            var orders     = sp.GetRequiredService<IProcessedOrderStore>();
+            var pending    = sp.GetRequiredService<PendingResolutionStore>();
+            return new Svrn7RunspaceContext(driver, inbox, deadLetter, cache, orders, pending,
                 initialEpoch:          Svrn7.Core.Svrn7Constants.Epochs.Endowment,
                 role:                  opts.Role,
                 agentDid:              opts.LocalDid,
@@ -309,10 +310,10 @@ public static class TdaServiceCollectionExtensions
             client.Timeout               = TimeSpan.FromSeconds(30);
         });
 
-        // IOutboxStore — dead-letter outbox for failed outbound messages.
-        services.TryAddSingleton<Svrn7.Core.Interfaces.IOutboxStore>(sp =>
-            new Svrn7.Society.LiteOutboxStore(
-                sp.GetRequiredService<Svrn7.Society.InboxLiteContext>()));
+        // IDeadLetterStore — dead-letter store for failed outbound messages.
+        services.TryAddSingleton<Svrn7.Core.Interfaces.IDeadLetterStore>(sp =>
+            new Svrn7.Society.LiteDeadLetterStore(
+                sp.GetRequiredService<Svrn7.Society.MsgLiteContext>()));
 
         // DIDCommMessageSwitchboard — sole inbox reader + outbound delivery.
         // LobeManager injected for dynamic protocol registry lookup.
@@ -322,7 +323,7 @@ public static class TdaServiceCollectionExtensions
                 sp.GetRequiredService<Svrn7RunspaceContext>(),
                 sp.GetRequiredService<IsolatedRunspaceFactory>(),
                 sp.GetRequiredService<IInboxStore>(),
-                sp.GetRequiredService<Svrn7.Core.Interfaces.IOutboxStore>(),
+                sp.GetRequiredService<Svrn7.Core.Interfaces.IDeadLetterStore>(),
                 sp.GetRequiredService<LobeManager>(),
                 sp.GetRequiredService<IHttpClientFactory>(),
                 sp.GetRequiredService<WebSocketNotifyHub>(),

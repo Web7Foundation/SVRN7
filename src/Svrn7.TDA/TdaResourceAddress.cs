@@ -31,7 +31,7 @@ public sealed class TdaResourceAddress
         /// <summary>svrn7.db — wallets, UTXOs, citizens, societies, Merkle log, nonces.</summary>
         public const string Main    = "main";
 
-        /// <summary>svrn7-inbox.db — inbox messages and processed order receipts.</summary>
+        /// <summary>svrn7-msg.db — inbox messages, dead-letter records, and processed order receipts.</summary>
         public const string Inbox   = "inbox";
 
         /// <summary>svrn7-dids.db — DID Document registry. Society TDA Only.</summary>
@@ -108,9 +108,9 @@ public sealed class TdaResourceAddress
 
     // ── Typed builders ────────────────────────────────────────────────────────
 
-    /// <summary>Inbox message DID URL. Key = LiteDB ObjectId 24-char hex.</summary>
-    public static string InboxMessage(string networkId, string objectIdHex)
-        => Svrn7.Core.TdaResourceId.InboxMessage(networkId, objectIdHex);
+    /// <summary>Inbound message DID URL. Key = LiteDB ObjectId 24-char hex.</summary>
+    public static string InboundMessage(string networkId, string objectIdHex)
+        => Svrn7.Core.TdaResourceId.InboundMessage(networkId, objectIdHex);
 
     /// <summary>Processed order DID URL. Key = LiteDB ObjectId 24-char hex.</summary>
     public static string ProcessedOrder(string networkId, string objectIdHex)

@@ -542,7 +542,7 @@ WebSocket frame received
   └── ReceiveWebSocketLoopAsync assembles complete message
         └── ProcessWebSocketMessageAsync
               ├── UnpackAsync  (plaintext — extracts @type, From, Body)
-              └── EnqueueAsync → svrn7-inbox.db
+              └── EnqueueAsync → svrn7-msg.db
                     └── Switchboard drain loop
                           └── LobeManager.TryResolveProtocol(@type)
                                 └── LOBE cmdlet invocation
@@ -567,3 +567,33 @@ hub and is not enqueued. That is the only exception.
   tool/PS use; tools receive no pushes anyway (they connect, send, and disconnect).
 
 **No code change required now** — tracked here for design continuity.
+
+---
+
+## TDA-012 — Third-party LOBE isolation: restrict $SVRN7 surface to constants
+
+**Area:** `Svrn7RunspaceContext`, `IsolatedRunspaceFactory`, LOBE authoring guide
+
+**Summary:** All LOBEs — first-party and third-party — currently receive the full
+`$SVRN7` context object, which exposes inbox store access, dead-letter store access,
+DID registry operations, the full `ISvrn7SocietyDriver` stack, and key-material-adjacent
+fields such as `LocalDid` and `ServiceEndpointUrl`.
+
+Ideally, third-party LOBEs should have access only to constant/read-only values
+(e.g. `LocalDid`, `Role`, `CurrentEpoch`, `ServiceEndpointUrl`) and not to mutable
+store operations or driver methods. The current design gives every LOBE equal trust
+regardless of provenance — a third-party LOBE can call `EnqueueDeadLetterAsync`,
+read the full inbox via `ListEmailsAsync`, or invoke any `Driver.*` method.
+
+**Options to investigate:**
+1. **Two-tier `$SVRN7`** — `$SVRN7` for first-party LOBEs (full surface, current);
+   `$SVRN7Const` (or a reduced `$SVRN7`) for third-party LOBEs (constants only).
+   Third-party flag sourced from `lobe.json` (`"trust": "third-party"`).
+2. **Interface split** — Define `ISvrn7LobeContext` (constants + GetMessageAsync only)
+   and `ISvrn7TrustedLobeContext : ISvrn7LobeContext` (full surface).
+   Inject the appropriate interface into the runspace based on LOBE trust level.
+3. **Capability-based** — `lobe.json` declares required capabilities
+   (`"capabilities": ["inbox.read", "deadletter.write"]`); the runtime grants only
+   what is declared, and the operator approves the capability list at install time.
+
+**No code change required now** — note for future investigation.
